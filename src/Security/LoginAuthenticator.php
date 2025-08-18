@@ -2,11 +2,11 @@
 
 namespace App\Security;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -25,6 +25,7 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
     use TargetPathTrait;
 
     public function __construct(
+        private EntityManagerInterface $entityManager,
         private UrlGeneratorInterface $urlGenerator,
         private KernelInterface $kernel,
     )
@@ -83,6 +84,20 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
                 }
 
                 $myNAUser = $myNAUserReq->toArray();
+
+                /** @var \App\Entity\User $userEntity */
+                $userEntity = $this->entityManager->getRepository(\App\Entity\User::class)->find($myNAUser['id']);
+
+                if (empty($userEntity)) {
+                    $userEntity = new \App\Entity\User();
+                    $userEntity->setId($myNAUser['id']);
+                }
+
+                $userEntity->setUsername($identifier)
+                    ->setRoles($myNAUser['roles']);
+                $this->entityManager->persist($userEntity);
+                $this->entityManager->flush();
+
                 $user = new User();
                 $user->setId($myNAUser['id']);
                 $user->setUsername($identifier);
