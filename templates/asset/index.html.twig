@@ -1,0 +1,106 @@
+{% extends 'base.html.twig' %}
+
+{# The title will dynamically show the asset's name #}
+{% block title %}{{ asset.name }} | {{ parent() }}{% endblock %}
+
+{% block body %}
+    <div class="bg-white rounded-lg shadow-xl overflow-hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0">
+
+            {# Left Column: Asset Preview #}
+            <div class="lg:col-span-2 p-8 flex flex-col items-center justify-center bg-gray-200">
+                {# Placeholder for the large asset preview image #}
+                <div class="w-full max-w-2xl aspect-square bg-gray-300 flex items-center justify-center rounded-lg">
+                    <svg class="w-24 h-24 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
+                </div>
+            </div>
+
+            {# Right Column: Metadata and Actions #}
+            <div class="p-8 flex flex-col">
+                {# Asset Name #}
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ asset.name }}</h1>
+
+                {# Item Code #}
+                <p class="text-sm text-gray-500 mb-6 font-mono">{{ asset.itemCode }}</p>
+
+                {# Action Buttons #}
+                <div class="flex items-center space-x-3 mb-8">
+                    <button class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                        <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Download
+                    </button>
+                    <button class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Add to Collection
+                    </button>
+                </div>
+
+                {# Description #}
+                <div class="mb-6">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Description</h3>
+                    <p class="text-gray-700 leading-relaxed">
+                        {{ asset.description|default('No description available.') }}
+                    </p>
+                </div>
+
+                {# Metadata Details Table #}
+                <div>
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Details</h3>
+                    <dl class="space-y-3">
+                        <div class="flex justify-between">
+                            <dt class="text-sm font-medium text-gray-600">Brand</dt>
+                            <dd class="text-sm text-gray-800">{{ asset.brand.name }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-sm font-medium text-gray-600">File Type</dt>
+                            <dd class="text-sm text-gray-800">{{ asset.mimeType }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-sm font-medium text-gray-600">File Size</dt>
+                            <dd class="text-sm text-gray-800">{{ (asset.fileSize / 1024)|round(2) }} KB</dd>
+                        </div>
+                        {% if asset.embargoDate %}
+                            <div class="flex justify-between">
+                                <dt class="text-sm font-medium text-yellow-600">Embargo Date</dt>
+                                <dd class="text-sm text-yellow-800">{{ asset.embargoDate|date('M d, Y') }}</dd>
+                            </div>
+                        {% endif %}
+                        {% if asset.expirationDate %}
+                            <div class="flex justify-between">
+                                <dt class="text-sm font-medium text-red-600">Expiration Date</dt>
+                                <dd class="text-sm text-red-800">{{ asset.expirationDate|date('M d, Y') }}</dd>
+                            </div>
+                        {% endif %}
+                    </dl>
+                </div>
+
+                {# Categories & Tags #}
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    {# Categories #}
+                    <div class="mb-4">
+                        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Categories</h4>
+                        <div class="flex flex-wrap gap-2">
+                            {% for category in asset.categories %}
+                                <span class="px-2 py-1 text-xs font-semibold text-violet-800 bg-violet-100 rounded-full">
+                                    {{ category.name }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {# Tags #}
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Tags</h4>
+                        <div class="flex flex-wrap gap-2">
+                            {% for tag in asset.tags %}
+                                <span class="px-2 py-1 text-xs font-semibold text-gray-800 bg-gray-200 rounded-full">
+                                    {{ tag.name }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+{% endblock %}

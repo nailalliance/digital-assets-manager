@@ -1,17 +1,68 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
-        {% block stylesheets %}
-        {% endblock %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Nail Alliance Digital Assets Manager{% endblock %}</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    {# This includes your compiled CSS file from Webpack Encore #}
+    {% block stylesheets %}
+            {{ encore_entry_link_tags('app') }}
+        {{ encore_entry_link_tags('app') }}
+    {% endblock %}
+</head>
+<body class="bg-gray-100 text-gray-800">
+<div id="app">
+    <header class="bg-white shadow-md">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div>
+                <a href="{{ path('home') }}" class="text-2xl font-bold text-violet-600">
+                    <img src="{{ asset('images/Nailalliancelogo-Updated-bk.png') }}"
+                         alt="Nail Alliance"
+                         style="max-width: 100px">
+                </a>
+            </div>
+            {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="#" class="text-gray-600 hover:text-violet-600">Browse</a>
+                    <a href="#" class="text-gray-600 hover:text-violet-600">Download Bag</a>
 
-        {% block javascripts %}
-            {% block importmap %}{{ importmap('app') }}{% endblock %}
-        {% endblock %}
-    </head>
-    <body>
+                    {# Role-specific links #}
+                    {% if is_granted('ROLE_DESIGNER') %}
+                        <a href="#" class="text-gray-600 hover:text-violet-600">Upload</a>
+                    {% endif %}
+                    {% if is_granted('ROLE_ADMIN') %}
+                        <a href="#" class="text-gray-600 hover:text-violet-600">Admin Panel</a>
+                    {% endif %}
+                </div>
+                <div class="flex items-center">
+                    {# 1. Connect the parent div to the Stimulus controller #}
+                    <div class="relative" data-controller="dropdown">
+                        {# 2. Add a data-action to the button to trigger the toggle() method #}
+                        <button class="flex items-center focus:outline-none" data-action="click->dropdown#toggle">
+                            <span class="mr-2">{{ app.user ? app.user.username : 'Guest' }}</span>
+                            <svg class="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+
+                        {# 3. Add a data-target to the menu so the controller can find it #}
+                        <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-xl z-10 hidden" data-dropdown-target="menu">
+                            {# <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-violet-500 hover:text-white">My Profile</a> #}
+                            <a href="{{ path('app_logout') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-violet-500 hover:text-white">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-8">
         {% block body %}{% endblock %}
-    </body>
+    </main>
+</div>
+
+{% block javascripts %}
+            {{ encore_entry_script_tags('app') }}
+    {{ encore_entry_script_tags('app') }}
+{% endblock %}
+</body>
 </html>

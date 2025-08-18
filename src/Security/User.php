@@ -6,6 +6,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 class User implements UserInterface
 {
+    private int $id;
     private $username;
 
     /**
@@ -23,6 +24,16 @@ class User implements UserInterface
         $this->username = $username;
 
         return $this;
+    }
+
+    public function getId(): int
+    {
+        return $this->id;
+    }
+
+    public function setId(int $id): void
+    {
+        $this->id = $id;
     }
 
     /**

@@ -84,6 +84,7 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
 
                 $myNAUser = $myNAUserReq->toArray();
                 $user = new User();
+                $user->setId($myNAUser['id']);
                 $user->setUsername($identifier);
                 $user->setRoles($myNAUser['roles']);
                 return $user;

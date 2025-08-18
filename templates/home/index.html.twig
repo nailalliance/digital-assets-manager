@@ -1,20 +1,68 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Hello HomeController!{% endblock %}
+{% block title %}Dashboard | {{ parent() }}{% endblock %}
 
 {% block body %}
-<style>
-    .example-wrapper { margin: 1em auto; max-width: 800px; width: 95%; font: 18px/1.5 sans-serif; }
-    .example-wrapper code { background: #F5F5F5; padding: 2px 6px; }
-</style>
+    {# Search Section #}
+    <section class="text-center mb-12">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Find Your Assets</h1>
+        <p class="text-lg text-gray-600 mb-6 max-w-2xl mx-auto">Search by name, item code, or tags to quickly find the content you need.</p>
+        <div class="max-w-3xl mx-auto">
+            <form action="{{ path('app_search') }}" method="get">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>
+                    </div>
+                    <input type="search" name="q" class="w-full p-4 pl-10 text-lg border-2 border-gray-300 rounded-full focus:ring-violet-500 focus:border-violet-500" placeholder="e.g., Summer Logo, P-12345, social media...">
+                </div>
+            </form>
+        </div>
+    </section>
 
-<div class="example-wrapper">
-    <h1>Hello {{ controller_name }}! ✅</h1>
+    {# Recent Assets Section #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-700 mb-4">Recent Assets</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            {# This would be a loop over assets passed from your controller #}
+            {# {% for asset in recentAssets %} #}
+            {% for i in 1..6 %} {# Placeholder loop for design purposes #}
+                <a href="#" class="block group">
+                    <div class="aspect-square bg-white rounded-lg shadow-sm overflow-hidden transform group-hover:-translate-y-1 transition-transform duration-300">
+                        {# Placeholder for the asset thumbnail #}
+                        <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-sm font-medium text-gray-800 truncate">summer_logo_final.png</p>
+                    <p class="text-xs text-gray-500">P-1234{{ i }}</p>
+                </a>
+            {% endfor %}
+        </div>
+    </section>
 
-    This friendly message is coming from:
-    <ul>
-        <li>Your controller at <code>/Users/art3/Developer/digital-assets-manager/src/Controller/HomeController.php</code></li>
-        <li>Your template at <code>/Users/art3/Developer/digital-assets-manager/templates/home/index.html.twig</code></li>
-    </ul>
-</div>
+    {# Browse by Category Section #}
+    <section>
+        <h2 class="text-2xl font-bold text-gray-700 mb-4">Browse by Category</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {# This would be a loop over categories passed from your controller #}
+            {# {% for category in categories %} #}
+            {% set categories = [
+                {name: 'Logos', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>'},
+                {name: 'Product Shots', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>'},
+                {name: 'Social Media', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>'},
+                {name: 'Templates', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>'}
+            ] %}
+            {% for category in categories %}
+                <a href="#" class="block p-6 bg-white rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transform transition-all duration-300">
+                    <div class="flex items-center">
+                        <div class="bg-violet-100 p-3 rounded-full">
+                            <svg class="h-6 w-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">{{ category.icon|raw }}</svg>
+                        </div>
+                        <h3 class="ml-4 text-lg font-semibold text-gray-800">{{ category.name }}</h3>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    </section>
+
 {% endblock %}
