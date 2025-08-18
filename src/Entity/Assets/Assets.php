@@ -28,7 +28,7 @@ class Assets
     #[ORM\Column(length: 255)]
     private ?string $filePath = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $thumbnailPath = null;
 
     #[ORM\Column(length: 255)]
@@ -37,11 +37,11 @@ class Assets
     #[ORM\Column]
     private ?int $fileSize = null;
 
-    #[ORM\Column(enumType: ColorSpaceEnum::class)]
-    private ?ColorSpaceEnum $colorSpace = null;
+    #[ORM\Column(enumType: ColorSpaceEnum::class, options: ['default' => ColorSpaceEnum::RGB])]
+    private ?ColorSpaceEnum $colorSpace = ColorSpaceEnum::RGB;
 
-    #[ORM\Column(enumType: AssetStatusEnum::class)]
-    private ?AssetStatusEnum $status = null;
+    #[ORM\Column(enumType: AssetStatusEnum::class, options: ['default' => AssetStatusEnum::ACTIVE])]
+    private ?AssetStatusEnum $status = AssetStatusEnum::INACTIVE;
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $embargoDate = null;
