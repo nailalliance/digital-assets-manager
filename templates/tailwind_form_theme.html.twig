@@ -1,0 +1,48 @@
+{% use 'bootstrap_5_layout.html.twig' %}
+
+{# Widgets for text inputs, selects, etc. #}
+{% block form_widget_simple %}
+    {% set attr = attr|merge({
+        'class': (attr.class|default('') ~ ' mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500 sm:text-sm')|trim
+    }) %}
+    {{ parent() }}
+{% endblock %}
+
+{# Widget for textareas #}
+{% block textarea_widget %}
+    {% set attr = attr|merge({
+        'class': (attr.class|default('') ~ ' mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500 sm:text-sm')|trim
+    }) %}
+    {{ parent() }}
+{% endblock %}
+
+{# Styling for expanded choice widgets (radio buttons/checkboxes) #}
+{% block choice_widget_expanded %}
+    <div class="space-y-2 mt-2 border border-gray-200 bg-gray-50 p-4 rounded-md">
+        {{- parent() -}}
+    </div>
+{% endblock %}
+
+{# Styling for a single checkbox #}
+{% block checkbox_widget %}
+    {% set attr = attr|merge({
+        'class': (attr.class|default('') ~ ' h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500')|trim
+    }) %}
+    {{ parent() }}
+{% endblock %}
+
+{# Labels for form fields #}
+{% block form_label %}
+    {% set label_attr = label_attr|merge({
+        'class': (label_attr.class|default('') ~ ' block text-sm font-medium text-gray-700')|trim
+    }) %}
+    {{ parent() }}
+{% endblock %}
+
+{# Help/Assistive Text under fields #}
+{% block form_help %}
+    {% set attr = attr|merge({
+        'class': (attr.class|default('') ~ ' mt-1 text-xs text-gray-500')|trim
+    }) %}
+    {{ parent() }}
+{% endblock %}

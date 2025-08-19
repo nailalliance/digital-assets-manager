@@ -1,0 +1,11 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Edit Brand | {{ parent() }}{% endblock %}
+
+{% block body %}
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Edit Brand</h1>
+
+    <div class="bg-white rounded-lg shadow-xl p-8">
+        {{ include('admin/brands/_form.html.twig', {'button_label': 'Update'}) }}
+    </div>
+{% endblock %}

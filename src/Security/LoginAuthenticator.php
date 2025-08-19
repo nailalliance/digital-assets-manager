@@ -98,11 +98,11 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
                 $this->entityManager->persist($userEntity);
                 $this->entityManager->flush();
 
-                $user = new User();
-                $user->setId($myNAUser['id']);
-                $user->setUsername($identifier);
-                $user->setRoles($myNAUser['roles']);
-                return $user;
+                // $user = new User();
+                // $user->setId($myNAUser['id']);
+                // $user->setUsername($identifier);
+                // $user->setRoles($myNAUser['roles']);
+                return $userEntity;
             }),
             [
                 new CsrfTokenBadge('authenticate', $credentials['csrf_token']),
