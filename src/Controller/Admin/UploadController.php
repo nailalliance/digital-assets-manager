@@ -3,8 +3,10 @@
 namespace App\Controller\Admin;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\ColorSpaceEnum;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
+use Imagick;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -76,6 +78,18 @@ class UploadController extends AbstractController
         $fileSize = $fileMetaData['size'];
         $mimeType = $fileMetaData['metadata']['filetype'];
 
+        $colorSpace = ColorSpaceEnum::RGB;
+
+        try {
+            $image = new Imagick($filePath);
+            if ($image->getImageColorspace() !== Imagick::COLORSPACE_CMYK) {
+                $colorSpace = ColorSpaceEnum::CMYK;
+            }
+        } catch (\ImagickException $e)
+        {
+
+        }
+
         try {
             $asset = new Assets();
 
@@ -83,6 +97,7 @@ class UploadController extends AbstractController
             $asset->setFilePath($filePath);
             $asset->setMimeType($mimeType);
             $asset->setFileSize($fileSize);
+            $asset->setColorSpace($colorSpace);
 
             $user = $this->entityManager->getRepository(User::class)
                 ->find($this->getUser()->getId());

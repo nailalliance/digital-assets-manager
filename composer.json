@@ -8,6 +8,7 @@
         "php": ">=8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "ext-imagick": "*",
         "ankitpokhrel/tus-php": "^2.4",
         "doctrine/dbal": "^3",
         "doctrine/doctrine-bundle": "^2.15",
