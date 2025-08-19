@@ -39,15 +39,15 @@ class AssetType extends AbstractType
                     'Expired' => AssetStatusEnum::EXPIRED,
                 ],
             ])
-            ->add('embargo_date', DateTimeType::class, [
+            ->add('embargoDate', DateTimeType::class, [
                 'widget' => 'single_text',
                 'required' => false,
             ])
-            ->add('expiration_date', DateTimeType::class, [
+            ->add('expirationDate', DateTimeType::class, [
                 'widget' => 'single_text',
                 'required' => false,
             ])
-            ->add('color_space', ChoiceType::class, [
+            ->add('colorSpace', ChoiceType::class, [
                 'choices' => [
                     'RGB' => ColorSpaceEnum::RGB,
                     'CMYK' => ColorSpaceEnum::CMYK,
@@ -55,12 +55,24 @@ class AssetType extends AbstractType
                 'placeholder' => 'Choose a color space',
             ])
             // Assuming you have an ItemCode entity with a 'code' property
-            ->add('item_codes', EntityType::class, [
-                'class' => ItemCodes::class,
-                'choice_label' => 'code',
-                'multiple' => true,
-                'expanded' => false, // Use 'true' for checkboxes
-                'by_reference' => false,
+            // ->add('itemCodes', EntityType::class, [
+            //     'class' => ItemCodes::class,
+            //     'choice_label' => 'code',
+            //     'multiple' => true,
+            //     'expanded' => false, // Use 'true' for checkboxes
+            //     'by_reference' => false,
+            //     'required' => false,
+            // ])
+            ->add('itemCodes', TextType::class, [
+                'required' => false,
+                'mapped' => false,
+                'label' => 'Item Codes',
+                'help' => 'Separate multiple item codes with a comma',
+                'attr' => [
+                    // 'data-controller' => 'tag-input',
+                    'data-action' => 'keyup->tag-input#handleInput',
+                    'data-tag-input-target' => 'input',
+                ]
             ])
             ->add('brand', EntityType::class, [
                 'class' => Brands::class,
@@ -105,8 +117,9 @@ class AssetType extends AbstractType
                 'class' => Tags::class,
                 'choice_label' => 'name',
                 'multiple' => true,
+                'required' => false,
             ])
-            ->add('similar_assets', EntityType::class, [
+            ->add('similarAssets', EntityType::class, [
                 'class' => Assets::class,
                 'choice_label' => 'name',
                 'multiple' => true,

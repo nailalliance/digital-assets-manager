@@ -318,7 +318,7 @@ class Assets
         return $this->itemCodes;
     }
 
-    public function addItemCodes(ItemCodes $itemCode): static
+    public function addItemCode(ItemCodes $itemCode): static
     {
         if (!$this->itemCodes->contains($itemCode)) {
             $this->itemCodes->add($itemCode);
@@ -327,7 +327,7 @@ class Assets
         return $this;
     }
 
-    public function removeItemCodes(ItemCodes $itemCode): static
+    public function removeItemCode(ItemCodes $itemCode): static
     {
         $this->itemCodes->removeElement($itemCode);
 

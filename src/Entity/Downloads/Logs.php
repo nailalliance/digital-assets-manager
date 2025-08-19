@@ -8,6 +8,7 @@ use App\Repository\Downloads\LogsRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: LogsRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Logs
 {
     #[ORM\Id]
@@ -94,5 +95,11 @@ class Logs
         $this->downloadedAt = $downloadedAt;
 
         return $this;
+    }
+
+    #[ORM\PrePersist]
+    public function setDownloadedAtValue(): void
+    {
+        $this->downloadedAt = new \DateTimeImmutable();
     }
 }

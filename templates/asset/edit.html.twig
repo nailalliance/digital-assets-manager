@@ -29,8 +29,8 @@
                     <h3 class="text-lg font-bold mb-4">Status & Visibility</h3>
                     <div class="space-y-4">
                         {{ form_row(editForm.status) }}
-                        {{ form_row(editForm.embargo_date) }}
-                        {{ form_row(editForm.expiration_date) }}
+                        {{ form_row(editForm.embargoDate) }}
+                        {{ form_row(editForm.expirationDate) }}
                     </div>
                 </div>
             </div>
@@ -44,19 +44,32 @@
                     </div>
 
                     {# Item Codes #}
-                    <div>
-                        {{ form_row(editForm.item_codes) }}
-                        <p class="mt-1 text-xs text-gray-500">Separate multiple item codes with a comma.</p>
+                    <div class="md:col-span-2">
+                        {# This is the container for our Stimulus controller #}
+                        <div data-controller="tag-input">
+                            {# The label is now separate from the form_row #}
+                            {{ form_label(editForm.itemCodes) }}
+
+                            {# This container will hold the visual tags #}
+                            <div data-tag-input-target="container" class="flex flex-wrap items-center mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-50">
+                                {# The actual input field is rendered here #}
+                                {{ form_widget(editForm.itemCodes) }}
+                            </div>
+
+                            {{ form_help(editForm.itemCodes) }}
+                        </div>
                     </div>
 
                     {# Description #}
                     <div>
-                        {{ form_row(editForm.description) }}
+                        {{ form_row(editForm.description, {
+                            'attr': {'style': 'height: 240px'}
+                        }) }}
                     </div>
 
                     {# Color Space #}
                     <div>
-                        {{ form_row(editForm.color_space) }}
+                        {{ form_row(editForm.colorSpace) }}
                     </div>
 
                     {# Brands #}
@@ -96,7 +109,7 @@
                 {# Similar Assets (Advanced) #}
                 <div class="mt-8 pt-6 border-t border-gray-200">
                     <h3 class="text-lg font-bold mb-4">Similar Assets</h3>
-                    {{ form_row(editForm.similar_assets) }}
+                    {{ form_row(editForm.similarAssets) }}
                 </div>
 
                 {# Action Buttons #}

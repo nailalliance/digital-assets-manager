@@ -24,7 +24,7 @@
             </div>
             {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
                 <div class="hidden md:flex items-center space-x-6">
-                    <a href="#" class="text-gray-600 hover:text-violet-600">Browse</a>
+                    <a href="{{ path('home') }}" class="text-gray-600 hover:text-violet-600">Browse</a>
                     <a href="#" class="text-gray-600 hover:text-violet-600">Download Bag</a>
 
                     {# Role-specific links #}
@@ -64,7 +64,6 @@
 </div>
 
 {% block javascripts %}
-            {{ encore_entry_script_tags('app') }}
     {{ encore_entry_script_tags('app') }}
 {% endblock %}
 </body>
