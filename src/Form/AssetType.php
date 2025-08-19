@@ -13,6 +13,7 @@ use App\Entity\Assets\Tags;
 use App\Entity\Restrictions\Groups;
 use App\Entity\User;
 use App\Repository\Assets\BrandsRepository;
+use App\Repository\Assets\CollectionsRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -84,11 +85,21 @@ class AssetType extends AbstractType
                 'class' => Categories::class,
                 'choice_label' => 'name',
                 'multiple' => true,
+                'expanded' => true,
             ])
             ->add('collections', EntityType::class, [
                 'class' => Collections::class,
-                'choice_label' => 'name',
+                'query_builder' => function (CollectionsRepository $collections) {
+                    return $collections->createQueryBuilder('c')
+                        ->orderBy('c.year', 'DESC')
+                        ->addOrderBy('c.name', 'ASC');
+                },
                 'multiple' => true,
+                'expanded' => true,
+                'choice_label' => function (Collections $collection) {
+                    // The 'getBrands()' method returns the parent brand entity
+                    return sprintf('(%s) %s', $collection->getYear(), $collection->getName());
+                },
             ])
             ->add('tags', EntityType::class, [
                 'class' => Tags::class,

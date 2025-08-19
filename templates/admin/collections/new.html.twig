@@ -1,0 +1,8 @@
+{% extends 'base.html.twig' %}
+{% block title %}New Collection | {{ parent() }}{% endblock %}
+{% block body %}
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Create New Collection</h1>
+    <div class="bg-white rounded-lg shadow-xl p-8">
+        {{ include('admin/collections/_form.html.twig') }}
+    </div>
+{% endblock %}

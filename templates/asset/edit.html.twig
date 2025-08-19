@@ -37,21 +37,26 @@
 
             {# Right Column: Metadata Form #}
             <div class="lg:col-span-2 bg-white rounded-lg shadow-lg p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="">
                     {# Name #}
-                    <div class="md:col-span-2">
+                    <div>
                         {{ form_row(editForm.name) }}
                     </div>
 
                     {# Item Codes #}
-                    <div class="md:col-span-2">
+                    <div>
                         {{ form_row(editForm.item_codes) }}
                         <p class="mt-1 text-xs text-gray-500">Separate multiple item codes with a comma.</p>
                     </div>
 
                     {# Description #}
-                    <div class="md:col-span-2">
+                    <div>
                         {{ form_row(editForm.description) }}
+                    </div>
+
+                    {# Color Space #}
+                    <div>
+                        {{ form_row(editForm.color_space) }}
                     </div>
 
                     {# Brands #}
@@ -80,15 +85,12 @@
                         {{ form_row(editForm.collections) }}
                     </div>
 
-                    {# Tags #}
-                    <div>
+                     {# Tags  #}
+                    <div class="md:col-span-3">
                         {{ form_row(editForm.tags) }}
                     </div>
 
-                    {# Color Space #}
-                    <div>
-                        {{ form_row(editForm.color_space) }}
-                    </div>
+
                 </div>
 
                 {# Similar Assets (Advanced) #}

@@ -34,6 +34,8 @@
                     {% if is_granted('ROLE_ADMIN') %}
                         <a href="{{ url('app_asset_upload') }}" class="text-gray-600 hover:text-violet-600">Upload File</a>
                         <a href="{{ url('admin_brands_index') }}" class="text-gray-600 hover:text-violet-600">Brands</a>
+                        <a href="{{ url('admin_categories_index') }}" class="text-gray-600 hover:text-violet-600">Categories</a>
+                        <a href="{{ url('admin_collections_index') }}" class="text-gray-600 hover:text-violet-600">Collections</a>
                     {% endif %}
                 </div>
                 <div class="flex items-center">

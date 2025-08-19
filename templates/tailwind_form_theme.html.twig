@@ -18,7 +18,9 @@
 
 {# Styling for expanded choice widgets (radio buttons/checkboxes) #}
 {% block choice_widget_expanded %}
-    <div class="space-y-2 mt-2 border border-gray-200 bg-gray-50 p-4 rounded-md">
+    {# This div now uses a responsive grid layout #}
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-6 mt-2 border border-gray-200 bg-gray-50 p-4 rounded-md">
+        {% set attr = attr|merge({'class': (attr.class|default('') ~ ' contents')|trim}) %}
         {{- parent() -}}
     </div>
 {% endblock %}
