@@ -104,6 +104,9 @@ class Assets
     #[ORM\ManyToMany(targetEntity: Groups::class, mappedBy: 'assets')]
     private Collection $restrictedGroups;
 
+    #[ORM\Column(length: 255, unique: true, nullable: true)]
+    private ?string $tusUploadKey = null;
+
     public function __construct()
     {
         $this->similarAssets = new ArrayCollection();
@@ -465,6 +468,18 @@ class Assets
         if ($this->restrictedGroups->removeElement($restrictedGroup)) {
             $restrictedGroup->removeAsset($this);
         }
+
+        return $this;
+    }
+
+    public function getTusUploadKey(): ?string
+    {
+        return $this->tusUploadKey;
+    }
+
+    public function setTusUploadKey(?string $tusUploadKey): static
+    {
+        $this->tusUploadKey = $tusUploadKey;
 
         return $this;
     }

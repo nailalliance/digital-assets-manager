@@ -14,6 +14,8 @@ export default class extends Controller {
         "fileNameDisplay"
     ];
 
+    pollingInterval = null;
+
     connect() {
         this.dropzoneTarget.addEventListener('click', () => this.fileInputTarget.click());
     }
@@ -94,18 +96,60 @@ export default class extends Controller {
                 this.progressTextTarget.textContent = `${percentage}%`;
             },
             onSuccess: () => {
-                this.progressTextTarget.textContent = "Upload complete! Redirecting...";
-                if (assetId)
-                {
-                    setTimeout(() => window.location.href = `/assets/${assetId}`, 1500);
-                } else {
-                    setTimeout(() => window.location.href = '/', 1500);
-                }
+                this.progressTextTarget.textContent = "Upload complete! Processing...";
+
+                const uploadKey = upload.url.split('/').pop();
+
+                this.startPolling(uploadKey)
+
+                // if (assetId)
+                // {
+                //     setTimeout(() => window.location.href = `/assets/${assetId}`, 1500);
+                // } else {
+                //     // setTimeout(() => window.location.href = '/', 1500);
+                // }
 
             }
         });
 
         upload.start();
+    }
+
+    startPolling (uploadKey)
+    {
+        let pollCount = 0;
+        const maxPolls = 10 * 60; // stop after 10 minutes
+
+        this.pollingInterval = setInterval(async () => {
+            if (pollCount >= maxPolls)
+            {
+                clearInterval(this.pollingInterval)
+                this.showError("File processing is taking too long.")
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/upload/status/${uploadKey}`);
+                console.log(response.status)
+                if (response.status === 200)
+                {
+                    const data = await response.json();
+                    if (data.status === 'complete')
+                    {
+                        clearInterval(this.pollingInterval)
+                        this.progressTextTarget.textContent = "Processing complete! Redirecting..."
+                        window.location.href = data.editUrl;
+                    }
+                }
+            } catch (e) {
+                clearInterval(this.pollingInterval)
+                console.error(e)
+                this.showError("An error occurred while checking the file status.")
+            }
+
+            pollCount++;
+        }, 2_000)
+
     }
 
     showError(message) {

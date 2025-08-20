@@ -5,13 +5,20 @@ namespace App\Controller\Admin;
 use App\Entity\Assets\Assets;
 use App\Entity\Assets\ColorSpaceEnum;
 use App\Entity\User;
+use App\Message\ProcessAssetUpload;
+use App\Repository\Assets\AssetsRepository;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Imagick;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Log\Logger;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use TusPhp\Events\TusEvent;
 use TusPhp\Tus\Server;
@@ -22,15 +29,15 @@ class UploadController extends AbstractController
 
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private CacheItemPoolInterface $cache
+        private CacheItemPoolInterface $cache,
+        private MessageBusInterface $messageBus
     )
     {}
 
     #[Route('/admin/assets/upload', name: 'app_asset_upload', methods: ['GET'])]
-    public function index(EntityManagerInterface $entityManager): Response
+    public function index(): Response
     {
         return $this->render('admin/asset_upload/index.html.twig', [
-            'controller_name' => 'AssetUploadController',
         ]);
     }
 
@@ -71,50 +78,12 @@ class UploadController extends AbstractController
 
     public function onUploadComplete(TusEvent $event): void
     {
-        $fileMetaData = $event->getFile()->details();
-
-        $originalFilename = $fileMetaData['metadata']['filename'];
-        $filePath = $fileMetaData['file_path'];
-        $fileSize = $fileMetaData['size'];
-        $mimeType = $fileMetaData['metadata']['filetype'];
-
-        $colorSpace = ColorSpaceEnum::RGB;
-
-        try {
-            $image = new Imagick($filePath);
-            if ($image->getImageColorspace() !== Imagick::COLORSPACE_CMYK) {
-                $colorSpace = ColorSpaceEnum::CMYK;
-            }
-        } catch (\ImagickException $e)
-        {
-
-        }
-
-        try {
-            $asset = new Assets();
-
-            $asset->setName($originalFilename);
-            $asset->setFilePath($filePath);
-            $asset->setMimeType($mimeType);
-            $asset->setFileSize($fileSize);
-            $asset->setColorSpace($colorSpace);
-
-            $user = $this->entityManager->getRepository(User::class)
-                ->find($this->getUser()->getId());
-
-            $asset->setUploader($user);
-
-            $this->entityManager->persist($asset);
-            $this->entityManager->flush();
-
-            $cacheItem = $this->cache->getItem($this->cacheItemKeyName);
-            $cacheItem->set($asset->getId());
-            $cacheItem->expiresAfter(300);
-            $this->cache->save($cacheItem);
-        } catch (\Throwable $exception) {
-            $logger = new Logger();
-            $logger->error('Upload Error', [$exception->getMessage()]);
-        }
+        $this->messageBus->dispatch(new ProcessAssetUpload(
+            fileMetaData: $event->getFile()->details(),
+            uploadKey: $event->getFile()->getKey(),
+            userId: $this->getUser()->getId(),
+            cacheItemKeyName: $this->cacheItemKeyName
+        ));
     }
 
     private function setCacheItemKeyName(?string $cacheItemKeyName): void
