@@ -165,7 +165,7 @@ class Assets
         return $this->thumbnailPath;
     }
 
-    public function setThumbnailPath(string $thumbnailPath): static
+    public function setThumbnailPath(?string $thumbnailPath): static
     {
         $this->thumbnailPath = $thumbnailPath;
 
