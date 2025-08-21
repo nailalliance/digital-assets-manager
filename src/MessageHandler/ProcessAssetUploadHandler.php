@@ -7,6 +7,7 @@ use App\Entity\Assets\ColorSpaceEnum;
 use App\Entity\User;
 use App\Message\ProcessAssetUpload;
 use App\Repository\Assets\AssetsRepository;
+use App\Service\UniqueFilePathGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Filesystem\Exception\IOException;
@@ -67,7 +68,7 @@ final class ProcessAssetUploadHandler
                 mkdir($finalDir, 0755, true);
             }
 
-            $finalFilePath = $this->getUniqueFilePath($finalDir, $safeFilename);
+            $finalFilePath = UniqueFilePathGenerator::get($finalDir, $safeFilename);
             rename($filePath, $finalFilePath);
 
             $asset = new Assets();
@@ -89,26 +90,5 @@ final class ProcessAssetUploadHandler
         } finally {
             $lock->release();
         }
-    }
-
-    private function getUniqueFilePath(string $directory, string $filename): string
-    {
-        $filePath = $directory . DIRECTORY_SEPARATOR . $filename;
-        if (!file_exists($filePath)) {
-            return $filePath;
-        }
-
-        $originalName = pathinfo($filename, PATHINFO_FILENAME);
-        $extension = pathinfo($filename, PATHINFO_EXTENSION);
-
-        for ($a = 1; $a <= 2000; $a++) {
-            $newName = sprintf("%s(%d).%s", $originalName, $a, $extension);
-            $newPath = $directory . DIRECTORY_SEPARATOR . $newName;
-            if (!file_exists($newPath)) {
-                return $newPath;
-            }
-        }
-
-        throw new IOException("Could not find a unique filename for \"{$filename}\" after 2000 attempts.");
     }
 }

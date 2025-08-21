@@ -18,10 +18,12 @@ use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateTimeType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\File;
 
 class AssetType extends AbstractType
 {
@@ -124,7 +126,24 @@ class AssetType extends AbstractType
                 'choice_label' => 'name',
                 'multiple' => true,
                 'required' => false,
-            ]);
+            ])
+            ->add('thumbnail', FileType::class, [
+                'label' => 'Upload thumbnail',
+                'required' => false,
+                'mapped' => false,
+                'constraints' => [
+                    new File([
+                        'maxSize' => '5M',
+                        'mimeTypes' => [
+                            'image/jpeg',
+                            'image/png',
+                            'image/webp'
+                        ],
+                        'mimeTypesMessage' => 'Please upload a valid image (JPG, PNG, WebP).',
+                    ])
+                ]
+            ])
+        ;
     }
 
     public function configureOptions(OptionsResolver $resolver): void

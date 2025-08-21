@@ -12,12 +12,15 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {# Left Column: Asset Preview & Status #}
-            <div class="lg:col-span-1 space-y-8">
+            <div class.lg-col-span-1.space-y-8 data-controller="thumbnail-preview">
                 {# Asset Preview Card #}
                 <div class="bg-white rounded-lg shadow-lg overflow-hidden">
                     <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
-                        {# Placeholder for the asset thumbnail #}
-                        <img src="{{ asset.thumbnailPath ? asset.thumbnailPath : '#' }}" alt="{{ asset.name }}" class="object-cover w-full h-full">
+                        {# 2. Add the "preview" target to the img tag #}
+                        <img src="{{ asset.thumbnailPath is not null and asset.thumbnailPath is not empty ? path('asset_thumbnail', {filename: asset.thumbnailPath|basename }) : '#' }}"
+                             alt="{{ asset.name }}"
+                             class="object-cover w-full h-full"
+                             data-thumbnail-preview-target="preview">
                     </div>
                     <div class="p-4 border-t border-gray-200">
                         <p class="font-semibold text-sm truncate">{{ asset.name }}</p>
@@ -31,6 +34,23 @@
                         {{ form_row(editForm.status) }}
                         {{ form_row(editForm.embargoDate) }}
                         {{ form_row(editForm.expirationDate) }}
+                    </div>
+                </div>
+
+                {# Thumbnail Upload Card #}
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">Update Thumbnail</h3>
+                    <div class="space-y-4">
+                        {# 3. Add the "input" target and the "updatePreview" action to the form field #}
+                        {{ form_row(editForm.thumbnail, {
+                            'attr': {
+                                'data-thumbnail-preview-target': 'input',
+                                'data-action': 'change->thumbnail-preview#updatePreview'
+                            }
+                        }) }}
+                        <p class="text-xs text-gray-500">
+                            Upload a JPG, PNG, or WebP. The image will be resized to 300x300 and converted to WebP.
+                        </p>
                     </div>
                 </div>
             </div>
