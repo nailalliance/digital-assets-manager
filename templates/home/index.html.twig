@@ -22,44 +22,91 @@
     {# Recent Assets Section #}
     <section class="mb-12">
         <h2 class="text-2xl font-bold text-gray-700 mb-4">Recent Assets</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-            {# This would be a loop over assets passed from your controller #}
-            {# {% for asset in recentAssets %} #}
-            {% for i in 1..6 %} {# Placeholder loop for design purposes #}
-                <a href="#" class="block group">
-                    <div class="aspect-square bg-white rounded-lg shadow-sm overflow-hidden transform group-hover:-translate-y-1 transition-transform duration-300">
-                        {# Placeholder for the asset thumbnail #}
-                        <div class="w-full h-full bg-gray-200 flex items-center justify-center">
-                            <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
+
+        {#
+        CSS Carousel Container:
+        - `grid`: Enables CSS Grid.
+        - `grid-flow-col`: Lays out items in a single horizontal row.
+        - `auto-cols-[...]:` Sets the width of each column. Here, it's responsive.
+        - `overflow-x-auto`: Enables horizontal scrolling.
+        - `snap-x` & `snap-mandatory`: Enables scroll snapping.
+        - `gap-6`: Adds space between items.
+        #}
+        <div class="grid grid-flow-col auto-cols-[60%] sm:auto-cols-[40%] md:auto-cols-[30%] lg:auto-cols-[20%] overflow-x-auto snap-x snap-mandatory gap-6 pb-4">
+            {# Loop over the assets passed from your controller #}
+            {% for asset in recentAssets %}
+                <div class="snap-start"> {# Each item snaps to the start of the container #}
+                    <a href="{{ path('app_asset', {id: asset.id}) }}" class="block group">
+                        <div class="aspect-square bg-white rounded-lg shadow-sm overflow-hidden transform group-hover:-translate-y-1 transition-transform duration-300">
+                            {% if asset.thumbnailPath %}
+                                <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-full h-full object-cover">
+                            {% else %}
+                                <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                                    <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <p class="mt-2 text-sm font-medium text-gray-800 truncate">{{ asset.name }}</p>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {# Browse by Brand Section #}
+    <section class="mb-12" data-controller="accordion">
+        <h2 class="text-2xl font-bold text-gray-700 mb-4">Browse by Brand</h2>
+        <div class="space-y-2">
+            {% for parent in parentBrands|sort((a, b) => a.name <=> b.name) %}
+                <div class="bg-white rounded-lg shadow-sm">
+                    <button type="button" data-action="click->accordion#toggle" data-target="brand-children-{{ parent.id }}" class="w-full flex justify-between items-center p-4 text-left font-semibold text-gray-800 hover:bg-gray-50">
+                        <span>{{ parent.name }}</span>
+                        <svg class="h-5 w-5 text-gray-500 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                    <div id="brand-children-{{ parent.id }}" class="hidden p-4 border-t border-gray-200">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {% if childBrands[parent.id] is defined %}
+                                {% for child in childBrands[parent.id]|sort((a, b) => a.name <=> b.name) %}
+                                    <a href="{{ path('app_search', {'brand_ids[]': child.id}) }}" class="text-violet-600 hover:underline">{{ child.name }}</a>
+                                {% endfor %}
+                            {% endif %}
                         </div>
                     </div>
-                    <p class="mt-2 text-sm font-medium text-gray-800 truncate">summer_logo_final.png</p>
-                    <p class="text-xs text-gray-500">P-1234{{ i }}</p>
-                </a>
+                </div>
             {% endfor %}
         </div>
     </section>
 
     {# Browse by Category Section #}
-    <section>
+    <section class="mb-12">
         <h2 class="text-2xl font-bold text-gray-700 mb-4">Browse by Category</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {# This would be a loop over categories passed from your controller #}
-            {# {% for category in categories %} #}
-            {% set categories = [
-                {name: 'Logos', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>'},
-                {name: 'Product Shots', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>'},
-                {name: 'Social Media', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>'},
-                {name: 'Templates', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>'}
-            ] %}
             {% for category in categories %}
-                <a href="#" class="block p-6 bg-white rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transform transition-all duration-300">
+                <a href="{{ path('app_search', {'category_id': category.id}) }}" class="block p-6 bg-white rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transform transition-all duration-300">
+                    {# This is the container for the icon and text #}
                     <div class="flex items-center">
+                        {# Icon background #}
                         <div class="bg-violet-100 p-3 rounded-full">
-                            <svg class="h-6 w-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">{{ category.icon|raw }}</svg>
+                            {# Placeholder Icon SVG #}
+                            {# For dynamic icons, you would add an 'icon' property to your Category entity #}
+                            <svg class="h-6 w-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                            </svg>
                         </div>
                         <h3 class="ml-4 text-lg font-semibold text-gray-800">{{ category.name }}</h3>
                     </div>
+                </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    {# Browse by Collection Section #}
+    <section>
+        <h2 class="text-2xl font-bold text-gray-700 mb-4">Browse by Collection</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {% for collection in collections %}
+                <a href="{{ path('app_search', {'collection_id': collection.id}) }}" class="block p-6 bg-white rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transform transition-all duration-300">
+                    <h3 class="font-semibold text-gray-800">{{ collection.name }} ({{ collection.year }})</h3>
                 </a>
             {% endfor %}
         </div>

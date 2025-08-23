@@ -8,11 +8,15 @@
         "php": ">=8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "ext-simplexml": "*",
+        "ext-xmlreader": "*",
         "ankitpokhrel/tus-php": "^2.4",
         "doctrine/dbal": "^3",
         "doctrine/doctrine-bundle": "^2.15",
         "doctrine/doctrine-migrations-bundle": "^3.4",
         "doctrine/orm": "^3.5",
+        "maennchen/zipstream-php": "*",
+        "meilisearch/search-bundle": "^0.15.8",
         "phpdocumentor/reflection-docblock": "^5.6",
         "phpstan/phpdoc-parser": "^2.2",
         "symfony/asset": "7.3.*",
@@ -40,15 +44,14 @@
         "symfony/string": "7.3.*",
         "symfony/translation": "7.3.*",
         "symfony/twig-bundle": "7.3.*",
+        "symfony/uid": "7.3.*",
         "symfony/ux-turbo": "^2.29",
         "symfony/validator": "7.3.*",
         "symfony/web-link": "7.3.*",
         "symfony/webpack-encore-bundle": "^2.3",
         "symfony/yaml": "7.3.*",
         "twig/extra-bundle": "^2.12|^3.0",
-        "twig/twig": "^2.12|^3.0",
-        "ext-xmlreader": "*",
-        "ext-simplexml": "*"
+        "twig/twig": "^2.12|^3.0"
     },
     "config": {
         "allow-plugins": {

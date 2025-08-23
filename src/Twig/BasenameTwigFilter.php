@@ -1,6 +1,6 @@
 <?php
 
-namespace App\TwigExtension;
+namespace App\Twig;
 
 use Twig\Attribute\AsTwigFilter;
 use Twig\Attribute\AsTwigFunction;

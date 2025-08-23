@@ -94,7 +94,9 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
                 }
 
                 $userEntity->setUsername($identifier)
-                    ->setRoles($myNAUser['roles']);
+                    ->setRoles($myNAUser['roles'])
+                    ->setName($myNAUser['name'])
+                ;
                 $this->entityManager->persist($userEntity);
                 $this->entityManager->flush();
 

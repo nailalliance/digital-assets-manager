@@ -14,72 +14,72 @@
 
         {# Filter Sidebar #}
         <aside class="w-full md:w-1/4 lg:w-1/5">
-            <h2 class="text-xl font-bold mb-4">Filters</h2>
-            <form>
-                {# Collections Filter #}
-                <div class="mb-6">
-                    <h3 class="font-semibold mb-2">Collections</h3>
-                    <ul class="space-y-1">
-                        <li><a href="#" class="text-gray-700 hover:text-violet-600 hover:font-semibold">Fall Collection 2025</a></li>
-                        <li><a href="#" class="text-violet-600 font-bold">Spring Collection 2025</a></li>
-                        <li><a href="#" class="text-gray-700 hover:text-violet-600 hover:font-semibold">Holiday 2024</a></li>
-                    </ul>
-                </div>
-                {# Categories Filter #}
-                <div class="mb-6">
-                    <h3 class="font-semibold mb-2">Categories</h3>
-                    <ul class="space-y-1">
-                        <li><a href="#" class="text-gray-700 hover:text-violet-600 hover:font-semibold">Logos</a></li>
-                        <li class="pl-4"><a href="#" class="text-gray-600 hover:text-violet-600">&raquo; Primary Logos</a></li>
-                        <li class="pl-4"><a href="#" class="text-gray-600 hover:text-violet-600">&raquo; Secondary Logos</a></li>
-                        <li><a href="#" class="text-violet-600 font-bold">Product Shots</a></li>
-                        <li><a href="#" class="text-gray-700 hover:text-violet-600 hover:font-semibold">Social Media</a></li>
-                    </ul>
-                </div>
+            <h2 class="text-xl font-bold mb-4">Refine Results</h2>
 
-                {# Brands Filter #}
-                <div class="mb-6">
-                    <h3 class="font-semibold mb-2">Brands</h3>
-                    <ul class="space-y-2">
-                        <li><label class="flex items-center"><input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2"> Brand A</label></li>
-                        <li><label class="flex items-center"><input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" checked> Brand B</label></li>
-                        <li><label class="flex items-center"><input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2"> Brand C</label></li>
-                    </ul>
-                </div>
+            {# Connect the form to the Stimulus controller #}
+            <form name="filters" method="get" action="{{ path('app_search') }}" data-controller="filter">
+                {# Hidden input to persist the original search query 'q' #}
+                <input type="hidden" name="q" value="{{ query }}">
 
-                {# Special Toggles for Designers/Admins #}
-                {% if is_granted('ROLE_DESIGNER') %}
-                    <div class="mb-6 p-3 bg-gray-200 rounded-md">
-                        <h3 class="font-semibold mb-2">Designer Options</h3>
-                        <label class="flex items-center cursor-pointer">
-                            <div class="relative">
-                                <input type="checkbox" class="sr-only peer">
-                                <div class="w-10 h-4 bg-gray-400 rounded-full shadow-inner"></div>
-                                <div class="dot absolute w-6 h-6 bg-white rounded-full shadow -left-1 -top-1 transition peer-checked:translate-x-full peer-checked:bg-violet-600"></div>
-                            </div>
-                            <div class="ml-3 text-gray-700 font-medium">
-                                Show Expired
-                            </div>
-                        </label>
+                {# Collections Filter - Only shows collections present in the results #}
+                {% if activeCollections is not empty %}
+                    <div class="mb-6">
+                        <h3 class="font-semibold mb-2">Collections</h3>
+                        <ul class="space-y-1">
+                            {% for collection in activeCollections %}
+                                <li><a href="#" class="text-gray-700 hover:text-violet-600">{{ collection.name }} ({{ collection.year }})</a></li>
+                            {% endfor %}
+                        </ul>
                     </div>
                 {% endif %}
 
-                {% if is_granted('ROLE_ADMIN') %}
-                    <div class="mb-6 p-3 bg-red-100 rounded-md">
-                        <h3 class="font-semibold mb-2 text-red-800">Admin Options</h3>
-                        <label class="flex items-center cursor-pointer">
-                            <div class="relative">
-                                <input type="checkbox" class="sr-only peer">
-                                <div class="w-10 h-4 bg-gray-400 rounded-full shadow-inner"></div>
-                                <div class="dot absolute w-6 h-6 bg-white rounded-full shadow -left-1 -top-1 transition peer-checked:translate-x-full peer-checked:bg-red-600"></div>
-                            </div>
-                            <div class="ml-3 text-gray-700 font-medium">
-                                Show Inactive
-                            </div>
-                        </label>
+                {# Categories Filter - Only shows categories present in the results #}
+                {% if activeCategories is not empty %}
+                    <div class="mb-6 pt-6 border-t border-gray-200">
+                        <h3 class="font-semibold mb-2">Categories</h3>
+                        <ul class="space-y-1">
+                            {% for category in activeCategories %}
+                                <li><a href="#" class="text-gray-700 hover:text-violet-600">{{ category.name }}</a></li>
+                            {% endfor %}
+                        </ul>
                     </div>
                 {% endif %}
 
+                {# Brands Filter - Hierarchical and dynamic #}
+                {% if brandFilters.parents is not empty %}
+                    <div class="mb-6 pt-6 border-t border-gray-200">
+                        <h3 class="font-semibold mb-2">Brands</h3>
+                        <div class="space-y-2">
+                            {% for parent in brandFilters.parents|sort((a, b) => a.name <=> b.name) %}
+                                <div>
+                                    {# Parent Brand Checkbox #}
+                                    <label class="flex items-center font-medium">
+                                        <input type="checkbox" name="brand_ids[]" value="{{ parent.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2">
+                                        {{ parent.name }}
+                                    </label>
+
+                                    {# Always-visible container for sub-brands #}
+                                    {% if brandFilters.children[parent.id] is defined %}
+                                        <div class="sub-brands pl-6 mt-2 space-y-2"> {# The 'hidden' class is removed #}
+                                            {% for child in brandFilters.children[parent.id]|sort((a, b) => a.name <=> b.name) %}
+                                                <label class="flex items-center">
+                                                    <input type="checkbox" name="brand_ids[]" value="{{ child.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2">
+                                                    {{ child.name }}
+                                                </label>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="pt-6 border-t border-gray-200">
+                    <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                        Apply Filters
+                    </button>
+                </div>
             </form>
         </aside>
 
@@ -87,10 +87,16 @@
         <main class="w-full md:w-3/4 lg:w-4/5">
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-3xl font-bold">
-                    {% if query is defined and query is not empty %}
-                        Results for "{{ query }}"
+                    {% if query is not empty %}
+                        Results for "<span class="text-violet-600">{{ query }}</span>"
+                        {# FIX: Use 'activeCollections' instead of 'collections' #}
+                    {% elseif selectedCollectionId and activeCollections|filter(c => c.id == selectedCollectionId)|length > 0 %}
+                        {{ activeCollections|filter(c => c.id == selectedCollectionId)|first.name }}
+                        {# FIX: Use 'activeCategories' instead of 'categories' #}
+                    {% elseif selectedCategoryId and activeCategories|filter(c => c.id == selectedCategoryId)|length > 0 %}
+                        {{ activeCategories|filter(c => c.id == selectedCategoryId)|first.name }}
                     {% else %}
-                        Product Shots
+                        Browse Assets
                     {% endif %}
                 </h1>
                 <span class="text-gray-600">{{ assets|length }} items</span>
@@ -99,27 +105,32 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {% if assets is not empty %}
                     {% for asset in assets %}
-                        <div class="bg-white rounded-lg shadow-sm overflow-hidden group relative">
-                            <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
-                                {# Placeholder for the asset thumbnail #}
-                                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
-                            </div>
-                            <div class="p-3">
-                                <p class="font-semibold text-sm truncate" title="{{ asset.name }}">{{ asset.name }}</p>
-                                <p class="text-xs text-gray-500">{{ asset.itemCode }}</p>
-                            </div>
+                        <div class="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col">
+                            {# The main link now points to the asset detail page #}
+                            <a href="{{ path('app_asset', {id: asset.id}) }}" class="block">
+                                <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
+                                    {% if asset.thumbnailPath is not null and asset.thumbnailPath is not empty %}
+                                        <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-full h-full object-cover">
+                                    {% else %}
+                                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
+                                    {% endif %}
+                                </div>
+                                <div class="p-3">
+                                    <p class="font-semibold text-sm truncate" title="{{ asset.name }}">{{ asset.name }}</p>
+                                    <p class="text-xs text-gray-500">{{ asset.itemCodes|map(item => item.code)|join(', ') }}</p>
+                                </div>
+                            </a>
 
-                            {# Hover Actions Overlay #}
-                            <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                <button title="Download" class="p-3 bg-white rounded-full text-gray-700 hover:bg-violet-500 hover:text-white transition-colors">
+                            {# Visible Actions Bar #}
+                            <div class="mt-auto p-3 border-t border-gray-200 bg-gray-50 flex items-center justify-center space-x-3">
+                                <a href="{{ path('asset_download', {id: asset.id}) }}" title="Download" class="p-2 text-gray-500 hover:text-violet-600 transition-colors">
                                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                </button>
-                                <button title="Add to Collection" class="p-3 bg-white rounded-full text-gray-700 hover:bg-violet-500 hover:text-white transition-colors">
-                                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                </button>
-                                <a href="#" title="View Details" class="p-3 bg-white rounded-full text-gray-700 hover:bg-violet-500 hover:text-white transition-colors">
-                                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </a>
+                                <form action="{{ path('download_list_add', {id: asset.id}) }}" method="post">
+                                    <button type="submit" title="Add to Download Bag" class="p-2 text-gray-500 hover:text-violet-600 transition-colors">
+                                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     {% endfor %}
@@ -130,11 +141,7 @@
                         </svg>
                         <h3 class="mt-2 text-sm font-medium text-gray-900">No assets found</h3>
                         <p class="mt-1 text-sm text-gray-500">
-                            {% if query is defined and query is not empty %}
-                                Try adjusting your search or filter terms.
-                            {% else %}
-                                There are no assets in this category yet.
-                            {% endif %}
+                            Try adjusting your search or filter terms.
                         </p>
                     </div>
                 {% endif %}

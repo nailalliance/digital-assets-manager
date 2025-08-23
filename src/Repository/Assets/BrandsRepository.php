@@ -16,6 +16,19 @@ class BrandsRepository extends ServiceEntityRepository
         parent::__construct($registry, Brands::class);
     }
 
+    /**
+     * @return Brands[] Returns an array of Brand objects that have active assets
+     */
+    public function findWithActiveAssets(): array
+    {
+        return $this->createQueryBuilder('b')
+            ->innerJoin('b.assets', 'a')
+            ->where('a.status = :status')
+            ->setParameter('status', 'active')
+            ->getQuery()
+            ->getResult();
+    }
+
 //    /**
 //     * @return Brands[] Returns an array of Brands objects
 //     */

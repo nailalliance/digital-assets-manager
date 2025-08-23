@@ -2,22 +2,11 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\Assets\Assets;
-use App\Entity\Assets\ColorSpaceEnum;
-use App\Entity\User;
 use App\Message\ProcessAssetUpload;
-use App\Repository\Assets\AssetsRepository;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Doctrine\DBAL\LockMode;
-use Doctrine\ORM\EntityManagerInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
-use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Log\Logger;
-use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use TusPhp\Events\TusEvent;
@@ -28,7 +17,6 @@ class UploadController extends AbstractController
     private ?string $cacheItemKeyName = null;
 
     public function __construct(
-        private EntityManagerInterface $entityManager,
         private CacheItemPoolInterface $cache,
         private MessageBusInterface $messageBus
     )

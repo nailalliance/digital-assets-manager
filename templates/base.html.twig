@@ -25,11 +25,17 @@
             {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
                 <div class="hidden md:flex items-center space-x-6">
                     <a href="{{ path('home') }}" class="text-gray-600 hover:text-violet-600">Browse</a>
-                    <a href="#" class="text-gray-600 hover:text-violet-600">Download Bag</a>
+                    <a href="{{ path('download_list_index') }}" class="relative text-gray-600 hover:text-violet-600">
+                        Download Bag
+                        {% set count = download_list_count() %}
+                        {% if count > 0 %}
+                            <span class="absolute -top-2 -right-4 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">{{ count }}</span>
+                        {% endif %}
+                    </a>
 
                     {# Role-specific links #}
-                    {% if is_granted('ROLE_DESIGNER') %}
-                        <a href="{{ url('app_asset_upload') }}" class="text-gray-600 hover:text-violet-600">Upload</a>
+                    {% if is_granted('ROLE_FTP_DESIGNER') %}
+                        <a href="{{ url('admin_direct_share_index') }}" class="text-gray-600 hover:text-violet-600">Direct Share</a>
                     {% endif %}
                     {% if is_granted('ROLE_ADMIN') %}
                         <a href="{{ url('app_asset_upload') }}" class="text-gray-600 hover:text-violet-600">Upload File</a>

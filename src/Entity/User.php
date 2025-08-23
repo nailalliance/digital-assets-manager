@@ -24,6 +24,9 @@ class User implements UserInterface
     #[ORM\Column]
     private array $roles = [];
 
+    #[ORM\Column(type: "string", length: 120)]
+    private $name;
+
     /**
      * @var Collection<int, Groups>
      */
@@ -79,6 +82,24 @@ class User implements UserInterface
     {
         $this->roles = $roles;
 
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    /**
+     * @param mixed $name
+     * @return User
+     */
+    public function setName($name)
+    {
+        $this->name = $name;
         return $this;
     }
 

@@ -16,6 +16,19 @@ class CollectionsRepository extends ServiceEntityRepository
         parent::__construct($registry, Collections::class);
     }
 
+    /**
+     * @return Collections[] Returns an array of Collection objects that have active assets
+     */
+    public function findWithActiveAssets(): array
+    {
+        return $this->createQueryBuilder('c')
+            ->innerJoin('c.assets', 'a')
+            ->where('a.status = :status')
+            ->setParameter('status', 'active')
+            ->getQuery()
+            ->getResult();
+    }
+
     //    /**
     //     * @return Collections[] Returns an array of Collections objects
     //     */

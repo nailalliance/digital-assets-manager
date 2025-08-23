@@ -6,6 +6,7 @@
 parameters:
     upload_dir: '%kernel.project_dir%/files'
     thumbnail_dir: '%kernel.project_dir%/files-thumbs'
+    direct_uploads_dir: '%kernel.project_dir%/files-direct'
 
 services:
     # default configuration for services in *this* file

@@ -1,0 +1,34 @@
+# config/packages/meilisearch.yaml
+meilisearch:
+    url: '%env(MEILISEARCH_URL)%'
+    api_key: '%env(MEILISEARCH_API_KEY)%'
+    prefix: '%env(MEILISEARCH_PREFIX)%'
+
+    indices:
+        -   name: 'assets'
+            class: 'App\Entity\Assets\Assets'
+
+            # FIX: The correct key is "serializer_groups"
+            serializer_groups:
+                - 'searchable'
+
+            settings:
+                searchableAttributes:
+                    - 'itemCodes'
+                    - 'brand'
+                    - 'categories'
+                    - 'collections'
+                    - 'name'
+                    - 'tags'
+                    - 'description'
+                rankingRules:
+                    - 'words'
+                    - 'typo'
+                    - 'proximity'
+                    - 'attribute'
+                    - 'sort'
+                    - 'exactness'
+                filterableAttributes:
+                    - 'brand'
+                    - 'categories'
+                    - 'collections'

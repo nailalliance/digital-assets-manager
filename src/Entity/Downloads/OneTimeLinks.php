@@ -3,7 +3,9 @@
 namespace App\Entity\Downloads;
 
 use App\Entity\Assets\Assets;
+use App\Entity\User;
 use App\Repository\Downloads\OneTimeLinksRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: OneTimeLinksRepository::class)]
@@ -25,6 +27,16 @@ class OneTimeLinks
 
     #[ORM\Column]
     private ?\DateTimeImmutable $expirationDate = null;
+
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $temporaryFiles = [];
+
+    // You might want to add a relationship to the creator
+    #[ORM\ManyToOne]
+    private ?User $creator = null;
+
+    #[ORM\Column(length: 255, unique: true, nullable: true)]
+    private ?string $tusUploadKey = null;
 
     public function getId(): ?int
     {
@@ -76,6 +88,39 @@ class OneTimeLinks
     {
         $this->expirationDate = $expirationDate;
 
+        return $this;
+    }
+
+    public function getTemporaryFiles(): ?array
+    {
+        return $this->temporaryFiles;
+    }
+
+    public function setTemporaryFiles(?array $temporaryFiles): OneTimeLinks
+    {
+        $this->temporaryFiles = $temporaryFiles;
+        return $this;
+    }
+
+    public function getCreator(): ?User
+    {
+        return $this->creator;
+    }
+
+    public function setCreator(?User $creator): OneTimeLinks
+    {
+        $this->creator = $creator;
+        return $this;
+    }
+
+    public function getTusUploadKey(): ?string
+    {
+        return $this->tusUploadKey;
+    }
+
+    public function setTusUploadKey(?string $tusUploadKey): OneTimeLinks
+    {
+        $this->tusUploadKey = $tusUploadKey;
         return $this;
     }
 }

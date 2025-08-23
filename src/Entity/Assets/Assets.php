@@ -9,9 +9,13 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use MeiliSearch\Bundle\Searchable;
+use Symfony\Component\Serializer\Annotation\Groups as SerializerGroups;
+use Symfony\Component\Serializer\Annotation\Ignore;
 
 #[ORM\Entity(repositoryClass: AssetsRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+#[Searchable(indexName: 'assets')]
 class Assets
 {
     #[ORM\Id]
@@ -56,52 +60,61 @@ class Assets
      * @var Collection<int, self>
      */
     #[ORM\ManyToMany(targetEntity: self::class, inversedBy: 'assets')]
+    #[Ignore]
     private Collection $similarAssets;
 
     /**
      * @var Collection<int, self>
      */
     #[ORM\ManyToMany(targetEntity: self::class, mappedBy: 'similarAssets')]
+    #[Ignore]
     private Collection $assets;
 
     /**
      * @var Collection<int, ItemCodes>
      */
     #[ORM\ManyToMany(targetEntity: ItemCodes::class, inversedBy: 'assets')]
+    #[Ignore]
     private Collection $itemCodes;
 
     /**
      * @var Collection<int, Brands>
      */
     #[ORM\ManyToMany(targetEntity: Brands::class, inversedBy: 'assets')]
+    #[Ignore]
     private Collection $brand;
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
+    #[Ignore]
     private ?User $uploader = null;
 
     /**
      * @var Collection<int, Tags>
      */
     #[ORM\ManyToMany(targetEntity: Tags::class, inversedBy: 'assets')]
+    #[Ignore]
     private Collection $tags;
 
     /**
      * @var Collection<int, Collections>
      */
     #[ORM\ManyToMany(targetEntity: Collections::class, inversedBy: 'assets')]
+    #[Ignore]
     private Collection $collections;
 
     /**
      * @var Collection<int, Categories>
      */
     #[ORM\ManyToMany(targetEntity: Categories::class, inversedBy: 'assets')]
+    #[Ignore]
     private Collection $categories;
 
     /**
      * @var Collection<int, Groups>
      */
     #[ORM\ManyToMany(targetEntity: Groups::class, mappedBy: 'assets')]
+    #[Ignore]
     private Collection $restrictedGroups;
 
     #[ORM\Column(length: 255, unique: true, nullable: true)]
@@ -482,5 +495,35 @@ class Assets
         $this->tusUploadKey = $tusUploadKey;
 
         return $this;
+    }
+
+    #[SerializerGroups(['searchable'])]
+    public function getItemCodesForSearch(): array
+    {
+        return $this->itemCodes->map(fn(ItemCodes $item) => $item->getCode())->toArray();
+    }
+
+    #[SerializerGroups(['searchable'])]
+    public function getBrandForSearch(): array
+    {
+        return $this->brand->map(fn(Brands $brand) => $brand->getName())->toArray();
+    }
+
+    #[SerializerGroups(['searchable'])]
+    public function getCategoriesForSearch(): array
+    {
+        return $this->categories->map(fn(Categories $cat) => $cat->getName())->toArray();
+    }
+
+    #[SerializerGroups(['searchable'])]
+    public function getCollectionsForSearch(): array
+    {
+        return $this->collections->map(fn(Collections $col) => $col->getName())->toArray();
+    }
+
+    #[SerializerGroups(['searchable'])]
+    public function getTagsForSearch(): array
+    {
+        return $this->tags->map(fn(Tags $tag) => $tag->getName())->toArray();
     }
 }
