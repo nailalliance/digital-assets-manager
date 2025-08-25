@@ -21,25 +21,45 @@
                 {# Hidden input to persist the original search query 'q' #}
                 <input type="hidden" name="q" value="{{ query }}">
 
-                {# Collections Filter - Only shows collections present in the results #}
+                {# Add hidden inputs to preserve other filters when this form is submitted #}
+                {% if selectedCollectionId %}
+                    <input type="hidden" name="collection_id" value="{{ selectedCollectionId }}">
+                {% endif %}
+                {% if selectedCategoryId %}
+                    <input type="hidden" name="category_id" value="{{ selectedCategoryId }}">
+                {% endif %}
+
+                {# Collections Filter #}
                 {% if activeCollections is not empty %}
                     <div class="mb-6">
                         <h3 class="font-semibold mb-2">Collections</h3>
                         <ul class="space-y-1">
-                            {% for collection in activeCollections %}
-                                <li><a href="#" class="text-gray-700 hover:text-violet-600">{{ collection.name }} ({{ collection.year }})</a></li>
+                            {% for collection in activeCollections|sort((a, b) => a.name <=> b.name) %}
+                                <li>
+                                    {# Merge the new collection_id with all existing query parameters #}
+                                    <a href="{{ path('app_search', app.request.query.all|merge({'collection_id': collection.id})) }}"
+                                       class="{{ collection.id == selectedCollectionId ? 'text-violet-600 font-bold' : 'text-gray-700 hover:text-violet-600' }}">
+                                        {{ collection.name }} ({{ collection.year }})
+                                    </a>
+                                </li>
                             {% endfor %}
                         </ul>
                     </div>
                 {% endif %}
 
-                {# Categories Filter - Only shows categories present in the results #}
+                {# Categories Filter #}
                 {% if activeCategories is not empty %}
                     <div class="mb-6 pt-6 border-t border-gray-200">
                         <h3 class="font-semibold mb-2">Categories</h3>
                         <ul class="space-y-1">
-                            {% for category in activeCategories %}
-                                <li><a href="#" class="text-gray-700 hover:text-violet-600">{{ category.name }}</a></li>
+                            {% for category in activeCategories|sort((a, b) => a.name <=> b.name) %}
+                                <li>
+                                    {# Merge the new category_id with all existing query parameters #}
+                                    <a href="{{ path('app_search', app.request.query.all|merge({'category_id': category.id})) }}"
+                                       class="{{ category.id == selectedCategoryId ? 'text-violet-600 font-bold' : 'text-gray-700 hover:text-violet-600' }}">
+                                        {{ category.name }}
+                                    </a>
+                                </li>
                             {% endfor %}
                         </ul>
                     </div>
