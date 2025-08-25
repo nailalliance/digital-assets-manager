@@ -44,8 +44,6 @@ final class HomeController extends AbstractController
             fn($brand) => isset($brandFilters['children'][$brand->getId()])
         );
 
-        // --- End of New Logic ---
-
         return $this->render('home/index.html.twig', [
             'recentAssets' => $assetsRepository->findBy(['status' => 'active'], ['createdAt' => 'DESC'], 12),
             'categories' => $categoriesRepository->findWithActiveAssets(),
