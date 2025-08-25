@@ -66,7 +66,7 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
 
         $httpClient = HttpClient::create($httpClientParams);
 
-        $myNAUserReq = $httpClient->request('POST', 'http://127.0.0.1:8000/remote/login', [
+        $myNAUserReq = $httpClient->request('POST', $_ENV['MYNAILALLIANCE_URL'] . '/remote/login', [
             'json' => [
                 'security' => [
                     'credentials' => [
