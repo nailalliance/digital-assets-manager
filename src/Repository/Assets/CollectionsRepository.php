@@ -25,6 +25,8 @@ class CollectionsRepository extends ServiceEntityRepository
             ->innerJoin('c.assets', 'a')
             ->where('a.status = :status')
             ->setParameter('status', 'active')
+            ->orderBy('c.year', 'DESC')
+            ->addOrderBy('c.id', 'DESC')
             ->getQuery()
             ->getResult();
     }
