@@ -40,6 +40,9 @@ class Lists
     #[ORM\OneToMany(targetEntity: OneTimeLinks::class, mappedBy: 'downloadList')]
     private Collection $oneTimeLinks;
 
+    #[ORM\Column(options: ['default' => true])]
+    private ?bool $status = true;
+
     public function __construct()
     {
         $this->assets = new ArrayCollection();
@@ -144,6 +147,17 @@ class Lists
             }
         }
 
+        return $this;
+    }
+
+    public function getStatus(): ?bool
+    {
+        return $this->status;
+    }
+
+    public function setStatus(?bool $status): Lists
+    {
+        $this->status = $status;
         return $this;
     }
 }

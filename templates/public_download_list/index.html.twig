@@ -12,9 +12,24 @@
             {% set listName = oneTimeLink.downloadList ? oneTimeLink.downloadList.name : 'Shared Files' %}
             <p class="text-lg text-gray-600 mt-2">{{ listName }}</p>
 
+            {# Display creation date if it's a named list #}
+            {% if oneTimeLink.downloadList %}
+                <p class="text-sm text-gray-500 mt-1">{{ oneTimeLink.downloadList.createdAt|date('F d, Y') }}</p>
+            {% endif %}
+
+            {# Display expiration date with dynamic label #}
+            <p class="text-sm text-gray-500 mt-2">
+                {% if oneTimeLink.expirationDate > date("now", "UTC") %}
+                    <span class="font-semibold">Expires on:</span>
+                {% else %}
+                    <span class="font-semibold text-red-600">Expired on:</span>
+                {% endif %}
+                {{ oneTimeLink.expirationDate|date('F d, Y') }}
+            </p>
+
             {# Creator is now on the OneTimeLink entity #}
             {% if oneTimeLink.creator %}
-                 <p class="text-sm text-gray-500 mt-2">Shared by: {{ oneTimeLink.creator.name }}</p>
+                <p class="text-sm text-gray-500 mt-2">Shared by: {{ oneTimeLink.creator.userIdentifier }}</p>
             {% endif %}
         </div>
 
@@ -24,7 +39,7 @@
 
         {% if assets is not empty or tempFiles is not empty %}
             <div class="mb-6 text-center">
-                <a href="{{ path('public_download_list_zip', {token: oneTimeLink.token}) }}" class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                <a href="{{ path('public_download_list_zip', {token: oneTimeLink.token}) }}" data-turbo="false" class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
                     <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     Download All (.zip)
                 </a>
@@ -53,7 +68,7 @@
                             </div>
                             <div class="ml-4">
                                 {% if is_granted('IS_AUTHENTICATED_FULLY') %}
-                                <a href="{{ path('asset_download', {id: asset.id}) }}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                                <a href="{{ path('asset_download', {id: asset.id}) }}" data-turbo="false" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
                                     Download
                                 </a>
                                 {% endif %}

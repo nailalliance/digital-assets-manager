@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Assets\Assets;
 use App\Entity\Downloads\Lists;
+use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
 use App\Entity\User;
 use App\Service\DownloadListService;
@@ -11,6 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
@@ -118,19 +120,36 @@ class DownloadListController extends AbstractController
      * Handles downloading all assets in the user's session bag as a single zip file.
      */
     #[Route('/zip', name: 'download_list_zip', methods: ['GET'])]
-    public function zip(DownloadListService $downloadListService): StreamedResponse
-    {
+    public function zip(
+        DownloadListService $downloadListService,
+        EntityManagerInterface $entityManager,
+        RequestStack $requestStack
+    ): StreamedResponse {
         $assets = $downloadListService->getAssets();
         $zipFileName = 'download_bag_' . date('Y-m-d') . '.zip';
+        $request = $requestStack->getCurrentRequest();
+        $user = $entityManager->getRepository(User::class)->find($this->getUser()->getId());
 
-        $response = new StreamedResponse(function() use ($assets, $zipFileName) {
-            $zip = new ZipStream(outputName:  $zipFileName);
+        $response = new StreamedResponse(function() use ($assets, $zipFileName, $entityManager, $request, $user) {
+            $zip = new ZipStream(outputName: $zipFileName);
 
             foreach ($assets as $asset) {
                 if (file_exists($asset->getFilePath())) {
+                    // Log the download event for each asset
+                    $log = new Logs();
+                    $log->setAsset($asset);
+                    $log->setUser($user);
+                    $log->setIpAddress($request->getClientIp());
+                    $entityManager->persist($log);
+
+                    // Add the file to the zip stream
                     $zip->addFileFromPath(basename($asset->getFilePath()), $asset->getFilePath());
                 }
             }
+
+            // Save all the new log entries to the database
+            $entityManager->flush();
+
             $zip->finish();
         });
 

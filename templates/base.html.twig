@@ -15,17 +15,21 @@
 <div id="app">
     <header class="bg-white shadow-md">
         <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <div>
-                <a href="{{ path('home') }}" class="text-2xl font-bold text-violet-600">
+            <div class="flex items-center">
+                <a href="{{ path('home') }}">
                     <img src="{{ asset('images/Nailalliancelogo-Updated-bk.png') }}"
                          alt="Nail Alliance"
                          style="max-width: 100px">
                 </a>
+                {# Website Title Added Here #}
+                <h1 class="ml-4 text-xl font-semibold text-gray-700 hidden lg:block">
+                   DAM
+                </h1>
             </div>
             {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
                 <div class="hidden md:flex items-center space-x-6">
                     <a href="{{ path('home') }}" class="text-gray-600 hover:text-violet-600">Browse</a>
-                    <a href="{{ path('download_list_index') }}" class="relative text-gray-600 hover:text-violet-600">
+                    <a href="{{ path('download_list_index') }}" data-turbo="false" class="relative text-gray-600 hover:text-violet-600">
                         Download Bag
                         {% set count = download_list_count() %}
                         {% if count > 0 %}
@@ -33,15 +37,21 @@
                         {% endif %}
                     </a>
 
+                    <a href="{{ path('app_download_lists') }}" class="text-gray-600 hover:text-violet-600">Premade Lists</a>
+
+                    {% if is_granted('ROLE_FTP_DESIGNER') %}
+                        <div class="border-l border-gray-300 h-6"></div>
+                    {% endif %}
+
                     {# Role-specific links #}
                     {% if is_granted('ROLE_FTP_DESIGNER') %}
-                        <a href="{{ url('admin_direct_share_index') }}" class="text-gray-600 hover:text-violet-600">Direct Share</a>
+                        <a href="{{ url('admin_direct_share_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Direct Share</a>
                     {% endif %}
                     {% if is_granted('ROLE_ADMIN') %}
-                        <a href="{{ url('app_asset_upload') }}" class="text-gray-600 hover:text-violet-600">Upload File</a>
-                        <a href="{{ url('admin_brands_index') }}" class="text-gray-600 hover:text-violet-600">Brands</a>
-                        <a href="{{ url('admin_categories_index') }}" class="text-gray-600 hover:text-violet-600">Categories</a>
-                        <a href="{{ url('admin_collections_index') }}" class="text-gray-600 hover:text-violet-600">Collections</a>
+                        <a href="{{ url('app_asset_upload') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Upload File</a>
+                        <a href="{{ url('admin_brands_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Brands</a>
+                        <a href="{{ url('admin_categories_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Categories</a>
+                        <a href="{{ url('admin_collections_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Collections</a>
                     {% endif %}
                 </div>
                 <div class="flex items-center">

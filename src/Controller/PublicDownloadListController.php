@@ -2,9 +2,12 @@
 
 namespace App\Controller;
 
+use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
@@ -17,7 +20,15 @@ class PublicDownloadListController extends AbstractController
         #[MapEntity(mapping: ['token' => 'token'])]
         OneTimeLinks $oneTimeLink
     ): Response {
-        if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
+        if (!$this->isGranted('IS_AUTHENTICATED_FULLY'))
+        {
+            if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
+                throw $this->createNotFoundException('This link has expired.');
+            }
+        }
+
+        if (!is_null($oneTimeLink->getDownloadList()) && !$oneTimeLink->getDownloadList()->getStatus())
+        {
             throw $this->createNotFoundException('This link has expired.');
         }
 
@@ -30,14 +41,20 @@ class PublicDownloadListController extends AbstractController
     #[Route('/share/{token}/zip', name: 'public_download_list_zip')]
     public function zip(
         #[MapEntity(mapping: ['token' => 'token'])]
-        OneTimeLinks $oneTimeLink
+        OneTimeLinks $oneTimeLink,
+        EntityManagerInterface $entityManager,
+        RequestStack $requestStack
     ): StreamedResponse {
-        if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
-            throw $this->createNotFoundException('This link has expired.');
+        if (!$this->isGranted('IS_AUTHENTICATED_FULLY'))
+        {
+            if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
+                throw $this->createNotFoundException('This link has expired.');
+            }
         }
 
         $downloadList = $oneTimeLink->getDownloadList();
         $temporaryFiles = $oneTimeLink->getTemporaryFiles();
+        $request = $requestStack->getCurrentRequest();
 
         // Determine the filename for the zip archive
         $zipFileName = 'shared_assets.zip';
@@ -45,13 +62,19 @@ class PublicDownloadListController extends AbstractController
             $zipFileName = preg_replace('/[^a-zA-Z0-9\-\_]/', '', $downloadList->getName()) . '.zip';
         }
 
-        $response = new StreamedResponse(function() use ($downloadList, $temporaryFiles, $zipFileName) {
+        $response = new StreamedResponse(function() use ($downloadList, $temporaryFiles, $zipFileName, $entityManager, $request, $oneTimeLink) {
             $zip = new ZipStream(outputName: $zipFileName);
 
             // Handle assets from a permanent DownloadList
             if ($downloadList) {
                 foreach ($downloadList->getAssets() as $asset) {
                     if (file_exists($asset->getFilePath())) {
+                        $log = new Logs();
+                        $log->setAsset($asset);
+                        $log->setIpAddress($request->getClientIp());
+                        $log->setOneTimeLink($oneTimeLink);
+                        $entityManager->persist($log);
+
                         $zip->addFileFromPath(basename($asset->getFilePath()), $asset->getFilePath());
                     }
                 }
@@ -64,6 +87,8 @@ class PublicDownloadListController extends AbstractController
                     }
                 }
             }
+
+            $entityManager->flush();
 
             $zip->finish();
         });

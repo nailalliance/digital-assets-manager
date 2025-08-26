@@ -1,14 +1,23 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}My Collections | {{ parent() }}{% endblock %}
+{% block title %}Download Lists{% endblock %}
 
 {% block body %}
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">My Collections</h1>
-        <button class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-            New Collection
-        </button>
+        <h1 class="text-3xl font-bold text-gray-900">Download Lists</h1>
+    </div>
+
+    {# Search Form #}
+    <div class="mb-4">
+        <form method="get" action="{{ path('app_download_lists') }}">
+            <input
+                type="search"
+                name="q"
+                value="{{ query }}"
+                class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500"
+                placeholder="Search by list name..."
+            >
+        </form>
     </div>
 
     <div class="bg-white rounded-lg shadow-xl">
@@ -16,31 +25,94 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                 <tr>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Name</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">List Name</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Created</th>
-                    <th scope="col" class="relative px-6 py-3">
-                        <span class="sr-only">Actions</span>
-                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expires On</th>
+                    <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
                 </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                {# This would be a loop over the user's collections #}
-                {% for i in 1..3 %}
-                    <tr>
+                {% for list in lists %}
+                    {% set oneTimeLink = list.oneTimeLinks|first %}
+                    <tr data-controller="list-item">
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <a href="#" class="text-sm font-semibold text-violet-600 hover:text-violet-800">Summer 2025 Campaign</a>
+                            {# Display for the name #}
+                            <div data-list-item-target="nameDisplay">
+                                <a href="{{ path('public_download_list', {'token': list.oneTimeLinks|first.token}) }}" class="text-sm font-semibold text-violet-600 hover:text-violet-800">
+                                    {{ list.name }}
+                                </a>
+                            </div>
+                            {# Hidden form for editing #}
+                            <form action="{{ path('app_download_lists_rename', {id: list.id}) }}" method="post" data-list-item-target="nameForm" class="hidden">
+                                <input type="text" name="name" value="{{ list.name }}" class="border-gray-300 rounded-md shadow-sm text-sm">
+                                <input type="hidden" name="_token" value="{{ csrf_token('rename' ~ list.id) }}">
+                                <button type="submit" class="ml-2 text-sm text-violet-600">Save</button>
+                            </form>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12 Assets</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">August 15, 2025</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ list.assets|length }} Assets</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ list.createdAt|date('M d, Y') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 {{ oneTimeLink and oneTimeLink.expirationDate < date("now", "UTC") ? 'text-red-600' : '' }}">
+                            {% if oneTimeLink %}
+                                <div data-list-item-target="expirationDisplay">
+                                    {{ oneTimeLink.expirationDate|date('M d, Y') }}
+                                </div>
+                                {# Hidden form for editing the expiration date #}
+                                <form action="{{ path('app_download_lists_update_expiration', {id: list.id}) }}" method="post" data-list-item-target="expirationForm" class="hidden">
+                                    <input type="date" name="expirationDate"
+                                           value="{{ oneTimeLink.expirationDate|date('Y-m-d') }}"
+                                           min="{{ 'now'|date('Y-m-d') }}"
+                                           max="{{ '+30 days'|date('Y-m-d') }}"
+                                           class="border-gray-300 rounded-md shadow-sm text-sm">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('expire' ~ list.id) }}">
+                                    <button type="submit" class="ml-2 text-sm text-violet-600">Save</button>
+                                </form>
+                            {% else %}
+                                No Link
+                            {% endif %}
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                            <a href="#" class="text-indigo-600 hover:text-indigo-900">Rename</a>
-                            <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                            {% if is_granted('ROLE_FTP_DESIGNER') %}
+                                <button data-action="click->list-item#toggleEdit" class="text-indigo-600 hover:text-indigo-900">Rename</button>
+                                {% if oneTimeLink %}
+                                    <button data-action="click->list-item#toggleExpirationEdit" class="text-indigo-600 hover:text-indigo-900">Edit Exp.</button>
+                                {% endif %}
+                            {% endif %}
+                            {% if is_granted('ROLE_FTP_ADMIN') %}
+                                {# <form method="post" action="{{ path('app_download_lists_delete', {'id': list.id}) }}" onsubmit="return confirm('Are you sure?');" class="inline"> #}
+                                {#     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ list.id) }}"> #}
+                                {#     <button class="text-red-600 hover:text-red-900">Delete</button> #}
+                                {# </form> #}
+                                <form method="post" action="{{ path('app_download_lists_hide', {'id': list.id}) }}" onsubmit="return confirm('Are you sure you want to hide this list?');" class="inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('hide' ~ list.id) }}">
+                                    <button class="text-red-600 hover:text-red-900">Hide</button>
+                                </form>
+                            {% endif %}
                         </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">No named download lists found.</td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        {# Pagination Controls #}
+        {% if previous >= 0 or next < lists|length %}
+            <div class="p-4 border-t border-gray-200 flex justify-between items-center">
+                <div>
+                    {% if previous >= 0 %}
+                        <a href="{{ path('app_download_lists', app.request.query.all|merge({offset: previous})) }}" class="text-sm font-medium text-gray-600 hover:text-violet-600">&laquo; Previous</a>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if next < lists|length %}
+                        <a href="{{ path('app_download_lists', app.request.query.all|merge({offset: next})) }}" class="text-sm font-medium text-gray-600 hover:text-violet-600">Next &raquo;</a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
     </div>
 {% endblock %}
