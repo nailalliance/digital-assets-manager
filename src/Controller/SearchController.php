@@ -28,18 +28,34 @@ class SearchController extends AbstractController
         $selectedCategoryId = $request->query->get('category_id');
         $selectedCollectionId = $request->query->get('collection_id');
 
+        $page = $request->query->get('page', 1);
+        $limit = $request->query->get('limit', 20);
+
+        if (!in_array($limit, [20, 50, 100])) {
+            $limit = 20;
+        }
+
+        $offset = ($page - 1) * $limit;
+
         $assets = [];
+        $totalAssets = 0;
 
         // Prioritize keyword search over filters
         if (!empty($query)) {
-            $assets = $searchService->search($query);
+            $searchResult = $searchService->search($query, $limit, $offset);
+            $assets = $searchResult['hits'];
+            $totalAssets = $searchResult['total'];
         } else {
             // If no keyword search, use filters
-            $assets = $assetsRepository->findByFilters(
+            $searchResult = $assetsRepository->findByFilters(
                 $selectedCategoryId,
                 $selectedCollectionId,
-                $selectedBrandIds
+                $selectedBrandIds,
+                $limit,
+                $offset
             );
+            $assets = $searchResult['hits'];
+            $totalAssets = $searchResult['total'];
         }
 
         // $assets = $searchService->search($query);
@@ -82,6 +98,12 @@ class SearchController extends AbstractController
             'selectedBrandIds' => $selectedBrandIds,
             'selectedCategoryId' => $selectedCategoryId,
             'selectedCollectionId' => $selectedCollectionId,
+            'paginator' => [
+                'currentPage' => $page,
+                'limit' => $limit,
+                'totalPages' => ceil($totalAssets / $limit),
+                'totalItems' => $totalAssets,
+            ]
         ]);
     }
 }

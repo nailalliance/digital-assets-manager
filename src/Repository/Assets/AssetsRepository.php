@@ -4,6 +4,7 @@ namespace App\Repository\Assets;
 
 use App\Entity\Assets\Assets;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -22,9 +23,9 @@ class AssetsRepository extends ServiceEntityRepository
      * @param int|null $categoryId
      * @param int|null $collectionId
      * @param array|null $brandIds
-     * @return Assets[]
+     * @return array{hits: Assets[], total: int}
      */
-    public function findByFilters(?int $categoryId, ?int $collectionId, ?array $brandIds): array
+    public function findByFilters(?int $categoryId, ?int $collectionId, ?array $brandIds, int $limit, int $offset): array
     {
         $qb = $this->createQueryBuilder('a')
             // Always ensure assets are active and within their valid date ranges
@@ -52,9 +53,16 @@ class AssetsRepository extends ServiceEntityRepository
                 ->setParameter('brandIds', $brandIds);
         }
 
-        return $qb->orderBy('a.createdAt', 'DESC')
-            ->getQuery()
-            ->getResult();
+        $qb->orderBy('a.createdAt', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit);
+
+        $paginator = new Paginator($qb->getQuery(), true);
+
+        return [
+            'hits' => iterator_to_array($paginator),
+            'total' => count($paginator),
+        ];
     }
 
     // Add this method to your BrandsRepository
