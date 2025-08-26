@@ -30,7 +30,7 @@ class SearchService
         }
 
         // Pass the EntityManager as the first argument.
-        $searchResults = $this->meilisearch->search(
+        $assets = $this->meilisearch->search(
             $this->entityManager,
             Assets::class,
             $query,
@@ -40,23 +40,23 @@ class SearchService
             ]
         );
 
-        $assetIds = array_map(fn($hit) => $hit['id'], $searchResults['hits']);
+        // $assetIds = array_map(fn($hit) => $hit['id'], $searchResults['hits']);
         // $assetIds = [];
         // foreach($searchResults as $result) {
         //     $assetIds[] = $result->getId();
         // }
 
-        if (empty($assetIds)) {
+        if (empty($assets)) {
             return ['hits' => [], 'total' => 0];
         }
 
-        $assets = $this->assetsRepository->findBy(['id' => $assetIds]);
+        // $assets = $this->assetsRepository->findBy(['id' => $assetIds]);
 
-        $orderedAssets = array_replace(array_flip($assetIds), $assets);
+        // $orderedAssets = array_replace(array_flip($assetIds), $assets);
 
         return [
-            'hits' => array_values($orderedAssets),
-            'total' => $searchResults['total'],
+            'hits' => array_values($assets),
+            'total' => count($assets),
         ];
     }
 }
