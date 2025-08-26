@@ -65,6 +65,7 @@ class DownloadListController extends AbstractController
      */
     #[Route('/share', name: 'download_list_share', methods: ['POST'])]
     public function share(
+        Request $request,
         DownloadListService $downloadListService,
         EntityManagerInterface $entityManager
     ): JsonResponse {
@@ -77,12 +78,17 @@ class DownloadListController extends AbstractController
             return $this->json(['error' => 'Your download bag is empty.'], Response::HTTP_BAD_REQUEST);
         }
 
+        // Get the list name
+        $listName = $request->request->get('listName');
+
         // Create a new DownloadList entity
         $downloadList = new Lists();
         $user = $entityManager->getRepository(User::class)->find($this->getUser()->getId());
         $downloadList->setCreator($user);
-        // For now, we'll treat all shared lists as named. You can add a form field later.
-        $downloadList->setName('Shared on ' . date('Y-m-d'));
+
+        if (!empty($listName)) {
+            $downloadList->setName($listName);
+        }
 
         foreach ($assets as $asset) {
             $downloadList->addAsset($asset);
