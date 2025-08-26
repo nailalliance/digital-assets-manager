@@ -55,35 +55,41 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
             $credentials['username']
         );
 
-        $httpClientParams = [];
+        try {
+            $httpClientParams = [];
 
-        if ($this->kernel->getEnvironment() === 'dev') {
-            $httpClientParams = [
-                'verify_peer' => false,
-                'verify_host' => false,
-            ];
-        }
+            if ($this->kernel->getEnvironment() === 'dev') {
+                $httpClientParams = [
+                    'verify_peer' => false,
+                    'verify_host' => false,
+                ];
+            }
 
-        $httpClient = HttpClient::create($httpClientParams);
+            $httpClient = HttpClient::create($httpClientParams);
 
-        $myNAUserReq = $httpClient->request('POST', $_ENV['MYNAILALLIANCE_URL'] . '/remote/login', [
-            'json' => [
-                'security' => [
-                    'credentials' => [
-                        'login' => $credentials['username'],
-                        'password' => $credentials['password'],
+            $myNAUserReq = $httpClient->request('POST', $_ENV['MYNAILALLIANCE_URL'] . '/remote/login', [
+                'json' => [
+                    'security' => [
+                        'credentials' => [
+                            'login' => $credentials['username'],
+                            'password' => $credentials['password'],
+                        ]
                     ]
                 ]
-            ]
-        ]);
+            ]);
+
+            if ($myNAUserReq->getStatusCode() !== 200) {
+                throw new AuthenticationException('Incorrect username or password');
+            }
+
+            $myNAUser = $myNAUserReq->toArray();
+
+        } catch (\Exception $e) {
+            throw new AuthenticationException('Failed to validate SSO token.');
+        }
 
         $passport = new SelfValidatingPassport(
-            new UserBadge($credentials['username'], function ($identifier) use ($myNAUserReq) {
-                if ($myNAUserReq->getStatusCode() !== Response::HTTP_OK) {
-                    throw new AuthenticationException("Incorrect username or password");
-                }
-
-                $myNAUser = $myNAUserReq->toArray();
+            new UserBadge($credentials['username'], function ($identifier) use ($myNAUser) {
 
                 /** @var \App\Entity\User $userEntity */
                 $userEntity = $this->entityManager->getRepository(\App\Entity\User::class)->find($myNAUser['id']);
