@@ -34,7 +34,7 @@
                     <div class="mb-6">
                         <h3 class="font-semibold mb-2">Collections</h3>
                         <ul class="space-y-1">
-                            {% for collection in activeCollections|sort((a, b) => a.name <=> b.name) %}
+                            {% for collection in activeCollections|sort((a, b) => b.year <=> a.year) %}
                                 <li>
                                     {# Merge the new collection_id with all existing query parameters #}
                                     <a href="{{ path('app_search', app.request.query.all|merge({'collection_id': collection.id})) }}"
