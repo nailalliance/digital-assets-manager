@@ -46,8 +46,8 @@ class AssetEditController extends AbstractController
 
                 // Only process if a new thumbnail was actually uploaded
                 if ($thumbnailFile) {
-                    $targetWidth = 300;
-                    $targetHeight = 300;
+                    $targetWidth = 700;
+                    $targetHeight = 700;
 
                     // FIX: Get the base thumbnail directory from your parameters
                     $thumbnailDir = $this->getParameter('thumbnail_dir');
