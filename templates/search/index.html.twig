@@ -159,6 +159,18 @@
                                 <div class="p-3">
                                     <p class="font-semibold text-sm truncate" title="{{ asset.name }}">{{ asset.name }}</p>
                                     <p class="text-xs text-gray-500">{{ asset.itemCodes|map(item => item.code)|join(', ') }}</p>
+
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        {% for brand in asset.brand %}
+                                            <span class="bg-violet-100 text-violet-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ brand.name }}</span>
+                                        {% endfor %}
+                                        {% for category in asset.categories %}
+                                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ category.name }}</span>
+                                        {% endfor %}
+                                        {% for collection in asset.collections %}
+                                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ collection.name }}</span>
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </a>
 
