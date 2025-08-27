@@ -76,7 +76,20 @@ class AssetImporterService
                     }
                 }
 
-                $this->handleCollections($asset, $data['collection'] ?? null, $data['collection_year'] ?? null);
+                $collectionName = $data['collection'] ?? null;
+                $collectionYear = $data['collection_year'] ?? null;
+
+                // If year is null but collection name is not, try to extract it
+                if (empty($collectionYear) && !empty($collectionName)) {
+                    // This regex finds a four-digit number at the end of the string
+                    if (preg_match('/ (\d{4})$/', $collectionName, $matches)) {
+                        $collectionYear = $matches[1];
+                        // Remove the year from the original collection name
+                        $collectionName = trim(str_replace($collectionYear, '', $collectionName));
+                    }
+                }
+
+                $this->handleCollections($asset, $collectionName, $collectionYear);
 
                 $this->handleRelationships($asset, ItemCodes::class, 'itemCode', $data['itemcode'] ?? null, 'code');
                 $this->handleRelationships($asset, Brands::class, 'brand', $data['brand'] ?? null, 'name');
