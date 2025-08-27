@@ -38,7 +38,7 @@ class Assets
     #[ORM\Column(length: 255)]
     private ?string $mime_type = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::BIGINT)]
     private ?int $fileSize = null;
 
     #[ORM\Column(enumType: ColorSpaceEnum::class, options: ['default' => ColorSpaceEnum::RGB])]
