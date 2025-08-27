@@ -43,6 +43,7 @@ class SearchController extends AbstractController
         // If there's a search query, get the initial set of IDs from Meilisearch
         if (!empty($query)) {
             $searchResult = $searchService->search($query, 1000, 0); // Get a larger set of IDs
+            dd($searchResult);
             $assetIdsFromSearch = array_map(fn($hit) => $hit['id'], $searchResult['hits']);
             $totalAssets = $searchResult['total'] ?? 0;
 
