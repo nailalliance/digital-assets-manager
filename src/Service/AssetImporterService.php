@@ -82,10 +82,12 @@ class AssetImporterService
                 // If year is null but collection name is not, try to extract it
                 if (empty($collectionYear) && !empty($collectionName)) {
                     // This regex finds a four-digit number at the end of the string
-                    if (preg_match('/ (\d{4})$/', $collectionName, $matches)) {
-                        $collectionYear = $matches[1];
-                        // Remove the year from the original collection name
-                        $collectionName = trim(str_replace($collectionYear, '', $collectionName));
+                    if (preg_match('/(\d{4})/', $collectionName, $matches)) {
+                        if (intval($matches[1]) > 2008) {
+                            $collectionYear = $matches[1];
+                            // Remove the year from the original collection name
+                            $collectionName = trim(str_replace($collectionYear, '', $collectionName));
+                        }
                     }
                 }
 
