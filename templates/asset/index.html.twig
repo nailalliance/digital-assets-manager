@@ -25,7 +25,19 @@
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ asset.name }}</h1>
 
                 {# Item Code #}
-                  <p class="text-sm text-gray-500 mb-6 font-mono">{{ asset.itemCodes ? asset.itemCodes | map(item => item.code) | join(', ') }}</p>
+                <p class="text-sm text-gray-500 mb-6 font-mono">{{ asset.itemCodes ? asset.itemCodes | map(item => item.code) | join(', ') }}</p>
+
+                {# Color Space Highlight #}
+                {% if asset.colorSpace.value == 'cmyk' %}
+                    <div class="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
+                        <p class="font-bold">Print Only</p>
+                        <p>This file uses a CMYK color profile and is intended for professional printing.</p>
+                    </div>
+                {% elseif asset.colorSpace.value == 'rgb' %}
+                    <div class="mb-6 p-3 bg-gray-100 rounded-md text-sm text-gray-600">
+                        <p><span class="font-semibold">Screen/Web Use:</span> This file uses an RGB color profile.</p>
+                    </div>
+                {% endif %}
 
                 {# Action Buttons #}
                 <div class="flex items-center space-x-3 mb-8">
