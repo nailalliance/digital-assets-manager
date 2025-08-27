@@ -1,0 +1,27 @@
+{% macro format(bytes) %}
+    {% if bytes < 1024 %}
+        {{ bytes }} B
+    {% elseif bytes < 1024 * 1024 %}
+        {{ (bytes / 1024)|round(2) }} KB
+    {% elseif bytes < 1024 * 1024 * 1024 %}
+        {{ (bytes / (1024 * 1024))|round(2) }} MB
+    {% elseif bytes < 1024 * 1024 * 1024 * 1024 %}
+        {% set size = bytes / (1024 * 1024 * 1024) %}
+        {% if size > 100 %}
+            {{ size|round(0) }} GB
+        {% elseif size > 10 %}
+            {{ size|round(1) }} GB
+        {% else %}
+            {{ size|round(2) }} GB
+        {% endif %}
+    {% else %}
+        {% set size = bytes / (1024 * 1024 * 1024 * 1024) %}
+        {% if size > 100 %}
+            {{ size|round(0) }} TB
+        {% elseif size > 10 %}
+            {{ size|round(1) }} TB
+        {% else %}
+            {{ size|round(2) }} TB
+        {% endif %}
+    {% endif %}
+{% endmacro %}
