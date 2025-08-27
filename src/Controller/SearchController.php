@@ -37,25 +37,37 @@ class SearchController extends AbstractController
 
         $offset = ($page - 1) * $limit;
 
-        $assets = [];
+        $assetIdsFromSearch = null;
         $totalAssets = 0;
 
-        // Prioritize keyword search over filters
+        // If there's a search query, get the initial set of IDs from Meilisearch
         if (!empty($query)) {
-            $searchResult = $searchService->search($query, $limit, $offset);
-            $assets = $searchResult['hits'];
-            $totalAssets = $searchResult['total'];
-        } else {
-            // If no keyword search, use filters
-            $searchResult = $assetsRepository->findByFilters(
+            $searchResult = $searchService->search($query, 1000, 0); // Get a larger set of IDs
+            $assetIdsFromSearch = array_map(fn($hit) => $hit['id'], $searchResult['hits']);
+            $totalAssets = $searchResult['total'] ?? 0;
+
+            // If the search returns no results, we can stop here.
+            if (empty($assetIdsFromSearch)) {
+                $assets = [];
+            }
+        }
+
+        // Fetch the final, filtered, and paginated assets from the database
+        // If there was a search, this will apply further filters to the search results.
+        // If there was no search, this will just filter all assets.
+        if (!isset($assets)) {
+            $paginator = $assetsRepository->findByFilters(
                 $selectedCategoryId,
                 $selectedCollectionId,
                 $selectedBrandIds,
                 $limit,
-                $offset
+                $offset,
+                $assetIdsFromSearch
             );
-            $assets = $searchResult['hits'];
-            $totalAssets = $searchResult['total'];
+            $assets = iterator_to_array($paginator);
+            if (empty($query)) { // Only count from paginator if not a keyword search
+                $totalAssets = count($paginator);
+            }
         }
 
         // $assets = $searchService->search($query);

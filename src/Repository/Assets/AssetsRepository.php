@@ -25,44 +25,36 @@ class AssetsRepository extends ServiceEntityRepository
      * @param array|null $brandIds
      * @return array{hits: Assets[], total: int}
      */
-    public function findByFilters(?int $categoryId, ?int $collectionId, ?array $brandIds, int $limit, int $offset): array
+    public function findByFilters(?int $categoryId, ?int $collectionId, ?array $brandIds, int $limit, int $offset, ?array $assetIds = null): Paginator
     {
         $qb = $this->createQueryBuilder('a')
-            // Always ensure assets are active and within their valid date ranges
             ->where('a.status = :status')
             ->andWhere('a.embargoDate IS NULL OR a.embargoDate <= :now')
             ->andWhere('a.expirationDate IS NULL OR a.expirationDate >= :now')
             ->setParameter('status', 'active')
             ->setParameter('now', new \DateTimeImmutable());
 
+        // If asset IDs are provided from a search, filter by them first.
+        if (!empty($assetIds)) {
+            $qb->andWhere('a.id IN (:assetIds)')
+                ->setParameter('assetIds', $assetIds);
+        }
+
         if ($categoryId) {
-            $qb->innerJoin('a.categories', 'c')
-                ->andWhere('c.id = :categoryId')
-                ->setParameter('categoryId', $categoryId);
+            $qb->innerJoin('a.categories', 'c')->andWhere('c.id = :categoryId')->setParameter('categoryId', $categoryId);
         }
-
         if ($collectionId) {
-            $qb->innerJoin('a.collections', 'coll')
-                ->andWhere('coll.id = :collectionId')
-                ->setParameter('collectionId', $collectionId);
+            $qb->innerJoin('a.collections', 'coll')->andWhere('coll.id = :collectionId')->setParameter('collectionId', $collectionId);
         }
-
         if (!empty($brandIds)) {
-            $qb->innerJoin('a.brand', 'b')
-                ->andWhere('b.id IN (:brandIds)')
-                ->setParameter('brandIds', $brandIds);
+            $qb->innerJoin('a.brand', 'b')->andWhere('b.id IN (:brandIds)')->setParameter('brandIds', $brandIds);
         }
 
         $qb->orderBy('a.createdAt', 'DESC')
             ->setFirstResult($offset)
             ->setMaxResults($limit);
 
-        $paginator = new Paginator($qb->getQuery(), true);
-
-        return [
-            'hits' => iterator_to_array($paginator),
-            'total' => count($paginator),
-        ];
+        return new Paginator($qb->getQuery(), true);
     }
 
     // Add this method to your BrandsRepository
