@@ -1,5 +1,7 @@
 {% extends 'base.html.twig' %}
 
+{% import '_macros/file_size.html.twig' as fileSizeMacro %}
+
 {% block title %}Download Bag{% endblock %}
 
 {% block body %}
@@ -45,6 +47,7 @@
                                             </form>
                                         </div>
                                         <p class="mt-1 text-sm text-gray-500">{{ asset.itemCodes|map(item => item.code)|join(', ') }}</p>
+                                        <p class="mt-1 text-sm text-gray-500">{{ fileSizeMacro.format(asset.fileSize) }}</p>
                                     </div>
                                 </div>
                             </div>

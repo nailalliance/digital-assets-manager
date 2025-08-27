@@ -1,5 +1,7 @@
 {% extends 'base.html.twig' %}
 
+{% import '_macros/file_size.html.twig' as fileSizeMacro %}
+
 {# The title will dynamically show the asset's name #}
 {% block title %}{{ asset.name }} | {{ parent() }}{% endblock %}
 
@@ -75,7 +77,8 @@
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-sm font-medium text-gray-600">File Size</dt>
-                            <dd class="text-sm text-gray-800">{{ (asset.fileSize / 1024)|round(2) }} KB</dd>
+                            <dd class="text-sm text-gray-800">{{ fileSizeMacro.format(asset.fileSize) }}</dd>
+                            {# <dd class="text-sm text-gray-800">{{ (asset.fileSize / 1024)|round(2) }} KB</dd> #}
                         </div>
                         {% if asset.embargoDate %}
                             <div class="flex justify-between">
