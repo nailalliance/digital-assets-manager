@@ -29,10 +29,10 @@ class SearchController extends AbstractController
         $selectedCollectionId = $request->query->get('collection_id');
 
         $page = $request->query->get('page', 1);
-        $limit = $request->query->get('limit', 20);
+        $limit = $request->query->get('limit', 50);
 
         if (!in_array($limit, [20, 50, 100])) {
-            $limit = 20;
+            $limit = 50;
         }
 
         $offset = ($page - 1) * $limit;
