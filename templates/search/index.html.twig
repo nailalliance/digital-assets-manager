@@ -39,7 +39,7 @@
                                     {# Merge the new collection_id with all existing query parameters #}
                                     <a href="{{ path('app_search', app.request.query.all|merge({'collection_id': collection.id})) }}"
                                        class="{{ collection.id == selectedCollectionId ? 'text-violet-600 font-bold' : 'text-gray-700 hover:text-violet-600' }}">
-                                        {{ collection.name }} ({{ collection.year }})
+                                        ({{ collection.year }}) {{ collection.name }}
                                     </a>
                                 </li>
                             {% endfor %}
