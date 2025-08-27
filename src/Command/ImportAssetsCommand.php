@@ -79,8 +79,6 @@ class ImportAssetsCommand extends Command
             $io->progressFinish();
             $io->success('Asset import completed successfully.');
 
-        } catch (IOException $e) {
-            $io->error($e->getMessage());
         } catch (\Exception $e) {
             dd("Exception", $e);
             $io->error('An error occurred during the import process: ' . $e->getMessage());

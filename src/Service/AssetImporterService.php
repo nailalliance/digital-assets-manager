@@ -108,6 +108,10 @@ class AssetImporterService
 
                 $createdAssetIds[] = $asset->getId();
 
+            } catch (IOException $e) {
+                $this->entityManager->getConnection()->rollback();
+
+                dump($e->getMessage());
             } catch (\Throwable $e) {
                 // If any error occurs, roll back the transaction
                 $this->entityManager->getConnection()->rollBack();
