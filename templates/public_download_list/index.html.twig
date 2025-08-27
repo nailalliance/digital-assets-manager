@@ -54,7 +54,8 @@
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 {% if is_granted('IS_AUTHENTICATED_FULLY') and asset.thumbnailPath %}
-                                    <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-20 h-20 rounded-md object-cover bg-gray-200">
+                                    <img src="{{ path('public_asset_thumbnail', {token: oneTimeLink.token, asset_id: asset.id}) }}" alt="{{ asset.name }}" class="w-20 h-20 rounded-md object-cover bg-gray-200">
+                                    {# <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-20 h-20 rounded-md object-cover bg-gray-200"> #}
                                 {% else %}
                                     <div class="w-20 h-20 rounded-md bg-gray-200 flex items-center justify-center">
                                         <svg class="h-10 w-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
