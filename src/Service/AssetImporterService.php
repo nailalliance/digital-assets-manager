@@ -76,10 +76,11 @@ class AssetImporterService
                     }
                 }
 
+                $this->handleCollections($asset, $data['collection'] ?? null, $data['collection_year'] ?? null);
+
                 $this->handleRelationships($asset, ItemCodes::class, 'itemCode', $data['itemcode'] ?? null, 'code');
                 $this->handleRelationships($asset, Brands::class, 'brand', $data['brand'] ?? null, 'name');
                 $this->handleRelationships($asset, Categories::class, 'category', $data['category'] ?? null, 'name');
-                $this->handleRelationships($asset, Collections::class, 'collection', $data['collection'] ?? null, 'name');
                 $this->handleRelationships($asset, Tags::class, 'tag', $data['tag'] ?? null, 'name');
 
                 $this->entityManager->persist($asset);
@@ -185,6 +186,31 @@ class AssetImporterService
             // Could not copy the file
             return null;
         }
+    }
+
+    private function handleCollections(Assets $asset, ?string $collectionName, ?string $collectionYear): void
+    {
+        if (empty($collectionName)) {
+            return;
+        }
+
+        $repository = $this->entityManager->getRepository(Collections::class);
+
+        // Find an existing collection by both name and year
+        $collection = $repository->findOneBy([
+            'name' => $collectionName,
+            'year' => $collectionYear
+        ]);
+
+        // If it doesn't exist, create a new one
+        if (!$collection) {
+            $collection = new Collections();
+            $collection->setName($collectionName);
+            $collection->setYear((int)$collectionYear); // Cast year to integer
+            $this->entityManager->persist($collection);
+        }
+
+        $asset->addCollection($collection);
     }
 
     private function handleRelationships(Assets $asset, string $entityClass, string $property, ?string $commaSeparatedValues, string $searchField): void
