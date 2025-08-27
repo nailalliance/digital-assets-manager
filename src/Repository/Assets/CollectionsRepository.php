@@ -2,6 +2,7 @@
 
 namespace App\Repository\Assets;
 
+use App\Entity\Assets\Brands;
 use App\Entity\Assets\Collections;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -27,6 +28,25 @@ class CollectionsRepository extends ServiceEntityRepository
             ->setParameter('status', 'active')
             ->orderBy('c.year', 'DESC')
             ->addOrderBy('c.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return Collections[]
+     */
+    public function findActiveByParentBrand(Brands $brand): array
+    {
+        return $this->createQueryBuilder('c')
+            ->innerJoin('c.assets', 'a')
+            ->innerJoin('a.brand', 'b')
+            ->where('b.brands = :parentBrand')
+            ->andWhere('a.status = :status')
+            ->setParameter('parentBrand', $brand)
+            ->setParameter('status', 'active')
+            ->distinct()
+            ->orderBy('c.year', 'DESC')
+            ->addOrderBy('c.name', 'ASC')
             ->getQuery()
             ->getResult();
     }

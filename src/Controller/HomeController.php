@@ -2,11 +2,13 @@
 
 namespace App\Controller;
 
+use App\Entity\Assets\Brands;
 use App\Repository\Assets\AssetsRepository;
 use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\CategoriesRepository;
 use App\Repository\Assets\CollectionsRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -50,6 +52,30 @@ final class HomeController extends AbstractController
             'collections' => $collectionsRepository->findWithActiveAssets(),
             'parentBrands' => $parentsWithChildren,
             'childBrands' => $brandFilters['children'],
+        ]);
+    }
+
+    #[Route('/filters/categories-for-brand/{id}', name: 'app_filters_get_categories_for_brand')]
+    public function getCategoriesForBrand(
+        Brands $brand,
+        CategoriesRepository $categoriesRepository
+    ): JsonResponse {
+        $categories = $categoriesRepository->findActiveByParentBrand($brand);
+
+        return new JsonResponse([
+            'content' => $this->renderView('home/_category_list.html.twig', ['categories' => $categories])
+        ]);
+    }
+
+    #[Route('/filters/collections-for-brand/{id}', name: 'app_filters_get_collections_for_brand')]
+    public function getCollectionsForBrand(
+        Brands $brand,
+        CollectionsRepository $collectionsRepository
+    ): JsonResponse {
+        $collections = $collectionsRepository->findActiveByParentBrand($brand);
+
+        return new JsonResponse([
+            'content' => $this->renderView('home/_collection_list.html.twig', ['collections' => $collections])
         ]);
     }
 }

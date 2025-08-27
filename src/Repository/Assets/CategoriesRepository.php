@@ -2,6 +2,7 @@
 
 namespace App\Repository\Assets;
 
+use App\Entity\Assets\Brands;
 use App\Entity\Assets\Categories;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -25,6 +26,24 @@ class CategoriesRepository extends ServiceEntityRepository
             ->innerJoin('c.assets', 'a')
             ->where('a.status = :status')
             ->setParameter('status', 'active')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return Categories[]
+     */
+    public function findActiveByParentBrand(Brands $brand): array
+    {
+        return $this->createQueryBuilder('c')
+            ->innerJoin('c.assets', 'a')
+            ->innerJoin('a.brand', 'b')
+            ->where('b.brands = :parentBrand') // Filter by the parent brand
+            ->andWhere('a.status = :status')
+            ->setParameter('parentBrand', $brand)
+            ->setParameter('status', 'active')
+            ->distinct()
+            ->orderBy('c.name', 'ASC')
             ->getQuery()
             ->getResult();
     }

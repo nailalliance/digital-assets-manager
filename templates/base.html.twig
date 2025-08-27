@@ -16,7 +16,7 @@
     <header class="bg-white shadow-md">
         <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
             <div class="flex items-center">
-                <a href="{{ path('home') }}">
+                <a href="{{ path('home') }}" data-turbo="false">
                     <img src="{{ asset('images/Nailalliancelogo-Updated-bk.png') }}"
                          alt="Nail Alliance"
                          style="max-width: 100px">
@@ -28,7 +28,7 @@
             </div>
             {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
                 <div class="hidden md:flex items-center space-x-6">
-                    <a href="{{ path('home') }}" class="text-gray-600 hover:text-violet-600">Browse</a>
+                    <a href="{{ path('home') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Browse</a>
                     <a href="{{ path('download_list_index') }}" data-turbo="false" class="relative text-gray-600 hover:text-violet-600">
                         Download Bag
                         {% set count = download_list_count() %}
