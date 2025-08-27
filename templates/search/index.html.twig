@@ -148,7 +148,7 @@
                     {% for asset in assets %}
                         <div class="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col">
                             {# The main link now points to the asset detail page #}
-                            <a href="{{ path('app_asset', {id: asset.id}) }}" class="block">
+                            <a href="{{ path('app_asset', {id: asset.id}) }}" class="block relative">
                                 <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
                                     {% if asset.thumbnailPath is not null and asset.thumbnailPath is not empty %}
                                         <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-full h-full object-cover">
