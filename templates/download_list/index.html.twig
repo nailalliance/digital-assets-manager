@@ -48,6 +48,7 @@
                                         </div>
                                         <p class="mt-1 text-sm text-gray-500">{{ asset.itemCodes|map(item => item.code)|join(', ') }}</p>
                                         <p class="mt-1 text-sm text-gray-500">{{ fileSizeMacro.format(asset.fileSize) }}</p>
+                                        <p class="mt-1 text-sm text-gray-500">{{ asset.mimeType }}</p>
                                     </div>
                                 </div>
                             </div>

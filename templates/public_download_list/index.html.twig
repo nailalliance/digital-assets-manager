@@ -75,6 +75,7 @@
                                 <p class="font-medium text-gray-800">{{ asset.name }}</p>
                                 <p class="text-sm text-gray-500">{{ asset.itemCodes|map(item => item.code)|join(', ') }}</p>
                                 <p class="text-sm text-gray-500">{{ fileSizeMacro.format(asset.fileSize) }}</p>
+                                <p class="text-sm text-gray-500">{{ asset.mimeType }}</p>
                             </div>
                             <div class="ml-4">
                                 {% if is_granted('IS_AUTHENTICATED_FULLY') %}
