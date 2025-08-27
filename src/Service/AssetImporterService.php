@@ -123,7 +123,7 @@ class AssetImporterService
     private function processAssetFile(string $sourcePath): array
     {
         if (!$this->filesystem->exists($sourcePath)) {
-            throw new \Exception("Source file does not exist: {$sourcePath}");
+            throw new IOException("Source file does not exist: {$sourcePath}");
         }
 
         $originalFilename = basename($sourcePath);

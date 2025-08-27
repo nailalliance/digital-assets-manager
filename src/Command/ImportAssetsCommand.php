@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Filesystem\Exception\IOException;
 
 #[AsCommand(
     name: 'app:import-assets',
@@ -78,6 +79,8 @@ class ImportAssetsCommand extends Command
             $io->progressFinish();
             $io->success('Asset import completed successfully.');
 
+        } catch (IOException $e) {
+            $io->error($e->getMessage());
         } catch (\Exception $e) {
             $io->error('An error occurred during the import process: ' . $e->getMessage());
             return Command::FAILURE;
