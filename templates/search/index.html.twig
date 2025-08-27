@@ -119,28 +119,41 @@
                         Browse Assets
                     {% endif %}
                 </h1>
-                {# Results Per Page Selector #}
-                <form method="get" action="{{ path('app_search') }}" class="flex items-center space-x-2 text-sm">
-                    {# Hidden inputs to preserve all current filters #}
-                    {% for key, value in app.request.query.all %}
-                        {% if key != 'limit' and key != 'page' %}
-                            {% if value is iterable %}
-                                {% for item in value %}
-                                    <input type="hidden" name="{{ key }}[]" value="{{ item }}">
-                                {% endfor %}
-                            {% else %}
-                                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                <div class="flex items-center space-x-4">
+                    {# "Add All to Bag" Button #}
+                    {% if assets is not empty %}
+                        <form method="post" action="{{ path('download_list_add_multiple') }}"
+                              data-controller="add-all-to-bag" data-action="submit->add-all-to-bag#addAll">
+                            <input type="hidden" name="asset_ids" data-add-all-to-bag-target="idsInput">
+                            <button type="submit" class="text-sm font-medium text-violet-600 hover:text-violet-800">Add
+                                All to Bag
+                            </button>
+                        </form>
+                    {% endif %}
+                    {# Results Per Page Selector #}
+                    <form method="get" action="{{ path('app_search') }}" class="flex items-center space-x-2 text-sm">
+                        {# Hidden inputs to preserve all current filters #}
+                        {% for key, value in app.request.query.all %}
+                            {% if key != 'limit' and key != 'page' %}
+                                {% if value is iterable %}
+                                    {% for item in value %}
+                                        <input type="hidden" name="{{ key }}[]" value="{{ item }}">
+                                    {% endfor %}
+                                {% else %}
+                                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                                {% endif %}
                             {% endif %}
-                        {% endif %}
-                    {% endfor %}
-                    <label for="limit-selector">Show:</label>
-                    <select name="limit" id="limit-selector" onchange="this.form.submit()" class="border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500 text-sm">
-                        <option value="20" {{ paginator.limit == 20 ? 'selected' : '' }}>20</option>
-                        <option value="50" {{ paginator.limit == 50 ? 'selected' : '' }}>50</option>
-                        <option value="100" {{ paginator.limit == 100 ? 'selected' : '' }}>100</option>
-                    </select>
-                    <span class="text-gray-600">of {{ paginator.totalItems }} items</span>
-                </form>
+                        {% endfor %}
+                        <label for="limit-selector">Show:</label>
+                        <select name="limit" id="limit-selector" onchange="this.form.submit()"
+                                class="border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500 text-sm">
+                            <option value="20" {{ paginator.limit == 20 ? 'selected' : '' }}>20</option>
+                            <option value="50" {{ paginator.limit == 50 ? 'selected' : '' }}>50</option>
+                            <option value="100" {{ paginator.limit == 100 ? 'selected' : '' }}>100</option>
+                        </select>
+                        <span class="text-gray-600">of {{ paginator.totalItems }} items</span>
+                    </form>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

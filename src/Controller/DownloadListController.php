@@ -155,4 +155,24 @@ class DownloadListController extends AbstractController
 
         return $response;
     }
+
+    #[Route('/add-multiple', name: 'download_list_add_multiple', methods: ['POST'])]
+    public function addMultiple(Request $request, DownloadListService $downloadListService): Response
+    {
+        $assetIdsString = $request->request->get('asset_ids', '');
+        $assetIds = array_filter(explode(',', $assetIdsString));
+
+        if (empty($assetIds)) {
+            $this->addFlash('warning', 'No assets were selected to add.');
+            return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
+        }
+
+        foreach ($assetIds as $id) {
+            $downloadListService->add((int) $id);
+        }
+
+        $this->addFlash('success', sprintf('%d assets have been added to your download bag.', count($assetIds)));
+
+        return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
+    }
 }
