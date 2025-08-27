@@ -2,11 +2,13 @@
 
 namespace App\Controller;
 
+use App\Entity\Assets\Assets;
 use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -94,5 +96,36 @@ class PublicDownloadListController extends AbstractController
         });
 
         return $response;
+    }
+
+    /**
+     * Securely serves a thumbnail for a public download list.
+     */
+    #[Route('/share/{token}/thumbnail/{asset_id}', name: 'public_asset_thumbnail')]
+    public function publicThumbnail(
+        #[MapEntity(mapping: ['token' => 'token'])]
+        OneTimeLinks $oneTimeLink,
+        #[MapEntity(id: 'asset_id')]
+        Assets $asset
+    ): BinaryFileResponse {
+        // 1. Check if the main link has expired
+        if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
+            throw $this->createNotFoundException('This link has expired.');
+        }
+
+        // 2. CRITICAL SECURITY CHECK: Ensure the requested asset is actually in this share list
+        $downloadList = $oneTimeLink->getDownloadList();
+        if (!$downloadList || !$downloadList->getAssets()->contains($asset)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        // 3. Check if the thumbnail file exists
+        $thumbnailPath = $asset->getThumbnailPath();
+        if (!$thumbnailPath || !file_exists($thumbnailPath)) {
+            throw $this->createNotFoundException('Thumbnail not found.');
+        }
+
+        // 4. Securely serve the file
+        return new BinaryFileResponse($thumbnailPath);
     }
 }
