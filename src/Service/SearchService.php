@@ -39,6 +39,7 @@ class SearchService
                 'offset' => $offset,
             ]
         );
+        dd($assets);
 
         // $assetIds = array_map(fn($hit) => $hit['id'], $searchResults['hits']);
         // $assetIds = [];
