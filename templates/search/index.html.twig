@@ -159,7 +159,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {% if assets is not empty %}
                     {% for asset in assets %}
-                        <div class="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col">
+                        <div class="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col" data-asset-id="{{ asset.id }}">
                             {# The main link now points to the asset detail page #}
                             <a href="{{ path('app_asset', {id: asset.id}) }}" class="block relative">
                                 <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
