@@ -40,6 +40,7 @@ security:
     access_control:
         - {path: ^/login, roles: PUBLIC_ACCESS }
         - {path: ^/share, roles: PUBLIC_ACCESS }
+        - {path: ^/legal, roles: PUBLIC_ACCESS }
         - {path: ^/admin/direct-share, roles: ROLE_FTP_DESIGNER }
         - {path: ^/admin, roles: ROLE_FTP_ADMIN }
         - {path: ^/assets/\d+/edit, roles: ROLE_FTP_ADMIN }
