@@ -16,12 +16,9 @@
         <aside class="w-full md:w-1/4 lg:w-1/5">
             <h2 class="text-xl font-bold mb-4">Refine Results</h2>
 
-            {# Connect the form to the Stimulus controller #}
             <form name="filters" method="get" action="{{ path('app_search') }}" data-controller="filter">
-                {# Hidden input to persist the original search query 'q' #}
                 <input type="hidden" name="q" value="{{ query }}">
 
-                {# Add hidden inputs to preserve other filters when this form is submitted #}
                 {% if selectedCollectionId %}
                     <input type="hidden" name="collection_id" value="{{ selectedCollectionId }}">
                 {% endif %}
@@ -32,11 +29,15 @@
                 {# Collections Filter #}
                 {% if activeCollections is not empty %}
                     <div class="mb-6">
-                        <h3 class="font-semibold mb-2">Collections</h3>
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-semibold">Collections</h3>
+                            {% if selectedCollectionId %}
+                                <a href="{{ path('app_search', app.request.query.all|merge({'collection_id': null})) }}" class="text-xs text-gray-500 hover:text-violet-600">Clear</a>
+                            {% endif %}
+                        </div>
                         <ul class="space-y-1">
-                            {% for collection in activeCollections|sort((a, b) => b.year <=> a.year) %}
+                            {% for collection in activeCollections|sort((a, b) => a.name <=> b.name) %}
                                 <li>
-                                    {# Merge the new collection_id with all existing query parameters #}
                                     <a href="{{ path('app_search', app.request.query.all|merge({'collection_id': collection.id})) }}"
                                        class="{{ collection.id == selectedCollectionId ? 'text-violet-600 font-bold' : 'text-gray-700 hover:text-violet-600' }}">
                                         ({{ collection.year }}) {{ collection.name }}
@@ -50,11 +51,15 @@
                 {# Categories Filter #}
                 {% if activeCategories is not empty %}
                     <div class="mb-6 pt-6 border-t border-gray-200">
-                        <h3 class="font-semibold mb-2">Categories</h3>
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-semibold">Categories</h3>
+                            {% if selectedCategoryId %}
+                                <a href="{{ path('app_search', app.request.query.all|merge({'category_id': null})) }}" class="text-xs text-gray-500 hover:text-violet-600">Clear</a>
+                            {% endif %}
+                        </div>
                         <ul class="space-y-1">
                             {% for category in activeCategories|sort((a, b) => a.name <=> b.name) %}
                                 <li>
-                                    {# Merge the new category_id with all existing query parameters #}
                                     <a href="{{ path('app_search', app.request.query.all|merge({'category_id': category.id})) }}"
                                        class="{{ category.id == selectedCategoryId ? 'text-violet-600 font-bold' : 'text-gray-700 hover:text-violet-600' }}">
                                         {{ category.name }}
@@ -65,25 +70,22 @@
                     </div>
                 {% endif %}
 
-                {# Brands Filter - Hierarchical and dynamic #}
+                {# Brands Filter #}
                 {% if brandFilters.parents is not empty %}
                     <div class="mb-6 pt-6 border-t border-gray-200">
                         <h3 class="font-semibold mb-2">Brands</h3>
                         <div class="space-y-2">
                             {% for parent in brandFilters.parents|sort((a, b) => a.name <=> b.name) %}
                                 <div>
-                                    {# Parent Brand Checkbox #}
                                     <label class="flex items-center font-medium">
-                                        <input type="checkbox" name="brand_ids[]" value="{{ parent.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2">
+                                        <input type="checkbox" name="brand_ids[]" value="{{ parent.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" {{ parent.id in selectedBrandIds ? 'checked' : '' }}>
                                         {{ parent.name }}
                                     </label>
-
-                                    {# Always-visible container for sub-brands #}
                                     {% if brandFilters.children[parent.id] is defined %}
-                                        <div class="sub-brands pl-6 mt-2 space-y-2"> {# The 'hidden' class is removed #}
+                                        <div class="sub-brands pl-6 mt-2 space-y-2">
                                             {% for child in brandFilters.children[parent.id]|sort((a, b) => a.name <=> b.name) %}
                                                 <label class="flex items-center">
-                                                    <input type="checkbox" name="brand_ids[]" value="{{ child.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2">
+                                                    <input type="checkbox" name="brand_ids[]" value="{{ child.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" {{ child.id in selectedBrandIds ? 'checked' : '' }}>
                                                     {{ child.name }}
                                                 </label>
                                             {% endfor %}
@@ -95,10 +97,13 @@
                     </div>
                 {% endif %}
 
-                <div class="pt-6 border-t border-gray-200">
+                <div class="pt-6 border-t border-gray-200 space-y-3">
                     <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                        Apply Filters
+                        Apply Brand Filters
                     </button>
+                    <a href="{{ path('app_search', {q: query}) }}" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        Clear All Filters
+                    </a>
                 </div>
             </form>
         </aside>
