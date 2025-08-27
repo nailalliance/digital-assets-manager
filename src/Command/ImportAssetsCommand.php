@@ -80,7 +80,6 @@ class ImportAssetsCommand extends Command
             $io->success('Asset import completed successfully.');
 
         } catch (IOException $e) {
-            dd("IO", $e);
             $io->error($e->getMessage());
         } catch (\Exception $e) {
             dd("Exception", $e);
