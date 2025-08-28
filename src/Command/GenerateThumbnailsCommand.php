@@ -22,7 +22,7 @@ class GenerateThumbnailsCommand extends Command
     public function __construct(
         private readonly AssetsRepository $assetsRepository,
         private readonly EntityManagerInterface $entityManager,
-        private readonly ParameterBag\ParameterBagInterface $params,
+        private readonly ParameterBagInterface $params,
         private readonly Filesystem $filesystem
     ) {
         parent::__construct();
