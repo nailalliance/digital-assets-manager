@@ -92,11 +92,12 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
             new UserBadge($credentials['username'], function ($identifier) use ($myNAUser) {
 
                 /** @var \App\Entity\User $userEntity */
-                $userEntity = $this->entityManager->getRepository(\App\Entity\User::class)->find($myNAUser['id']);
+                $userEntity = $this->entityManager->getRepository(\App\Entity\User::class)
+                    ->findOneBy(['myNailAllianceId' => $myNAUser['id']]);
 
                 if (empty($userEntity)) {
                     $userEntity = new \App\Entity\User();
-                    $userEntity->setId($myNAUser['id']);
+                    $userEntity->setMyNailAllianceId($myNAUser['id']);
                 }
 
                 $userEntity->setUsername($identifier)

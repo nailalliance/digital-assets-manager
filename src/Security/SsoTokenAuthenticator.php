@@ -82,19 +82,20 @@ class SsoTokenAuthenticator extends AbstractAuthenticator
             new UserBadge($userData['user'], function ($userIdentifier) use ($userData) {
                 // 1. Try to find the user in Project 1's database by email
                 /** @var \App\Entity\User $userEntity */
-                $userEntity = $this->entityManager->getRepository(\App\Entity\User::class)->find($userData['id']);
+                $userEntity = $this->entityManager->getRepository(\App\Entity\User::class)
+                    ->findOneBy(['myNailAllianceId' => $userData['id']]);
 
                 if (empty($userEntity)) {
                     $userEntity = new \App\Entity\User();
-                    $userEntity->setId($userData['id']);
+                    $userEntity->setMyNailAllianceId($userData['id']);
                 }
 
-                dd($userEntity);
 
                 $userEntity->setUsername($userIdentifier)
                     ->setRoles($userData['roles'])
                     ->setName($userData['name'])
                 ;
+
                 $this->entityManager->persist($userEntity);
                 $this->entityManager->flush();
 

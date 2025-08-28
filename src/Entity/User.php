@@ -7,6 +7,7 @@ use App\Entity\Restrictions\Groups;
 use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -17,6 +18,9 @@ class User implements UserInterface
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
+
+    #[ORM\Column(type: Types::INTEGER, unique: true)]
+    private ?int $myNailAllianceId = null;
 
     #[ORM\Column(length: 255)]
     private ?string $username = null;
@@ -53,6 +57,17 @@ class User implements UserInterface
     public function setId(int $id): self
     {
         $this->id = $id;
+        return $this;
+    }
+
+    public function getMyNailAllianceId(): ?int
+    {
+        return $this->myNailAllianceId;
+    }
+
+    public function setMyNailAllianceId(?int $myNailAllianceId): User
+    {
+        $this->myNailAllianceId = $myNailAllianceId;
         return $this;
     }
 
