@@ -24,10 +24,15 @@
                     <div class="mb-6">
                         <h3 class="font-semibold mb-2">Collections</h3>
                         <div class="space-y-2">
+                            {% set year = -1 %}
                             {% for collection in activeCollections|sort((a, b) => b.year <=> a.year) %}
+                                {% if year != collection.year %}
+                                    <h4>{{ collection.year }}</h4>
+                                    {% set year = collection.year %}
+                                {% endif %}
                                 <label class="flex items-center">
                                     <input type="checkbox" name="collection_ids[]" value="{{ collection.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" {{ collection.id in selectedCollectionIds ? 'checked' : '' }}>
-                                    ({{ collection.year }}) {{ collection.name }}
+                                    {{ collection.name }}
                                 </label>
                             {% endfor %}
                         </div>
