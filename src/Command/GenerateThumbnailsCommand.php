@@ -109,12 +109,13 @@ class GenerateThumbnailsCommand extends Command
 
                 // --- Add the text legend ---
                 $draw = new \ImagickDraw();
-                $draw->setFont('Bookman-Demi'); // A common serif font
+                $draw->setFont('Helvetica');
+                // $draw->setFont('Bookman-Demi');
                 $draw->setFontSize(12);
                 $draw->setFillColor(new \ImagickPixel('#999999'));
                 $draw->setGravity(\Imagick::GRAVITY_SOUTHEAST); // Position in the bottom-right
 
-                $legendText = "Color in thumbnail is an approximation.\nDo not use this thumbnail in production";
+                $legendText = "Preview.\nColor is an approximation.\nDo not use this thumbnail in production.";
 
                 // Annotate the canvas with the text, with 5px padding from the corner
                 $canvas->annotateImage($draw, 5, 5, 0, $legendText);
