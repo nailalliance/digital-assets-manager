@@ -22,7 +22,7 @@ class GenerateThumbnailsCommand extends Command
     public function __construct(
         private readonly AssetsRepository $assetsRepository,
         private readonly EntityManagerInterface $entityManager,
-        private readonly ParameterBagInterface $params,
+        private readonly ParameterBag\ParameterBagInterface $params,
         private readonly Filesystem $filesystem
     ) {
         parent::__construct();
@@ -81,9 +81,8 @@ class GenerateThumbnailsCommand extends Command
                 $targetWidth = 700;
                 $targetHeight = 700;
                 $thumbnailDir = $this->params->get('thumbnail_dir');
-                $safeFilename = basename($sourcePath); // Assumes filename is already sanitized
+                $safeFilename = basename($sourcePath);
 
-                // Create the subdirectory structure
                 $firstLetter = strtolower(mb_substr($safeFilename, 0, 1));
                 $secondLetter = strtolower(mb_substr($safeFilename, 1, 1));
                 $finalDir = sprintf('%s/%s/%s', $thumbnailDir, $firstLetter, $secondLetter);
@@ -94,7 +93,6 @@ class GenerateThumbnailsCommand extends Command
 
                 $image = new \Imagick($sourcePath);
 
-                // Check if the image is CMYK and convert it to sRGB if necessary
                 if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
                     $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
                 }
@@ -108,6 +106,20 @@ class GenerateThumbnailsCommand extends Command
                 $y = ($targetHeight - $image->getImageHeight()) / 2;
 
                 $canvas->compositeImage($image, \Imagick::COMPOSITE_OVER, $x, $y);
+
+                // --- Add the text legend ---
+                $draw = new \ImagickDraw();
+                $draw->setFont('Bookman-Demi'); // A common serif font
+                $draw->setFontSize(12);
+                $draw->setFillColor(new \ImagickPixel('#999999'));
+                $draw->setGravity(\Imagick::GRAVITY_SOUTHEAST); // Position in the bottom-right
+
+                $legendText = "Color in thumbnail is an approximation.\nDo not use this thumbnail in production";
+
+                // Annotate the canvas with the text, with 5px padding from the corner
+                $canvas->annotateImage($draw, 5, 5, 0, $legendText);
+                // --- End of text legend ---
+
                 $canvas->writeImage($thumbnailPath);
 
                 $asset->setThumbnailPath($thumbnailPath);
