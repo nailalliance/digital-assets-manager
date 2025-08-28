@@ -47,7 +47,7 @@
                     {% if is_granted('ROLE_FTP_DESIGNER') %}
                         <a href="{{ url('admin_direct_share_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Direct Share</a>
                     {% endif %}
-                    {% if is_granted('ROLE_ADMIN') %}
+                    {% if is_granted('ROLE_FTP_ADMIN') %}
                         <a href="{{ url('app_asset_upload') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Upload File</a>
                         <a href="{{ url('admin_brands_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Brands</a>
                         <a href="{{ url('admin_categories_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Categories</a>
