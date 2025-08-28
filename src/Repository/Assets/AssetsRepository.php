@@ -70,6 +70,24 @@ class AssetsRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function findRecentByBrandFamily(array $brandIds, int $limit): array
+    {
+        if (empty($brandIds)) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('a')
+            ->innerJoin('a.brand', 'b')
+            ->where('b.id IN (:brandIds)')
+            ->andWhere('a.status = :status')
+            ->setParameter('brandIds', $brandIds)
+            ->setParameter('status', 'active')
+            ->orderBy('a.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
     //    /**
     //     * @return Assets[] Returns an array of Assets objects
     //     */

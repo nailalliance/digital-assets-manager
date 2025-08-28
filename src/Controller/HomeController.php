@@ -16,42 +16,45 @@ final class HomeController extends AbstractController
 {
     #[Route('/home', name: 'app_home')]
     #[Route('/', name: 'home')]
-    public function index(
-        AssetsRepository $assetsRepository,
-        BrandsRepository $brandsRepository,
-        CategoriesRepository $categoriesRepository,
-        CollectionsRepository $collectionsRepository
-    ): Response
+    public function index(BrandsRepository $brandsRepository): Response
     {
-        // --- Start of New Logic ---
-
-        // Fetch all brands that have at least one active asset
-        $activeBrands = $brandsRepository->findWithActiveAssets();
-
-        // Structure brands into a parent/child hierarchy
-        $brandFilters = ['parents' => [], 'children' => []];
-        foreach ($activeBrands as $brand) {
-            if ($brand->getBrands() === null) { // This is a potential parent brand
-                $brandFilters['parents'][$brand->getId()] = $brand;
-            } else { // This is a child brand
-                $parent = $brand->getBrands();
-                $brandFilters['parents'][$parent->getId()] = $parent; // Ensure parent is in the list
-                $brandFilters['children'][$parent->getId()][] = $brand;
-            }
-        }
-
-        // Filter out parent brands that have no children
-        $parentsWithChildren = array_filter(
-            $brandFilters['parents'],
-            fn($brand) => isset($brandFilters['children'][$brand->getId()])
-        );
+        // Fetch only parent brands for the filter buttons
+        $parentBrands = $brandsRepository->findBy(['brands' => null]);
 
         return $this->render('home/index.html.twig', [
-            'recentAssets' => $assetsRepository->findBy(['status' => 'active'], ['createdAt' => 'DESC'], 12),
-            'categories' => $categoriesRepository->findWithActiveAssets(),
-            'collections' => $collectionsRepository->findWithActiveAssets(),
-            'parentBrands' => $parentsWithChildren,
-            'childBrands' => $brandFilters['children'],
+            'parentBrands' => $parentBrands,
+        ]);
+    }
+
+    /**
+     * This action is called via AJAX to fetch all content related to a parent brand.
+     */
+    #[Route('/home/brand-content/{id}', name: 'home_brand_content')]
+    public function getBrandContent(
+        Brands $brand,
+        BrandsRepository $brandsRepository,
+        AssetsRepository $assetsRepository,
+        CategoriesRepository $categoriesRepository,
+        CollectionsRepository $collectionsRepository
+    ): JsonResponse {
+        // Fetch all child brand IDs, including the parent's ID
+        /** @var Brands[] $children */
+        $children = $brandsRepository->findBy(['brands' => $brand->getId()]);
+
+        // $brandIds = $children->map(fn($child) => $child->getId())->toArray();
+        $brandIds = array_map(fn($child) => $child->getId(), $children);
+        $brandIds[] = $brand->getId();
+
+        // Fetch the data filtered by the brand family
+        $recentAssets = $assetsRepository->findRecentByBrandFamily($brandIds, 12);
+        $collections = $collectionsRepository->findActiveByBrandFamily($brandIds);
+        $categories = $categoriesRepository->findActiveByBrandFamily($brandIds);
+
+        // Render the partial templates and return them as JSON
+        return $this->json([
+            'recentAssets' => $this->renderView('home/_recent_assets.html.twig', ['recentAssets' => $recentAssets]),
+            'collections' => $this->renderView('home/_collections_grid.html.twig', ['collections' => $collections]),
+            'categories' => $this->renderView('home/_categories_grid.html.twig', ['categories' => $categories]),
         ]);
     }
 

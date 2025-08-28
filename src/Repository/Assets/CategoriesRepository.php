@@ -48,6 +48,32 @@ class CategoriesRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Finds all categories that are associated with active assets
+     * belonging to a specific family of brands.
+     *
+     * @param array $brandIds
+     * @return Categories[]
+     */
+    public function findActiveByBrandFamily(array $brandIds): array
+    {
+        if (empty($brandIds)) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('c')
+            ->innerJoin('c.assets', 'a')
+            ->innerJoin('a.brand', 'b')
+            ->where('b.id IN (:brandIds)')
+            ->andWhere('a.status = :status')
+            ->setParameter('brandIds', $brandIds)
+            ->setParameter('status', 'active')
+            ->distinct()
+            ->orderBy('c.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     //    /**
     //     * @return Categories[] Returns an array of Categories objects
     //     */

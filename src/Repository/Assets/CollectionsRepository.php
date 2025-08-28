@@ -51,6 +51,33 @@ class CollectionsRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Finds all collections that are associated with active assets
+     * belonging to a specific family of brands.
+     *
+     * @param array $brandIds
+     * @return Collections[]
+     */
+    public function findActiveByBrandFamily(array $brandIds): array
+    {
+        if (empty($brandIds)) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('c')
+            ->innerJoin('c.assets', 'a')
+            ->innerJoin('a.brand', 'b')
+            ->where('b.id IN (:brandIds)')
+            ->andWhere('a.status = :status')
+            ->setParameter('brandIds', $brandIds)
+            ->setParameter('status', 'active')
+            ->distinct()
+            ->orderBy('c.year', 'DESC')
+            ->addOrderBy('c.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     //    /**
     //     * @return Collections[] Returns an array of Collections objects
     //     */
