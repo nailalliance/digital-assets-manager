@@ -1,0 +1,16 @@
+<div data-controller="asset-selector" data-asset-selector-brand-selector-value="#{{ form.brand.vars.id }}">
+    <h3 class="text-lg font-bold mb-4">Select Assets</h3>
+
+    {# Hidden input to store the asset IDs #}
+    {{ form_widget(form.assets, {'attr': {'data-asset-selector-target': 'hiddenInput'}}) }}
+
+    {# Search input for the component #}
+    <input type="search" data-asset-selector-target="searchInput" data-action="keyup->asset-selector#search"
+           placeholder="Search assets by name or item code..."
+           class="w-full p-2 border border-gray-300 rounded-md shadow-sm mb-4">
+
+    {# Container for the results grid and pagination #}
+    <div data-asset-selector-target="resultsContainer">
+        {# Initial results will be loaded here by the controller #}
+    </div>
+</div>

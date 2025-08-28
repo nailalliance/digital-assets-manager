@@ -1,0 +1,11 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}New Social Media Post{% endblock %}
+
+{% block body %}
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Create New Social Media Post</h1>
+
+    <div class="bg-white rounded-lg shadow-xl p-8">
+        {{ include('admin/social_media_posts/_form.html.twig') }}
+    </div>
+{% endblock %}

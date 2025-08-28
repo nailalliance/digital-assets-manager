@@ -1,0 +1,38 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Social Media Calendar{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block body %}
+    <div data-controller="calendar">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Social Media Calendar</h1>
+            <div class="flex items-center space-x-4">
+                <label for="brand-filter" class="text-sm font-medium">Brand:</label>
+                {# This dropdown triggers the filter action in the Stimulus controller #}
+                <select id="brand-filter" data-calendar-target="brandFilter" data-action="change->calendar#filter" class="border-gray-300 rounded-md shadow-sm">
+                    <option value="">All Brands</option>
+                    {% for brand in brands %}
+                        <option value="{{ brand.id }}">{{ brand.name }}</option>
+                    {% endfor %}
+                </select>
+                {# This form is used by the "Add all to bag" button #}
+                <form method="post" action="{{ path('download_list_add_multiple') }}" data-calendar-target="downloadForm">
+                    <input type="hidden" name="asset_ids" data-calendar-target="assetIdsInput">
+                </form>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-xl p-4">
+            {# This div is where the calendar will be rendered #}
+            <div data-calendar-target="calendar"></div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}

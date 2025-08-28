@@ -68,6 +68,33 @@ class AssetsRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function findForSelector(?int $brandId, string $query, int $limit, int $offset): Paginator
+    {
+        $qb = $this->createQueryBuilder('a')
+            // Hardcoded to only show assets from the "Social Media" category
+            // You would replace 'Social Media' with the actual category name or ID
+            ->innerJoin('a.categories', 'c', 'WITH', 'c.name = :categoryName')
+            ->setParameter('categoryName', 'Social Media')
+            ->where('a.status = :status')
+            ->setParameter('status', 'active')
+            ->orderBy('a.createdAt', 'DESC');
+
+        if ($brandId) {
+            $qb->innerJoin('a.brand', 'b')
+                ->andWhere('b.id = :brandId')
+                ->setParameter('brandId', $brandId);
+        }
+
+        if (!empty($query)) {
+            $qb->andWhere('a.name LIKE :query')
+                ->setParameter('query', '%' . $query . '%');
+        }
+
+        $qb->setFirstResult($offset)->setMaxResults($limit);
+
+        return new Paginator($qb->getQuery(), true);
+    }
+
     //    /**
     //     * @return Assets[] Returns an array of Assets objects
     //     */

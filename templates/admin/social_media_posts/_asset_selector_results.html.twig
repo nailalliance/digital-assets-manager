@@ -1,0 +1,25 @@
+<div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    {% for asset in assets %}
+        <div class="aspect-square bg-white rounded-lg shadow-sm overflow-hidden cursor-pointer"
+             data-action="click->asset-selector#toggle"
+             data-asset-id="{{ asset.id }}">
+            <img src="{{ asset.thumbnailPath ? path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) : '#' }}" alt="{{ asset.name }}" class="w-full h-full object-cover">
+        </div>
+    {% endfor %}
+</div>
+{# Pagination for the component #}
+<nav class="mt-4">
+    {% if paginator.totalPages > 1 %}
+        <ul class="flex justify-center space-x-2">
+            {% for i in 1..paginator.totalPages %}
+                <li>
+                    <a href="{{ path('admin_asset_selector_search', app.request.query.all|merge({page: i})) }}"
+                       data-action="click->asset-selector#changePage"
+                       class="{{ i == paginator.currentPage ? 'bg-violet-600 text-white' : 'bg-gray-200 text-gray-700' }} px-3 py-1 rounded-md">
+                        {{ i }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</nav>

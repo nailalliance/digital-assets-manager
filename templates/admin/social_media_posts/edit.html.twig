@@ -1,0 +1,14 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Edit Social Media Post{% endblock %}
+
+{% block body %}
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Edit Social Media Post</h1>
+
+    <div class="bg-white rounded-lg shadow-xl p-8">
+        {{ include('admin/social_media_posts/_form.html.twig', {'button_label': 'Update Post'}) }}
+        <div class="mt-4 border-t pt-4">
+            {{ include('admin/social_media_posts/_delete_form.html.twig') }}
+        </div>
+    </div>
+{% endblock %}

@@ -89,11 +89,12 @@
         <section class="mb-16"  data-home-filter-target="collectionContainer" data-controller="accordion">
             <div class="bg-white rounded-lg shadow-sm">
                 <button type="button" data-action="click->accordion#toggle" data-target="collection-content" class="w-full flex justify-between items-center p-4 text-left font-semibold text-gray-800 hover:bg-gray-50">
-                    <span class="text-2xl font-bold text-gray-700">Recent Collections</span>
+                    <span class="text-2xl font-bold text-gray-700">Collections</span>
                     <svg class="h-5 w-5 text-gray-500 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </button>
-                <div id="collection-content" class="hidden p-4 border-t border-gray-200">
+                <div id="collection-content" class="p-4 border-t border-gray-200">
                     <div class="grid grid-flow-col auto-cols-[80%] sm:auto-cols-[45%] md:auto-cols-[30%] overflow-x-auto snap-x snap-mandatory gap-6 pb-4">
+                        <p>Select a brand to find available collections.</p>
                     </div>
                 </div>
             </div>
@@ -106,8 +107,9 @@
                     <span class="text-2xl font-bold text-gray-700">Browse by Category</span>
                     <svg class="h-5 w-5 text-gray-500 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </button>
-                <div id="category-content" class="hidden p-4 border-t border-gray-200">
+                <div id="category-content" class="p-4 border-t border-gray-200">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <p>Select a brand to find available categories.</p>
                     </div>
                 </div>
             </div>

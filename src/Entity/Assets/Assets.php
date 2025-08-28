@@ -526,4 +526,9 @@ class Assets
     {
         return $this->tags->map(fn(Tags $tag) => $tag->getName())->toArray();
     }
+
+    public function __toString(): string
+    {
+        return $this->name ?? '';
+    }
 }
