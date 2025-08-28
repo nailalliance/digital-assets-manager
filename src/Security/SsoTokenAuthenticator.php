@@ -89,6 +89,8 @@ class SsoTokenAuthenticator extends AbstractAuthenticator
                     $userEntity->setId($userData['id']);
                 }
 
+                dd($userEntity);
+
                 $userEntity->setUsername($userIdentifier)
                     ->setRoles($userData['roles'])
                     ->setName($userData['name'])

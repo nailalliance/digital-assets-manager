@@ -1,7 +1,8 @@
 <section class="mb-16">
     <h2 class="text-2xl font-bold text-gray-700 mb-4">Collections</h2>
     {% set year = -1 %}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 h-[472px] overflow-y-scroll p-2 rounded-lg bg-gray-50">
+    {# <div class="grid grid-cols-2 md:grid-cols-4 gap-6 h-[472px] overflow-y-scroll p-2 rounded-lg bg-gray-50"> #}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 p-2 rounded-lg bg-gray-50">
         {% for collection in collections %}
             {% if year != collection.year %}
                 <h3 class="col-start-1 col-end-[-1]">{{ collection.year }}</h3>
