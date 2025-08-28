@@ -7,6 +7,8 @@ parameters:
     upload_dir: '%kernel.project_dir%/files'
     thumbnail_dir: '%kernel.project_dir%/files-thumbs'
     direct_uploads_dir: '%kernel.project_dir%/files-direct'
+    srgb_profile_path: '%kernel.project_dir%/config/color-icc/rgb/AdobeRGB1998.icc'
+    cmyk_profile_path: '%kernel.project_dir%/config/color-icc/cmyk/USWebCoatedSWOP.icc'
 
 services:
     # default configuration for services in *this* file

@@ -68,6 +68,11 @@ class GenerateThumbnailsCommand extends Command
 
         $io->progressStart(count($assets));
 
+        $srgbProfilePath = $this->params->get('srgb_profile_path');
+        $cmykProfilePath = $this->params->get('cmyk_profile_path');
+        $srgbProfile = $this->filesystem->exists($srgbProfilePath) ? file_get_contents($srgbProfilePath) : null;
+        $cmykProfile = $this->filesystem->exists($cmykProfilePath) ? file_get_contents($cmykProfilePath) : null;
+
         foreach ($assets as $asset) {
             $sourcePath = $asset->getFilePath();
 
@@ -93,9 +98,23 @@ class GenerateThumbnailsCommand extends Command
 
                 $image = new \Imagick($sourcePath);
 
+                // if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
+                //     $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
+                // }
+                // **Start of Color Profile Conversion Logic**
                 if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
-                    $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
+                    // Only perform conversion if both profiles are available
+                    if ($cmykProfile && $srgbProfile) {
+                        // First, apply the source CMYK profile
+                        $image->profileImage('icc', $cmykProfile);
+                        // Then, apply the destination sRGB profile to convert the colors
+                        $image->profileImage('icc', $srgbProfile);
+                    } else {
+                        // Fallback to simple transformation if profiles are missing
+                        $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
+                    }
                 }
+                // **End of Color Profile Conversion Logic**
 
                 $image->thumbnailImage($targetWidth, $targetHeight, true, true);
 
