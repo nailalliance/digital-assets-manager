@@ -25,58 +25,64 @@ class SearchController extends AbstractController
     ): Response {
         $query = $request->query->get('q', '');
         $selectedBrandIds = $request->query->all('brand_ids');
-        $selectedCategoryId = $request->query->get('category_id');
-        $selectedCollectionId = $request->query->get('collection_id');
 
-        $page = $request->query->get('page', 1);
-        $limit = $request->query->get('limit', 50);
+        // Handle both singular and plural from the form/links
+        $selectedCategoryIds = $request->query->all('category_ids');
+        if ($request->query->has('category_id')) {
+            $selectedCategoryIds[] = $request->query->get('category_id');
+        }
+        $selectedCollectionIds = $request->query->all('collection_ids');
+        if ($request->query->has('collection_id')) {
+            $selectedCollectionIds[] = $request->query->get('collection_id');
+        }
 
+        $page = $request->query->getInt('page', 1);
+        $limit = $request->query->getInt('limit', 50);
         if (!in_array($limit, [20, 50, 100])) {
             $limit = 50;
         }
-
         $offset = ($page - 1) * $limit;
 
         $assetIdsFromSearch = null;
-        $totalAssets = 0;
 
-        // If there's a search query, get the initial set of IDs from Meilisearch
         if (!empty($query)) {
-            $searchResult = $searchService->search($query, 1000, 0); // Get a larger set of IDs
+            $searchResult = $searchService->search($query, 1000, 0);
             $assetIdsFromSearch = array_map(fn($hit) => $hit->getId(), $searchResult['hits']);
-            $totalAssets = $searchResult['total'] ?? 0;
 
-            // If the search returns no results, we can stop here.
+            $allPossibleAssets = $searchResult['hits'];
+
             if (empty($assetIdsFromSearch)) {
                 $assets = [];
+                $totalAssets = 0;
             }
         }
 
-        // Fetch the final, filtered, and paginated assets from the database
-        // If there was a search, this will apply further filters to the search results.
-        // If there was no search, this will just filter all assets.
         if (!isset($assets)) {
             $paginator = $assetsRepository->findByFilters(
-                $selectedCategoryId,
-                $selectedCollectionId,
+                $selectedCategoryIds,
+                $selectedCollectionIds,
                 $selectedBrandIds,
                 $limit,
                 $offset,
                 $assetIdsFromSearch
             );
             $assets = iterator_to_array($paginator);
-            if (empty($query)) { // Only count from paginator if not a keyword search
-                $totalAssets = count($paginator);
-            }
-        }
+            $totalAssets = count($paginator);
 
-        // $assets = $searchService->search($query);
+            $allPossibleAssets = $assetsRepository->findByFilters(
+                $selectedCategoryIds,
+                $selectedCollectionIds,
+                $selectedBrandIds,
+                1000, 0, null
+            );
+        }
 
         $activeBrands = [];
         $activeCategories = [];
         $activeCollections = [];
 
-        foreach ($assets as $asset) {
+
+        foreach (iterator_to_array($allPossibleAssets) as $asset) {
             foreach ($asset->getBrand() as $brand) {
                 $activeBrands[$brand->getId()] = $brand;
             }
@@ -88,14 +94,12 @@ class SearchController extends AbstractController
             }
         }
 
-        // Structure brands into a parent/child hierarchy
         $brandFilters = ['parents' => [], 'children' => []];
         foreach ($activeBrands as $brand) {
-            if ($brand->getBrands() === null) { // This is a parent brand
+            if ($brand->getBrands() === null) {
                 $brandFilters['parents'][$brand->getId()] = $brand;
-            } else { // This is a child brand
+            } else {
                 $parent = $brand->getBrands();
-                // Ensure the parent is in the list, even if no assets are directly tagged with it
                 $brandFilters['parents'][$parent->getId()] = $parent;
                 $brandFilters['children'][$parent->getId()][] = $brand;
             }
@@ -108,8 +112,8 @@ class SearchController extends AbstractController
             'activeCategories' => $activeCategories,
             'activeCollections' => $activeCollections,
             'selectedBrandIds' => $selectedBrandIds,
-            'selectedCategoryId' => $selectedCategoryId,
-            'selectedCollectionId' => $selectedCollectionId,
+            'selectedCategoryIds' => $selectedCategoryIds,
+            'selectedCollectionIds' => $selectedCollectionIds,
             'paginator' => [
                 'currentPage' => $page,
                 'limit' => $limit,

@@ -19,54 +19,33 @@
             <form name="filters" method="get" action="{{ path('app_search') }}" data-controller="filter">
                 <input type="hidden" name="q" value="{{ query }}">
 
-                {% if selectedCollectionId %}
-                    <input type="hidden" name="collection_id" value="{{ selectedCollectionId }}">
-                {% endif %}
-                {% if selectedCategoryId %}
-                    <input type="hidden" name="category_id" value="{{ selectedCategoryId }}">
-                {% endif %}
-
                 {# Collections Filter #}
                 {% if activeCollections is not empty %}
                     <div class="mb-6">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-semibold">Collections</h3>
-                            {% if selectedCollectionId %}
-                                <a href="{{ path('app_search', app.request.query.all|merge({'collection_id': null})) }}" class="text-xs text-gray-500 hover:text-violet-600">Clear</a>
-                            {% endif %}
-                        </div>
-                        <ul class="space-y-1">
-                            {% for collection in activeCollections|sort((a, b) => a.name <=> b.name) %}
-                                <li>
-                                    <a href="{{ path('app_search', app.request.query.all|merge({'collection_id': collection.id})) }}"
-                                       class="{{ collection.id == selectedCollectionId ? 'text-violet-600 font-bold' : 'text-gray-700 hover:text-violet-600' }}">
-                                        ({{ collection.year }}) {{ collection.name }}
-                                    </a>
-                                </li>
+                        <h3 class="font-semibold mb-2">Collections</h3>
+                        <div class="space-y-2">
+                            {% for collection in activeCollections|sort((a, b) => b.year <=> a.year) %}
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="collection_ids[]" value="{{ collection.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" {{ collection.id in selectedCollectionIds ? 'checked' : '' }}>
+                                    ({{ collection.year }}) {{ collection.name }}
+                                </label>
                             {% endfor %}
-                        </ul>
+                        </div>
                     </div>
                 {% endif %}
 
                 {# Categories Filter #}
                 {% if activeCategories is not empty %}
                     <div class="mb-6 pt-6 border-t border-gray-200">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-semibold">Categories</h3>
-                            {% if selectedCategoryId %}
-                                <a href="{{ path('app_search', app.request.query.all|merge({'category_id': null})) }}" class="text-xs text-gray-500 hover:text-violet-600">Clear</a>
-                            {% endif %}
-                        </div>
-                        <ul class="space-y-1">
+                        <h3 class="font-semibold mb-2">Categories</h3>
+                        <div class="space-y-2">
                             {% for category in activeCategories|sort((a, b) => a.name <=> b.name) %}
-                                <li>
-                                    <a href="{{ path('app_search', app.request.query.all|merge({'category_id': category.id})) }}"
-                                       class="{{ category.id == selectedCategoryId ? 'text-violet-600 font-bold' : 'text-gray-700 hover:text-violet-600' }}">
-                                        {{ category.name }}
-                                    </a>
-                                </li>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="category_ids[]" value="{{ category.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" {{ category.id in selectedCategoryIds ? 'checked' : '' }}>
+                                    {{ category.name }}
+                                </label>
                             {% endfor %}
-                        </ul>
+                        </div>
                     </div>
                 {% endif %}
 
@@ -97,13 +76,10 @@
                     </div>
                 {% endif %}
 
-                <div class="pt-6 border-t border-gray-200 space-y-3">
+                <div class="pt-6 border-t border-gray-200">
                     <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                        Apply Brand Filters
+                        Apply Filters
                     </button>
-                    <a href="{{ path('app_search', {q: query}) }}" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        Clear All Filters
-                    </a>
                 </div>
             </form>
         </aside>
@@ -111,44 +87,41 @@
         {# Main Content - Asset Grid #}
         <main class="w-full md:w-3/4 lg:w-4/5">
             {# Search Bar #}
-            <div class="mb-6">
-                <form action="{{ path('app_search') }}" method="get">
-                    {# Add hidden inputs to preserve active filters #}
-                    {% if selectedCollectionId %}
-                        <input type="hidden" name="collection_id" value="{{ selectedCollectionId }}">
-                    {% endif %}
-                    {% if selectedCategoryId %}
-                        <input type="hidden" name="category_id" value="{{ selectedCategoryId }}">
-                    {% endif %}
-                    {% for brandId in selectedBrandIds %}
-                        <input type="hidden" name="brand_ids[]" value="{{ brandId }}">
-                    {% endfor %}
+             <div class="mb-6">
+                 <form action="{{ path('app_search') }}" method="get">
+                     {% for collectionId in selectedCollectionIds %}
+                         <input type="hidden" name="collection_ids[]" value="{{ collectionId }}">
+                     {% endfor %}
+                     {% for categoryId in selectedCategoryIds %}
+                         <input type="hidden" name="category_ids[]" value="{{ categoryId }}">
+                     {% endfor %}
 
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>
-                        </div>
-                        <input type="search" name="q" value="{{ query }}" class="w-full p-4 pl-10 text-lg border-2 border-gray-300 rounded-full focus:ring-violet-500 focus:border-violet-500" placeholder="e.g., Summer Logo, P-12345, social media...">
-                    </div>
-                </form>
-            </div>
+                     {% for brandId in selectedBrandIds %}
+                         <input type="hidden" name="brand_ids[]" value="{{ brandId }}">
+                     {% endfor %}
+
+                     <div class="relative">
+                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                             <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>
+                         </div>
+                         <input type="search" name="q" value="{{ query }}" class="w-full p-4 pl-10 text-lg border-2 border-gray-300 rounded-full focus:ring-violet-500 focus:border-violet-500" placeholder="e.g., Summer Logo, P-12345, social media...">
+                     </div>
+                 </form>
+             </div>
 
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-3xl font-bold">
                     {% if query is not empty %}
                         Results for "<span class="text-violet-600">{{ query }}</span>"
-                        {# FIX: Use 'activeCollections' instead of 'collections' #}
-                    {% elseif selectedCollectionId and activeCollections|filter(c => c.id == selectedCollectionId)|length > 0 %}
-                        {{ activeCollections|filter(c => c.id == selectedCollectionId)|first.name }}
-                        {# FIX: Use 'activeCategories' instead of 'categories' #}
-                    {% elseif selectedCategoryId and activeCategories|filter(c => c.id == selectedCategoryId)|length > 0 %}
-                        {{ activeCategories|filter(c => c.id == selectedCategoryId)|first.name }}
+                    {% elseif selectedCollectionIds is not empty and activeCollections|filter(c => c.id in selectedCollectionIds)|length > 0 %}
+                        {{ activeCollections|filter(c => c.id in selectedCollectionIds)|first.name }}
+                    {% elseif selectedCategoryIds is not empty and activeCategories|filter(c => c.id in selectedCategoryIds)|length > 0 %}
+                        {{ activeCategories|filter(c => c.id in selectedCategoryIds)|first.name }}
                     {% else %}
                         Browse Assets
                     {% endif %}
                 </h1>
                 <div class="flex items-center space-x-4">
-                    {# "Add All to Bag" Button #}
                     {% if assets is not empty %}
                         <form method="post" action="{{ path('download_list_add_multiple') }}"
                               data-controller="add-all-to-bag" data-action="submit->add-all-to-bag#addAll">
@@ -158,9 +131,7 @@
                             </button>
                         </form>
                     {% endif %}
-                    {# Results Per Page Selector #}
                     <form method="get" action="{{ path('app_search') }}" class="flex items-center space-x-2 text-sm">
-                        {# Hidden inputs to preserve all current filters #}
                         {% for key, value in app.request.query.all %}
                             {% if key != 'limit' and key != 'page' %}
                                 {% if value is iterable %}
@@ -188,7 +159,6 @@
                 {% if assets is not empty %}
                     {% for asset in assets %}
                         <div class="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col" data-asset-id="{{ asset.id }}">
-                            {# The main link now points to the asset detail page #}
                             <a href="{{ path('app_asset', {id: asset.id}) }}" class="block relative">
                                 <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
                                     {% if asset.thumbnailPath is not null and asset.thumbnailPath is not empty %}
@@ -197,19 +167,15 @@
                                         <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
                                     {% endif %}
                                 </div>
-
-                                {# Color Space Badge #}
                                 {% if asset.colorSpace.value == 'cmyk' %}
                                     <span class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full shadow">PRINT ONLY</span>
                                 {% elseif asset.colorSpace.value == 'rgb' %}
                                     <span class="absolute top-2 right-2 bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded-full shadow">WEB</span>
                                 {% endif %}
-
                                 <div class="p-3">
                                     <p class="font-semibold text-sm truncate" title="{{ asset.name }}">{{ asset.name }}</p>
                                     <p class="text-xs text-gray-500">{{ asset.itemCodes|map(item => item.code)|join(', ') }}</p>
                                     <p class="text-xs text-gray-500">{{ asset.mimeType }}</p>
-
                                     <div class="mt-2 flex flex-wrap gap-2">
                                         {% for brand in asset.brand %}
                                             <span class="bg-violet-100 text-violet-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ brand.name }}</span>
@@ -223,8 +189,6 @@
                                     </div>
                                 </div>
                             </a>
-
-                            {# Visible Actions Bar #}
                             <div class="mt-auto p-3 border-t border-gray-200 bg-gray-50 flex items-center justify-center space-x-3">
                                 <a href="{{ path('asset_download', {id: asset.id}) }}" data-turbo="false" title="Download" class="p-2 text-gray-500 hover:text-violet-600 transition-colors">
                                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
@@ -262,7 +226,6 @@
                         {% endif %}
                     </div>
                     <div class="hidden md:-mt-px md:flex">
-                        {# --- Start of Advanced Pagination Logic --- #}
                         {% set maxPagesToShow = 5 %}
                         {% set startPage = max(1, paginator.currentPage - (maxPagesToShow // 2)) %}
                         {% set endPage = min(paginator.totalPages, startPage + maxPagesToShow - 1) %}
@@ -284,7 +247,6 @@
                             {% endif %}
                             <a href="{{ path('app_search', app.request.query.all|merge({'page': paginator.totalPages})) }}" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium">{{ paginator.totalPages }}</a>
                         {% endif %}
-                        {# --- End of Advanced Pagination Logic --- #}
                     </div>
                     <div class="-mt-px flex w-0 flex-1 justify-end">
                         {% if paginator.currentPage < paginator.totalPages %}

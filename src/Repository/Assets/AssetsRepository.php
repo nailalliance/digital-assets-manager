@@ -18,14 +18,11 @@ class AssetsRepository extends ServiceEntityRepository
     }
 
     /**
-     * Finds assets based on a dynamic set of filters.
+     * Finds assets based on a dynamic set of filters, optionally constrained to a list of IDs.
      *
-     * @param int|null $categoryId
-     * @param int|null $collectionId
-     * @param array|null $brandIds
-     * @return array{hits: Assets[], total: int}
+     * @return Paginator
      */
-    public function findByFilters(?int $categoryId, ?int $collectionId, ?array $brandIds, int $limit, int $offset, ?array $assetIds = null): Paginator
+    public function findByFilters(?array $categoryIds, ?array $collectionIds, ?array $brandIds, int $limit, int $offset, ?array $assetIds = null): Paginator
     {
         $qb = $this->createQueryBuilder('a')
             ->where('a.status = :status')
@@ -35,16 +32,21 @@ class AssetsRepository extends ServiceEntityRepository
             ->setParameter('now', new \DateTimeImmutable());
 
         // If asset IDs are provided from a search, filter by them first.
-        if (!empty($assetIds)) {
-            $qb->andWhere('a.id IN (:assetIds)')
-                ->setParameter('assetIds', $assetIds);
+        if ($assetIds !== null) {
+            if (empty($assetIds)) {
+                // If the search returned no IDs, don't return any assets.
+                $qb->andWhere('1 = 0');
+            } else {
+                $qb->andWhere('a.id IN (:assetIds)')
+                    ->setParameter('assetIds', $assetIds);
+            }
         }
 
-        if ($categoryId) {
-            $qb->innerJoin('a.categories', 'c')->andWhere('c.id = :categoryId')->setParameter('categoryId', $categoryId);
+        if (!empty($categoryIds)) {
+            $qb->innerJoin('a.categories', 'c')->andWhere('c.id IN (:categoryIds)')->setParameter('categoryIds', $categoryIds);
         }
-        if ($collectionId) {
-            $qb->innerJoin('a.collections', 'coll')->andWhere('coll.id = :collectionId')->setParameter('collectionId', $collectionId);
+        if (!empty($collectionIds)) {
+            $qb->innerJoin('a.collections', 'coll')->andWhere('coll.id IN (:collectionIds)')->setParameter('collectionIds', $collectionIds);
         }
         if (!empty($brandIds)) {
             $qb->innerJoin('a.brand', 'b')->andWhere('b.id IN (:brandIds)')->setParameter('brandIds', $brandIds);
