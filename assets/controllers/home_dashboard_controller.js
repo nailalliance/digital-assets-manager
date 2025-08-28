@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ["brandButton", "recentAssetsContainer", "collectionsContainer", "categoriesContainer"];
+    static targets = ["brandButton", "brandsContainer", "recentAssetsContainer", "collectionsContainer", "categoriesContainer"];
 
     async selectBrand(event) {
         const clickedButton = event.currentTarget;
@@ -16,6 +16,7 @@ export default class extends Controller {
         clickedButton.classList.remove('bg-white', 'text-gray-700');
 
         // Show loading state
+        this.brandsContainerTarget.innerHTML = '';
         this.recentAssetsContainerTarget.innerHTML = '<p class="text-center">Loading...</p>';
         this.collectionsContainerTarget.innerHTML = '';
         this.categoriesContainerTarget.innerHTML = '';
@@ -24,6 +25,7 @@ export default class extends Controller {
         const response = await fetch(`/home/brand-content/${brandId}`);
         const data = await response.json();
 
+        this.brandsContainerTarget.innerHTML = data.brands;
         this.recentAssetsContainerTarget.innerHTML = data.recentAssets;
         this.collectionsContainerTarget.innerHTML = data.collections;
         this.categoriesContainerTarget.innerHTML = data.categories;

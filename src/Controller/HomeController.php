@@ -52,6 +52,7 @@ final class HomeController extends AbstractController
 
         // Render the partial templates and return them as JSON
         return $this->json([
+            'brands' => $this->renderView('home/_brands_grid.html.twig', ['brands' => $children]),
             'recentAssets' => $this->renderView('home/_recent_assets.html.twig', ['recentAssets' => $recentAssets]),
             'collections' => $this->renderView('home/_collections_grid.html.twig', ['collections' => $collections]),
             'categories' => $this->renderView('home/_categories_grid.html.twig', ['categories' => $categories]),

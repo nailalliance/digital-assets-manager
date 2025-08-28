@@ -1,0 +1,11 @@
+<section>
+    <h2 class="text-2xl font-bold text-gray-700 mb-4">Brands</h2>
+    <div id="brand-children" class="p-4 mb-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% for child in brands|sort((a, b) => a.name <=> b.name) %}
+                <a href="{{ path('app_search', {'brand_ids[]': child.id}) }}"
+                   class="text-violet-600 hover:underline">{{ child.name }}</a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
