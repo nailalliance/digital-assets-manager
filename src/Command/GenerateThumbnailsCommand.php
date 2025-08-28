@@ -93,6 +93,12 @@ class GenerateThumbnailsCommand extends Command
                 $thumbnailPath = $finalDir . '/' . $thumbnailFilename;
 
                 $image = new \Imagick($sourcePath);
+
+                // Check if the image is CMYK and convert it to sRGB if necessary
+                if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
+                    $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
+                }
+
                 $image->thumbnailImage($targetWidth, $targetHeight, true, true);
 
                 $canvas = new \Imagick();
