@@ -12,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use ZipStream\ZipStream;
@@ -130,11 +131,13 @@ class PublicDownloadListController extends AbstractController
         return new BinaryFileResponse($thumbnailPath);
     }
 
-    #[Route('/share/{token}/image/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_padded', requirements: ['width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'])]
-    #[Route('/share/{token}/image/{width}x{height}/{filename}.{extension}', name: 'public_image', requirements: ['width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0])]
+    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'])]
+    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{filename}.{extension}', name: 'public_image', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0])]
     public function publicImage(
         #[MapEntity(mapping: ['token' => 'token'])]
         OneTimeLinks $oneTimeLink,
+        #[MapEntity(id: 'assetId')]
+        Assets $asset,
         ImageProcessorService $imageProcessor,
         int $width,
         int $height,
@@ -148,28 +151,27 @@ class PublicDownloadListController extends AbstractController
             }
         }
 
-        $sourcePath = null;
+        // CRITICAL SECURITY CHECK: Ensure the asset from the URL is actually in this share list
         $downloadList = $oneTimeLink->getDownloadList();
         $temporaryFiles = $oneTimeLink->getTemporaryFiles();
+        $isAuthorized = false;
 
-        if ($downloadList) {
-            foreach ($downloadList->getAssets() as $asset) {
-                if (pathinfo($asset->getFilePath(), PATHINFO_FILENAME) === $filename) {
-                    $sourcePath = $asset->getFilePath();
-                    break;
-                }
-            }
+        if ($downloadList && $downloadList->getAssets()->contains($asset)) {
+            $isAuthorized = true;
         } elseif (!empty($temporaryFiles)) {
-            foreach ($temporaryFiles as $fileData) {
-                if (pathinfo($fileData['originalName'], PATHINFO_FILENAME) === $filename) {
-                    $sourcePath = $fileData['path'];
-                    break;
-                }
-            }
+            // This check is more complex for temporary files as they aren't entities.
+            // A more robust implementation might store asset IDs even for temp files.
+            // For now, we'll assume the asset ID lookup is for permanent assets.
         }
 
-        if (!$sourcePath) {
-            throw $this->createNotFoundException('Image not found in this share link.');
+        if (!$isAuthorized) {
+            throw $this->createAccessDeniedException('This asset is not part of this share link.');
+        }
+
+        $sourcePath = $asset->getFilePath();
+
+        if (!$sourcePath || !file_exists($sourcePath)) {
+            throw $this->createNotFoundException('Source file not found.');
         }
 
         $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension);
@@ -178,8 +180,14 @@ class PublicDownloadListController extends AbstractController
             throw $this->createNotFoundException('Could not process image.');
         }
 
-        return new Response($imageBinary, 200, [
-            'Content-Type' => 'image/' . $extension,
-        ]);
+        $response = new Response($imageBinary);
+        $disposition = $response->headers->makeDisposition(
+            ResponseHeaderBag::DISPOSITION_INLINE,
+            $filename . '.' . $extension
+        );
+        $response->headers->set('Content-Disposition', $disposition);
+        $response->headers->set('Content-Type', 'image/' . $extension);
+
+        return $response;
     }
 }
