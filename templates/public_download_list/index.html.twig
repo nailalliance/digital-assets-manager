@@ -5,21 +5,14 @@
 {% block title %}Download Assets{% endblock %}
 
 {% block body %}
-    <div class="max-w-4xl mx-auto" data-controller="permalink-generator">
+    <div class="max-w-4xl mx-auto" data-controller="permalink-generator" data-permalink-generator-base-url-value="{{ app.request.schemeAndHttpHost }}">
         <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">
-                Download Assets
-            </h1>
-            {# Display name from DownloadList or default for Direct Share #}
+            <h1 class="text-3xl font-bold text-gray-900">Download Assets</h1>
             {% set listName = oneTimeLink.downloadList ? oneTimeLink.downloadList.name : 'Shared Files' %}
             <p class="text-lg text-gray-600 mt-2">{{ listName }}</p>
-
-            {# Display creation date if it's a named list #}
             {% if oneTimeLink.downloadList %}
                 <p class="text-sm text-gray-500 mt-1">{{ oneTimeLink.downloadList.createdAt|date('F d, Y') }}</p>
             {% endif %}
-
-            {# Display expiration date with dynamic label #}
             <p class="text-sm text-gray-500 mt-2">
                 {% if oneTimeLink.expirationDate > date("now", "UTC") %}
                     <span class="font-semibold">Expires on:</span>
@@ -28,33 +21,34 @@
                 {% endif %}
                 {{ oneTimeLink.expirationDate|date('F d, Y') }}
             </p>
-
-            {# Creator is now on the OneTimeLink entity #}
             {% if oneTimeLink.creator %}
                 <p class="text-sm text-gray-500 mt-2">Shared by: {{ oneTimeLink.creator.userIdentifier }}</p>
             {% endif %}
         </div>
 
-        {# The assets to display can come from two different sources #}
-        {% set assets = oneTimeLink.downloadList ? oneTimeLink.downloadList.assets : [] %}
-        {% set tempFiles = oneTimeLink.temporaryFiles|default([]) %}
-
         <div class="mb-6 text-center flex items-center justify-center space-x-4">
-            {% if assets is not empty or tempFiles is not empty %}
+            {% if (oneTimeLink.downloadList and oneTimeLink.downloadList.assets is not empty) or (oneTimeLink.temporaryFiles is not empty) %}
                 <a href="{{ path('public_download_list_zip', {token: oneTimeLink.token}) }}" data-turbo="false" class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
                     <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     Download All (.zip)
                 </a>
                 <button type="button" data-action="click->permalink-generator#openModal" class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                     <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                    Generate Permalinks
+                    Generate Web Links
                 </button>
             {% endif %}
         </div>
 
+        <div data-permalink-generator-target="csvButtonContainer" class="hidden mb-6 text-center">
+            <button type="button" data-action="click->permalink-generator#downloadCsv" class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200">
+                <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Download Links as CSV
+            </button>
+        </div>
+
         <div class="bg-white rounded-lg shadow-xl">
             <ul role="list" class="divide-y divide-gray-200">
-                {# Loop over permanent assets from a DownloadList #}
+                {% set assets = oneTimeLink.downloadList ? oneTimeLink.downloadList.assets : [] %}
                 {% for asset in assets %}
                     <li class="p-4 sm:p-6 relative"
                         {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp'] %}
@@ -62,9 +56,11 @@
                             data-token="{{ oneTimeLink.token }}"
                             data-asset-id="{{ asset.id }}"
                             data-filename="{{ asset.filePath|basename }}"
+                            data-sku="{{ asset.itemCodes|map(item => item.code)|join(', ') }}"
+                            data-asset-name="{{ asset.name }}"
                         {% endif %}
                     >
-                        <div class="flex items-center">
+                        <div class="flex items-start">
                             <div class="flex-shrink-0">
                                 {% if asset.thumbnailPath %}
                                     <img src="{{ path('public_asset_thumbnail', {token: oneTimeLink.token, asset_id: asset.id}) }}" alt="{{ asset.name }}" class="w-20 h-20 rounded-md object-cover bg-gray-200">
@@ -73,13 +69,6 @@
                                         <svg class="h-10 w-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
                                     </div>
                                 {% endif %}
-{#                                {% if is_granted('IS_AUTHENTICATED_FULLY') and asset.thumbnailPath %}#}
-{#                                     <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-20 h-20 rounded-md object-cover bg-gray-200"> #}
-{#                                {% else %}#}
-{#                                    <div class="w-20 h-20 rounded-md bg-gray-200 flex items-center justify-center">#}
-{#                                        <svg class="h-10 w-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>#}
-{#                                    </div>#}
-{#                                {% endif %}#}
                             </div>
 
                             <div class="ml-4 flex-1">
@@ -87,43 +76,20 @@
                                 <p class="text-sm text-gray-500">{{ asset.itemCodes|map(item => item.code)|join(', ') }}</p>
                                 <p class="text-sm text-gray-500">{{ fileSizeMacro.format(asset.fileSize) }}</p>
                                 <p class="text-sm text-gray-500">{{ asset.mimeType }}</p>
-                            </div>
-                            <div class="ml-4 flex-1">
-                                <div class="permalink-container"></div> {# Placeholder for the button #}
+                                <div class="permalink-container mt-2"></div>
                             </div>
                             <div class="ml-4">
                                 {% if is_granted('IS_AUTHENTICATED_FULLY') %}
-                                <a href="{{ path('asset_download', {id: asset.id}) }}" data-turbo="false" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                                    Download
-                                </a>
+                                    <a href="{{ path('asset_download', {id: asset.id}) }}" data-turbo="false" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                                        Download
+                                    </a>
                                 {% endif %}
                             </div>
-                        </div>
-
-                        {% if asset.colorSpace.value == 'cmyk' %}
-                            <span class="absolute top-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full shadow">PRINT</span>
-                        {% elseif asset.colorSpace.value == 'rgb' %}
-                            <span class="absolute top-2 left-2 bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded-full shadow">WEB</span>
-                        {% endif %}
-
-                        <div class="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-600 grid grid-cols-2 gap-x-4 gap-y-2">
-                            {% if asset.brand is not empty %}
-                                <div><span class="font-semibold">Brands:</span> {{ asset.brand|map(b => b.brands ? '(' ~ b.brands.name ~ ') ' ~ b.name : b.name)|join(', ') }}</div>
-                            {% endif %}
-                            {% if asset.collections is not empty %}
-                                <div><span class="font-semibold">Collections:</span> {{ asset.collections|map(c => c.name)|join(', ') }}</div>
-                            {% endif %}
-                            {% if asset.categories is not empty %}
-                                <div><span class="font-semibold">Categories:</span> {{ asset.categories|map(c => c.name)|join(', ') }}</div>
-                            {% endif %}
-                            {% if asset.tags is not empty %}
-                                <div><span class="font-semibold">Tags:</span> {{ asset.tags|map(t => t.name)|join(', ') }}</div>
-                            {% endif %}
                         </div>
                     </li>
                 {% endfor %}
 
-                {# Loop over temporary files from a Direct Share #}
+                {% set tempFiles = oneTimeLink.temporaryFiles|default([]) %}
                 {% for file in tempFiles %}
                     <li class="p-4 sm:p-6">
                         <div class="flex items-center">
@@ -134,10 +100,8 @@
                             </div>
                             <div class="ml-4 flex-1">
                                 <p class="font-medium text-gray-800">{{ file.originalName }}</p>
-                                {# <p class="text-sm text-gray-500">{{ (file.size / 1024 / 1024)|round(2) }} MB</p> #}
                                 <p class="text-sm text-gray-500">{{ fileSizeMacro.format(file.size) }}</p>
                             </div>
-                            {# Download link for temporary files would need a new route #}
                         </div>
                     </li>
                 {% endfor %}
@@ -148,11 +112,10 @@
             {% endif %}
         </div>
 
-        {# Permalink Generation Modal #}
         <div data-permalink-generator-target="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
             <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
                 <form data-action="submit->permalink-generator#generate">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Generate Image Permalinks</h3>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Web Link Settings</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label for="permalink_width" class="block text-sm font-medium text-gray-700">Width (px)</label>
@@ -184,3 +147,4 @@
         </div>
     </div>
 {% endblock %}
+
