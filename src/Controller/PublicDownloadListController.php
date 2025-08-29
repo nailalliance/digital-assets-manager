@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Assets\Assets;
 use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
+use App\Service\ImageProcessorService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -127,5 +128,58 @@ class PublicDownloadListController extends AbstractController
 
         // 4. Securely serve the file
         return new BinaryFileResponse($thumbnailPath);
+    }
+
+    #[Route('/share/{token}/image/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_padded', requirements: ['width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'])]
+    #[Route('/share/{token}/image/{width}x{height}/{filename}.{extension}', name: 'public_image', requirements: ['width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0])]
+    public function publicImage(
+        #[MapEntity(mapping: ['token' => 'token'])]
+        OneTimeLinks $oneTimeLink,
+        ImageProcessorService $imageProcessor,
+        int $width,
+        int $height,
+        int $padding,
+        string $filename,
+        string $extension
+    ): Response {
+        if (!$this->isGranted('IS_AUTHENTICATED_FULLY')) {
+            if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
+                throw $this->createNotFoundException('This link has expired.');
+            }
+        }
+
+        $sourcePath = null;
+        $downloadList = $oneTimeLink->getDownloadList();
+        $temporaryFiles = $oneTimeLink->getTemporaryFiles();
+
+        if ($downloadList) {
+            foreach ($downloadList->getAssets() as $asset) {
+                if (pathinfo($asset->getFilePath(), PATHINFO_FILENAME) === $filename) {
+                    $sourcePath = $asset->getFilePath();
+                    break;
+                }
+            }
+        } elseif (!empty($temporaryFiles)) {
+            foreach ($temporaryFiles as $fileData) {
+                if (pathinfo($fileData['originalName'], PATHINFO_FILENAME) === $filename) {
+                    $sourcePath = $fileData['path'];
+                    break;
+                }
+            }
+        }
+
+        if (!$sourcePath) {
+            throw $this->createNotFoundException('Image not found in this share link.');
+        }
+
+        $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension);
+
+        if (!$imageBinary) {
+            throw $this->createNotFoundException('Could not process image.');
+        }
+
+        return new Response($imageBinary, 200, [
+            'Content-Type' => 'image/' . $extension,
+        ]);
     }
 }
