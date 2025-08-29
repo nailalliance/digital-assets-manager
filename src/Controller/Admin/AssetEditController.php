@@ -7,6 +7,7 @@ use App\Entity\Assets\ItemCodes;
 use App\Form\AssetType;
 use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\ItemCodesRepository;
+use App\Service\ImageProcessorService;
 use App\Service\UniqueFilePathGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -25,8 +26,9 @@ class AssetEditController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         BrandsRepository $brandsRepository,
-        Filesystem $filesystem,
-        ItemCodesRepository $itemCodesRepository
+        ItemCodesRepository $itemCodesRepository,
+        ImageProcessorService $imageProcessor,
+        Filesystem $filesystem
     ): Response
     {
         $form = $this->createForm(AssetType::class, $asset);
@@ -35,7 +37,7 @@ class AssetEditController extends AbstractController
         foreach ($asset->getItemCodes() as $itemCode) {
             $existingCodes[] = $itemCode->getCode();
         }
-        $form->get('itemCodes')->setData(join(', ', $existingCodes));
+        $form->get('itemCodes')->setData(implode(', ', $existingCodes));
 
         $form->handleRequest($request);
 
@@ -44,70 +46,64 @@ class AssetEditController extends AbstractController
             /** @var ?UploadedFile $thumbnailFile */
             $thumbnailFile = $form->get('thumbnail')->getData();
 
-                // Only process if a new thumbnail was actually uploaded
-                if ($thumbnailFile) {
-                    $targetWidth = 700;
-                    $targetHeight = 700;
+            if ($thumbnailFile) {
+                $thumbnailDir = $this->getParameter('thumbnail_dir');
+                $originalFileName = pathinfo($thumbnailFile->getClientOriginalName(), PATHINFO_FILENAME);
+                $safeFilename = preg_replace('/[^A-Za-z0-9\-\_\.]/', '-', $originalFileName);
 
-                    // FIX: Get the base thumbnail directory from your parameters
-                    $thumbnailDir = $this->getParameter('thumbnail_dir');
+                $firstLetter = strtolower(mb_substr($safeFilename, 0, 1));
+                $secondLetter = strtolower(mb_substr($safeFilename, 1, 1));
+                $finalDir = sprintf('%s/%s/%s', $thumbnailDir, $firstLetter, $secondLetter);
+                $filesystem->mkdir($finalDir);
 
-                    // It's better to use the sanitized name for the final path construction
-                    $originalFileName = pathinfo($thumbnailFile->getClientOriginalName(), PATHINFO_FILENAME);
-                    $safeFilename = str_replace(' ', '-', $originalFileName);
-                    $safeFilename = preg_replace('/[^A-Za-z0-9\-\_\.]/', '', $safeFilename);
+                if (class_exists('Imagick')) {
+                    $thumbnailBinary = $imageProcessor->makeThumbnail($thumbnailFile->getRealPath(), 700, 700);
 
-                    $firstLetter = strtolower(mb_substr($safeFilename, 0, 1));
-                    $secondLetter = strtolower(mb_substr($safeFilename, 1, 1));
-
-                    $finalDir = sprintf('%s/%s/%s', $thumbnailDir, $firstLetter, $secondLetter);
-
-                    if (!is_dir($finalDir)) {
-                        mkdir($finalDir, 0755, true);
-                    }
-
-                    $thumbnailPath = UniqueFilePathGenerator::get($finalDir, $safeFilename . '.webp');
-
-                    if (class_exists('Imagick')) {
-                        try {
-                            $image = new \Imagick($thumbnailFile->getRealPath());
-                            $image->thumbnailImage($targetWidth, $targetHeight, true, true);
-
-                            $canvas = new \Imagick();
-                            $canvas->newImage($targetWidth, $targetHeight, 'white', 'webp');
-
-                            $x = ($targetWidth - $image->getImageWidth()) / 2;
-                            $y = ($targetHeight - $image->getImageHeight()) / 2;
-
-                            $canvas->compositeImage($image, \Imagick::COMPOSITE_OVER, $x, $y);
-                            $canvas->writeImage($thumbnailPath);
-
-                            $asset->setThumbnailPath($thumbnailPath);
-
-                            $image->clear();
-                            $canvas->clear();
-                        } catch (\ImagickException $e) {
-                            $this->addFlash('warning', 'Could not create thumbnail.');
-                        }
+                    if ($thumbnailBinary) {
+                        $thumbnailPath = UniqueFilePathGenerator::get($finalDir, $safeFilename . '.webp');
+                        $filesystem->dumpFile($thumbnailPath, $thumbnailBinary);
+                        $asset->setThumbnailPath($thumbnailPath);
                     } else {
-                        try {
-                            $thumbnailFile->move(
-                                dirname($thumbnailPath),
-                                basename($thumbnailPath)
-                            );
-
-                            $asset->setThumbnailPath($thumbnailPath);
-                        } catch (FileException $e) {
-                            $this->addFlash('warning', 'Could not save the uploaded thumbnail.');
-                        }
+                        $this->addFlash('warning', 'Could not create thumbnail from the uploaded file.');
                     }
+                } else {
+                    // Fallback for when Imagick is not installed
+                    try {
+                        $newFilename = $safeFilename . '.' . $thumbnailFile->guessExtension();
+                        $thumbnailPath = UniqueFilePathGenerator::get($finalDir, $newFilename);
+
+                        $thumbnailFile->move(
+                            dirname($thumbnailPath),
+                            basename($thumbnailPath)
+                        );
+
+                        $asset->setThumbnailPath($thumbnailPath);
+                    } catch (FileException $e) {
+                        $this->addFlash('warning', 'Could not save the uploaded thumbnail.');
+                    }
+                }
+            }
+
+            $itemCodesString = $form->get('itemCodes')->getData();
+            $asset->getItemCodes()->clear();
+            if (!empty($itemCodesString)) {
+                $codes = array_map('trim', explode(',', $itemCodesString));
+                $uniqueCodes = array_unique(array_filter($codes));
+                foreach ($uniqueCodes as $code) {
+                    $itemCode = $itemCodesRepository->findOneBy(['code' => $code]);
+                    if (!$itemCode) {
+                        $itemCode = new ItemCodes();
+                        $itemCode->setCode($code);
+                        $entityManager->persist($itemCode);
+                    }
+                    $asset->addItemCode($itemCode);
+                }
             }
 
             $entityManager->persist($asset);
             $entityManager->flush();
 
             $this->addFlash('success', 'Asset updated successfully.');
-
             return $this->redirectToRoute('admin_asset_edit', ['id' => $asset->getId()]);
         }
 
@@ -120,3 +116,4 @@ class AssetEditController extends AbstractController
         ]);
     }
 }
+

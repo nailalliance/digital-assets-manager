@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Repository\Assets\AssetsRepository;
+use App\Service\ImageProcessorService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -23,7 +24,8 @@ class GenerateThumbnailsCommand extends Command
         private readonly AssetsRepository $assetsRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ParameterBagInterface $params,
-        private readonly Filesystem $filesystem
+        private readonly Filesystem $filesystem,
+        private readonly ImageProcessorService $imageProcessor
     ) {
         parent::__construct();
     }
@@ -68,11 +70,6 @@ class GenerateThumbnailsCommand extends Command
 
         $io->progressStart(count($assets));
 
-        $srgbProfilePath = $this->params->get('srgb_profile_path');
-        $cmykProfilePath = $this->params->get('cmyk_profile_path');
-        $srgbProfile = $this->filesystem->exists($srgbProfilePath) ? file_get_contents($srgbProfilePath) : null;
-        $cmykProfile = $this->filesystem->exists($cmykProfilePath) ? file_get_contents($cmykProfilePath) : null;
-
         foreach ($assets as $asset) {
             $sourcePath = $asset->getFilePath();
 
@@ -82,75 +79,27 @@ class GenerateThumbnailsCommand extends Command
                 continue;
             }
 
-            try {
-                $targetWidth = 700;
-                $targetHeight = 700;
+            $targetWidth = 700;
+            $targetHeight = 700;
+
+            $thumbnailBinary = $this->imageProcessor->makeThumbnail($sourcePath, $targetWidth, $targetHeight);
+
+            if ($thumbnailBinary) {
+                // 2. Determine the final path
                 $thumbnailDir = $this->params->get('thumbnail_dir');
                 $safeFilename = basename($sourcePath);
-
                 $firstLetter = strtolower(mb_substr($safeFilename, 0, 1));
                 $secondLetter = strtolower(mb_substr($safeFilename, 1, 1));
                 $finalDir = sprintf('%s/%s/%s', $thumbnailDir, $firstLetter, $secondLetter);
                 $this->filesystem->mkdir($finalDir);
+                $thumbnailPath = $finalDir . '/' . pathinfo($safeFilename, PATHINFO_FILENAME) . '.webp';
 
-                $thumbnailFilename = pathinfo($safeFilename, PATHINFO_FILENAME) . '.webp';
-                $thumbnailPath = $finalDir . '/' . $thumbnailFilename;
-
-                $image = new \Imagick($sourcePath);
-
-                // if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
-                //     $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
-                // }
-                // **Start of Color Profile Conversion Logic**
-                if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
-                    // Only perform conversion if both profiles are available
-                    if ($cmykProfile && $srgbProfile) {
-                        // First, apply the source CMYK profile
-                        $image->profileImage('icc', $cmykProfile);
-                        // Then, apply the destination sRGB profile to convert the colors
-                        $image->profileImage('icc', $srgbProfile);
-                    } else {
-                        // Fallback to simple transformation if profiles are missing
-                        $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
-                    }
-                }
-                // **End of Color Profile Conversion Logic**
-
-                $image->thumbnailImage($targetWidth, $targetHeight, true, true);
-
-                $canvas = new \Imagick();
-                $canvas->newImage($targetWidth, $targetHeight, 'white', 'webp');
-
-                $x = ($targetWidth - $image->getImageWidth()) / 2;
-                $y = ($targetHeight - $image->getImageHeight()) / 2;
-
-                $canvas->compositeImage($image, \Imagick::COMPOSITE_OVER, $x, $y);
-
-                // --- Add the text legend ---
-                $draw = new \ImagickDraw();
-                $draw->setFont('Helvetica');
-                // $draw->setFont('Bookman-Demi');
-                $draw->setFontSize(12);
-                $draw->setFillColor(new \ImagickPixel('#999999'));
-                $draw->setGravity(\Imagick::GRAVITY_SOUTHEAST); // Position in the bottom-right
-
-                $legendText = "Preview.\nColor is an approximation.\nDo not use this thumbnail in production.";
-
-                // Annotate the canvas with the text, with 5px padding from the corner
-                $canvas->annotateImage($draw, 5, 5, 0, $legendText);
-                // --- End of text legend ---
-
-                $canvas->writeImage($thumbnailPath);
-
+                // 3. Save the binary data and update the asset
+                $this->filesystem->dumpFile($thumbnailPath, $thumbnailBinary);
                 $asset->setThumbnailPath($thumbnailPath);
-
-                $image->clear();
-                $canvas->clear();
-
                 $this->entityManager->persist($asset);
-
-            } catch (\ImagickException $e) {
-                $io->warning(sprintf('Could not create thumbnail for asset ID %d: %s', $asset->getId(), $e->getMessage()));
+            } else {
+                $io->warning(sprintf('Could not create thumbnail for asset ID %d.', $asset->getId()));
             }
 
             $io->progressAdvance();
