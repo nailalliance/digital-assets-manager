@@ -75,15 +75,15 @@ class ImageProcessorService
                 $image = new \Imagick($sourcePath);
             }
 
-            // // Convert CMYK to sRGB for web compatibility
-            // if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
-            //     if ($this->cmykProfile && $this->srgbProfile) {
-            //         $image->profileImage('icc', $this->cmykProfile);
-            //         $image->profileImage('icc', $this->srgbProfile);
-            //     } else {
-            //         $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
-            //     }
-            // }
+            // Convert CMYK to sRGB for web compatibility
+            if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
+                if ($this->cmykProfile && $this->srgbProfile) {
+                    $image->profileImage('icc', $this->cmykProfile);
+                    $image->profileImage('icc', $this->srgbProfile);
+                } else {
+                    $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
+                }
+            }
 
             // Apply mogrify-inspired optimizations for high quality exports
             if ($legendText === null) {
