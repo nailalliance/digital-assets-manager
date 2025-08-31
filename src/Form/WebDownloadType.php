@@ -18,6 +18,7 @@ class WebDownloadType extends AbstractType
                     '2000x2000px' => '2000',
                 ],
                 'label' => 'Size',
+                'property_path' => 'size',
                 'attr' => ['class' => 'form-select'],
             ])
             ->add('padding', ChoiceType::class, [
@@ -26,6 +27,7 @@ class WebDownloadType extends AbstractType
                     'Add Padding' => 'yes',
                 ],
                 'label' => 'Padding',
+                'property_path' => 'padding',
                 'attr' => ['class' => 'form-select'],
             ])
             ->add('format', ChoiceType::class, [
@@ -35,6 +37,7 @@ class WebDownloadType extends AbstractType
                     'PNG' => 'png',
                 ],
                 'label' => 'Format',
+                'property_path' => 'format',
                 'attr' => ['class' => 'form-select'],
             ]);
     }
