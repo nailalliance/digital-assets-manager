@@ -71,33 +71,38 @@ class ImageProcessorService
             $filePathToRead = $sourcePath;
 
             if ($mimeType === 'application/pdf') {
-                $tempPngPath = $this->filesystem->tempnam(sys_get_temp_dir(), 'pdf_render_') . '.png';
+                $image->setResolution(300, 300);
+                $image->setBackgroundColor(new \ImagickPixel('white'));
+                $filePathToRead = $sourcePath . '[0]';
+                $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
 
-                $process = new Process([
-                    'gs',               // Ghostscript command
-                    '-q',
-                    '-dNOPAUSE',
-                    '-dBATCH',
-                    '-sDEVICE=pngalpha',// Output device
-                    '-dPDFSETTINGS=/prepress',
-                    '-r300',            // Render at 300 DPI for high quality
-                    '-o', $tempPngPath, // Output file
-                    $sourcePath,// . '[0]',// Input file (first page only)
-                ]);
-
-                $process->run();
-
-                if (!$process->isSuccessful()) {
-                    throw new ProcessFailedException($process);
-                }
-
-
-                if (!file_exists($tempPngPath) || filesize($tempPngPath) === 0) {
-                    throw new \Exception('Ghostscript failed to create a valid PNG from the PDF.');
-                }
-
-                // The path to read is now the temporary PNG file
-                $filePathToRead = $tempPngPath;
+                // $tempPngPath = $this->filesystem->tempnam(sys_get_temp_dir(), 'pdf_render_') . '.png';
+                //
+                // $process = new Process([
+                //     'gs',               // Ghostscript command
+                //     '-q',
+                //     '-dNOPAUSE',
+                //     '-dBATCH',
+                //     '-sDEVICE=pngalpha',// Output device
+                //     '-dPDFSETTINGS=/prepress',
+                //     '-r300',            // Render at 300 DPI for high quality
+                //     '-o', $tempPngPath, // Output file
+                //     $sourcePath,// . '[0]',// Input file (first page only)
+                // ]);
+                //
+                // $process->run();
+                //
+                // if (!$process->isSuccessful()) {
+                //     throw new ProcessFailedException($process);
+                // }
+                //
+                //
+                // if (!file_exists($tempPngPath) || filesize($tempPngPath) === 0) {
+                //     throw new \Exception('Ghostscript failed to create a valid PNG from the PDF.');
+                // }
+                //
+                // // The path to read is now the temporary PNG file
+                // $filePathToRead = $tempPngPath;
             }
 
             $image->readImage($filePathToRead);
