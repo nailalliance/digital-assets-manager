@@ -56,7 +56,8 @@ class GenerateThumbnailsCommand extends Command
             $assets = $this->assetsRepository->findBy(['id' => $assetIds]);
         } else {
             $assets = $this->assetsRepository->findBy(
-                ['mime_type' => ['image/jpeg', 'image/png', 'application/pdf']],
+                // ['mime_type' => ['image/jpeg', 'image/png', 'application/pdf']], // PDF Is not rendering correctly
+                ['mime_type' => ['image/jpeg', 'image/png']],
                 ['id' => 'ASC'],
                 $limit,
                 $offset

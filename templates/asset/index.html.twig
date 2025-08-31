@@ -67,6 +67,23 @@
                     <div class="mt-6 pt-6 border-t border-gray-200">
                         <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                             <h3 class="text-base font-semibold text-gray-800 mb-4">Download for Web</h3>
+
+                            {# Styled experimental PDF warning #}
+                            {% if asset.mimeType == 'application/pdf' %}
+                                <div class="mb-4 rounded-md bg-orange-50 p-3">
+                                    <div class="flex items-start">
+                                        <div class="flex-shrink-0">
+                                            <svg class="h-5 w-5 text-orange-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 3.001-1.742 3.001H4.42c-1.53 0-2.493-1.667-1.743-3.001l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1.75-4.5a1.75 1.75 0 00-3.5 0v.25a1.75 1.75 0 003.5 0v-.25z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-orange-800">This function is experimental for PDFs and may not capture all content correctly.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+
                             {% form_theme webDownloadForm 'tailwind_form_theme.html.twig' %}
                             {{ form_start(webDownloadForm, {'method': 'GET', 'attr': {'data-turbo': 'false'}}) }}
                             <div class="space-y-4">
