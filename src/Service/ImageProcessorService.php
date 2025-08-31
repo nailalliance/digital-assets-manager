@@ -61,8 +61,16 @@ class ImageProcessorService
             return null;
         }
 
+        $filePathToRead = $sourcePath;
+        $mimeType = mime_content_type($sourcePath);
+
+        // If the file is a PDF, specify the first page
+        if ($mimeType === 'application/pdf') {
+            $filePathToRead = $sourcePath . '[0]';
+        }
+
         try {
-            $image = new \Imagick($sourcePath);
+            $image = new \Imagick($filePathToRead);
 
             // Convert CMYK to sRGB for web compatibility
             if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {

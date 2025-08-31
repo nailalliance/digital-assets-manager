@@ -55,24 +55,32 @@
                             </button>
                         </form>
                     </div>
+                </div>
 
-                    {# Download for Web Form #}
-                    {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp'] %}
-                        <div class="mt-6 pt-6 border-t border-gray-200">
-                            <h3 class="text-base font-semibold text-gray-800 mb-4">Download for Web</h3>
-                            {{ form_start(webDownloadForm) }}
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                                <div>{{ form_row(webDownloadForm.size) }}</div>
-                                <div>{{ form_row(webDownloadForm.padding) }}</div>
-                                <div>{{ form_row(webDownloadForm.format) }}</div>
+                {# Download for Web Form #}
+                {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] %}
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <h3 class="text-base font-semibold text-gray-800 mb-4">Download for Web</h3>
+
+                        {# Apply the custom theme to this form #}
+                        {% form_theme webDownloadForm 'tailwind_form_theme.html.twig' %}
+
+                        {# Use form_start and add data-turbo="false" to prevent Turbo from handling the GET request #}
+                        {{ form_start(webDownloadForm, {'method': 'GET', 'attr': {'data-turbo': 'false'}}) }}
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                            <div class="md:col-span-1">{{ form_row(webDownloadForm.size) }}</div>
+                            <div class="md:col-span-1">{{ form_row(webDownloadForm.padding) }}</div>
+                            <div class="md:col-span-1">{{ form_row(webDownloadForm.format) }}</div>
+                            <div class="md:col-span-1">
                                 <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
                                     Download Web Version
                                 </button>
                             </div>
-                            {{ form_end(webDownloadForm) }}
                         </div>
-                    {% endif %}
-                </div>
+                        {{ form_end(webDownloadForm) }}
+                    </div>
+                {% endif %}
 
                 {# Description #}
                 <div class="mb-6">

@@ -51,7 +51,7 @@
                 {% set assets = oneTimeLink.downloadList ? oneTimeLink.downloadList.assets : [] %}
                 {% for asset in assets %}
                     <li class="p-4 sm:p-6 relative"
-                        {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp'] %}
+                        {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] %}
                             data-image-asset="true"
                             data-token="{{ oneTimeLink.token }}"
                             data-asset-id="{{ asset.id }}"
