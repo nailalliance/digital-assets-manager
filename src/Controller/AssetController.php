@@ -41,7 +41,7 @@ final class AssetController extends AbstractController
         $addPadding = $request->query->get('padding') === 'yes';
         $format = $request->query->get('format', 'webp');
 
-        dd($size, $addPadding, $format);
+        dd($request->query->all(), $size, $addPadding, $format);
 
         $padding = 0;
         if ($addPadding) {
