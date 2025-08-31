@@ -61,8 +61,6 @@ class ImageProcessorService
             return null;
         }
 
-        dd( $sourcePath,  $targetWidth,  $targetHeight,  $padding,  $outputFormat, $legendText);
-
         $filePathToRead = $sourcePath;
         $mimeType = mime_content_type($sourcePath);
 
