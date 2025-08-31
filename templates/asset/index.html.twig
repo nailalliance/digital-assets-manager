@@ -70,7 +70,7 @@
                             {% form_theme webDownloadForm 'tailwind_form_theme.html.twig' %}
                             {{ form_start(webDownloadForm, {'method': 'GET', 'attr': {'data-turbo': 'false'}}) }}
                             <div class="space-y-4">
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>{{ form_row(webDownloadForm.size) }}</div>
                                     <div>{{ form_row(webDownloadForm.padding) }}</div>
                                     <div>{{ form_row(webDownloadForm.format) }}</div>
