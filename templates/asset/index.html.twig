@@ -41,18 +41,37 @@
                     </div>
                 {% endif %}
 
-                {# Action Buttons #}
-                <div class="flex items-center space-x-3 mb-8">
-                    <a href="{{ url('asset_download', {id: asset.id}) }}" class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                        <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        Download
-                    </a>
-                    <form action="{{ path('download_list_add', {id: asset.id}) }}" method="post" class="flex-1">
-                        <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            Add to Download Bag
-                        </button>
-                    </form>
+                {# Action Buttons & Forms #}
+                <div class="mb-8">
+                    <div class="flex items-center space-x-3">
+                        <a href="{{ path('asset_download', {id: asset.id}) }}" class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Download Original
+                        </a>
+                        <form action="{{ path('download_list_add', {id: asset.id}) }}" method="post" class="flex-1">
+                            <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Add to Bag
+                            </button>
+                        </form>
+                    </div>
+
+                    {# Download for Web Form #}
+                    {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp'] %}
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <h3 class="text-base font-semibold text-gray-800 mb-4">Download for Web</h3>
+                            {{ form_start(webDownloadForm) }}
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                                <div>{{ form_row(webDownloadForm.size) }}</div>
+                                <div>{{ form_row(webDownloadForm.padding) }}</div>
+                                <div>{{ form_row(webDownloadForm.format) }}</div>
+                                <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                                    Download Web Version
+                                </button>
+                            </div>
+                            {{ form_end(webDownloadForm) }}
+                        </div>
+                    {% endif %}
                 </div>
 
                 {# Description #}
