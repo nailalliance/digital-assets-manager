@@ -4,6 +4,8 @@ namespace App\Service;
 
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Process;
 
 /**
  * A service for processing images, creating thumbnails, and exporting optimized versions.
@@ -62,18 +64,34 @@ class ImageProcessorService
         }
 
         $mimeType = mime_content_type($sourcePath);
+        $tempPngPath = null;
+        $image = new \Imagick();
 
         try {
+            $filePathToRead = $sourcePath;
+
             if ($mimeType === 'application/pdf') {
-                $image = new \Imagick();
-                $image->setResolution(300, 300);
-                $image->setBackgroundColor(new \ImagickPixel('white'));
-                $filePathToRead = $sourcePath . '[0]';
-                $image->readImage($filePathToRead);
-                $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
-            } else {
-                $image = new \Imagick($sourcePath);
+                $tempPngPath = $this->filesystem->tempnam(sys_get_temp_dir(), 'pdf_render_') . '.png';
+
+                $process = new Process([
+                    'gs',               // Ghostscript command
+                    '-sDEVICE=pngalpha',// Output device
+                    '-o', $tempPngPath, // Output file
+                    '-r300',            // Render at 300 DPI for high quality
+                    $sourcePath . '[0]',// Input file (first page only)
+                ]);
+
+                $process->run();
+
+                if (!$process->isSuccessful()) {
+                    throw new ProcessFailedException($process);
+                }
+
+                // The path to read is now the temporary PNG file
+                $filePathToRead = $tempPngPath;
             }
+
+            $image->readImage($filePathToRead);
 
             // Convert CMYK to sRGB for web compatibility
             if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
@@ -131,8 +149,12 @@ class ImageProcessorService
 
             return $binary;
 
-        } catch (\ImagickException $e) {
+        } catch (\ImagickException | ProcessFailedException $e) {
             return null;
+        } finally {
+            if ($tempPngPath && $this->filesystem->exists($tempPngPath)) {
+                $this->filesystem->remove($tempPngPath);
+            }
         }
     }
 }
