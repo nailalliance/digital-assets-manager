@@ -75,9 +75,13 @@ class ImageProcessorService
 
                 $process = new Process([
                     'gs',               // Ghostscript command
+                    '-q',
+                    '-dNOPAUSE',
+                    '-dBATCH',
                     '-sDEVICE=pngalpha',// Output device
-                    '-o', $tempPngPath, // Output file
+                    'dPDFSETTINGS=/prepress',
                     '-r300',            // Render at 300 DPI for high quality
+                    '-o', $tempPngPath, // Output file
                     $sourcePath,// . '[0]',// Input file (first page only)
                 ]);
 
