@@ -79,7 +79,7 @@ class ImageProcessorService
                     '-dNOPAUSE',
                     '-dBATCH',
                     '-sDEVICE=pngalpha',// Output device
-                    'dPDFSETTINGS=/prepress',
+                    '-dPDFSETTINGS=/prepress',
                     '-r300',            // Render at 300 DPI for high quality
                     '-o', $tempPngPath, // Output file
                     $sourcePath,// . '[0]',// Input file (first page only)
