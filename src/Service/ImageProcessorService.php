@@ -74,6 +74,7 @@ class ImageProcessorService
                 $image->setResolution(300, 300);
                 $image->setBackgroundColor(new \ImagickPixel('white'));
                 $filePathToRead = $sourcePath . '[0]';
+                $image->readImage($filePathToRead);
                 $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
 
                 // $tempPngPath = $this->filesystem->tempnam(sys_get_temp_dir(), 'pdf_render_') . '.png';
@@ -103,9 +104,11 @@ class ImageProcessorService
                 //
                 // // The path to read is now the temporary PNG file
                 // $filePathToRead = $tempPngPath;
+            } else {
+
+                $image->readImage($filePathToRead);
             }
 
-            $image->readImage($filePathToRead);
 
             // Convert CMYK to sRGB for web compatibility
             if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
