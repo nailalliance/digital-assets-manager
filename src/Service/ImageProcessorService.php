@@ -71,8 +71,6 @@ class ImageProcessorService
                 $filePathToRead = $sourcePath . '[0]';
                 $image->readImage($filePathToRead);
                 $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
-
-                $image->setImageFormat('png');
             } else {
                 $image = new \Imagick($sourcePath);
             }
