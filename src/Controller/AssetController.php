@@ -37,9 +37,11 @@ final class AssetController extends AbstractController
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
 
-        $size = $request->query->getInt('size', 1500);
-        $addPadding = $request->query->get('padding') === 'yes';
-        $format = $request->query->get('format', 'webp');
+        $data = $request->query->all('web_download');
+
+        $size = (int)($data['size'] ?? 1500);
+        $addPadding = ($data['padding'] ?? 'no') === 'yes';
+        $format = $data['format'] ?? 'webp';
 
         dd($request->query->all(), $size, $addPadding, $format);
 
