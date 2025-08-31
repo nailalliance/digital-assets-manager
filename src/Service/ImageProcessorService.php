@@ -34,7 +34,7 @@ class ImageProcessorService
      */
     public function makeThumbnail(string $sourcePath, int $width, int $height): ?string
     {
-        $legendText = "Preview.\nColor in an approximation.\nDo not use this thumbnail in production.";
+        $legendText = "Preview.\nColor is an approximation.\nDo not use this thumbnail in production.";
         return $this->processImage($sourcePath, $width, $height, 0, 'webp', $legendText);
     }
 
