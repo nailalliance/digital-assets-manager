@@ -70,7 +70,8 @@ class ImageProcessorService
                 // $image->setBackgroundColor(new \ImagickPixel('white'));
                 $filePathToRead = $sourcePath . '[0]';
                 $image->readImage($filePathToRead);
-                $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+                $image = $image->flattenImages();
+                // $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             } else {
                 $image = new \Imagick($sourcePath);
             }
