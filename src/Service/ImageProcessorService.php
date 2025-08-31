@@ -73,20 +73,12 @@ class ImageProcessorService
             if ($mimeType === 'application/pdf') {
                 $tempPngPath = $this->filesystem->tempnam(sys_get_temp_dir(), 'pdf_render_') . '.png';
 
-                dd([
-                    'gs',               // Ghostscript command
-                    '-sDEVICE=pngalpha',// Output device
-                    '-o', $tempPngPath, // Output file
-                    '-r300',            // Render at 300 DPI for high quality
-                    $sourcePath . '[0]',// Input file (first page only)
-                ]);
-
                 $process = new Process([
                     'gs',               // Ghostscript command
                     '-sDEVICE=pngalpha',// Output device
                     '-o', $tempPngPath, // Output file
                     '-r300',            // Render at 300 DPI for high quality
-                    $sourcePath . '[0]',// Input file (first page only)
+                    $sourcePath,// . '[0]',// Input file (first page only)
                 ]);
 
                 $process->run();
