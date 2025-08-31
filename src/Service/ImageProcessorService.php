@@ -67,24 +67,23 @@ class ImageProcessorService
             if ($mimeType === 'application/pdf') {
                 $image = new \Imagick();
                 $image->setResolution(300, 300);
-                // $image->setBackgroundColor(new \ImagickPixel('white'));
+                $image->setBackgroundColor(new \ImagickPixel('white'));
                 $filePathToRead = $sourcePath . '[0]';
                 $image->readImage($filePathToRead);
-                $image = $image->flattenImages();
-                // $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+                $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             } else {
                 $image = new \Imagick($sourcePath);
             }
 
-            // Convert CMYK to sRGB for web compatibility
-            if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
-                if ($this->cmykProfile && $this->srgbProfile) {
-                    $image->profileImage('icc', $this->cmykProfile);
-                    $image->profileImage('icc', $this->srgbProfile);
-                } else {
-                    $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
-                }
-            }
+            // // Convert CMYK to sRGB for web compatibility
+            // if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
+            //     if ($this->cmykProfile && $this->srgbProfile) {
+            //         $image->profileImage('icc', $this->cmykProfile);
+            //         $image->profileImage('icc', $this->srgbProfile);
+            //     } else {
+            //         $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
+            //     }
+            // }
 
             // Apply mogrify-inspired optimizations for high quality exports
             if ($legendText === null) {
