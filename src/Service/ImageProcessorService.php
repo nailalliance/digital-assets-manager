@@ -65,10 +65,10 @@ class ImageProcessorService
 
         try {
             if ($mimeType === 'application/pdf') {
-                $filePathToRead = $sourcePath . '[0]';
                 $image = new \Imagick();
-                $image->setResolution(150, 150);
-                $image->setBackgroundColor(new \ImagickPixel('white'));
+                $image->setResolution(300, 300);
+                // $image->setBackgroundColor(new \ImagickPixel('white'));
+                $filePathToRead = $sourcePath . '[0]';
                 $image->readImage($filePathToRead);
                 $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             } else {
