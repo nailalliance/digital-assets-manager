@@ -68,7 +68,6 @@ class ImageProcessorService
                 $filePathToRead = $sourcePath . '[0]';
                 $image = new \Imagick($filePathToRead);
                 $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
-                dd($image);
             } else {
                 $image = new \Imagick($sourcePath);
             }
