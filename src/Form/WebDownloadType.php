@@ -30,8 +30,8 @@ class WebDownloadType extends AbstractType
             ])
             ->add('format', ChoiceType::class, [
                 'choices' => [
-                    'WebP' => 'webp',
                     'JPG' => 'jpg',
+                    'WebP' => 'webp',
                     'PNG' => 'png',
                 ],
                 'label' => 'Format',
