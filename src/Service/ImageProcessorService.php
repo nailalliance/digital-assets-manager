@@ -87,6 +87,10 @@ class ImageProcessorService
                     throw new ProcessFailedException($process);
                 }
 
+                if (!file_exists($tempPngPath) || filesize($tempPngPath) === 0) {
+                    throw new \Exception('Ghostscript failed to create a valid PNG from the PDF.');
+                }
+
                 // The path to read is now the temporary PNG file
                 $filePathToRead = $tempPngPath;
             }
