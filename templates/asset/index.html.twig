@@ -41,10 +41,10 @@
                     </div>
                 {% endif %}
 
-                {# Action Buttons & Forms #}
-                <div class="mb-8">
+                {# Action Buttons #}
+                <div class="flex flex-col space-y-3 mb-8">
                     <div class="flex items-center space-x-3">
-                        <a href="{{ path('asset_download', {id: asset.id}) }}" class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                        <a href="{{ path('asset_download', {id: asset.id}) }}" data-turbo="false" class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
                             <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                             Download Original
                         </a>
@@ -55,35 +55,39 @@
                             </button>
                         </form>
                     </div>
+                    {% if is_granted('ROLE_FTP_ADMIN') %}
+                        <a href="{{ path('admin_asset_edit', {id: asset.id}) }}" class="w-full inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                            Edit Asset
+                        </a>
+                    {% endif %}
                 </div>
 
                 {# Download for Web Form #}
                 {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] %}
                     <div class="mt-6 pt-6 border-t border-gray-200">
-                        <h3 class="text-base font-semibold text-gray-800 mb-4">Download for Web</h3>
-
-                        {# Apply the custom theme to this form #}
-                        {% form_theme webDownloadForm 'tailwind_form_theme.html.twig' %}
-
-                        {# Use form_start and add data-turbo="false" to prevent Turbo from handling the GET request #}
-                        {{ form_start(webDownloadForm, {'method': 'GET', 'attr': {'data-turbo': 'false'}}) }}
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
-                            <div class="md:col-span-1">{{ form_row(webDownloadForm.size) }}</div>
-                            <div class="md:col-span-1">{{ form_row(webDownloadForm.padding) }}</div>
-                            <div class="md:col-span-1">{{ form_row(webDownloadForm.format) }}</div>
-                            <div class="md:col-span-1">
-                                <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                                    Download Web Version
-                                </button>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-base font-semibold text-gray-800 mb-4">Download for Web</h3>
+                            {% form_theme webDownloadForm 'tailwind_form_theme.html.twig' %}
+                            {{ form_start(webDownloadForm, {'method': 'GET', 'attr': {'data-turbo': 'false'}}) }}
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>{{ form_row(webDownloadForm.size) }}</div>
+                                    <div>{{ form_row(webDownloadForm.padding) }}</div>
+                                    <div>{{ form_row(webDownloadForm.format) }}</div>
+                                </div>
+                                <div>
+                                    <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                                        Download Web Version
+                                    </button>
+                                </div>
                             </div>
+                            {{ form_end(webDownloadForm) }}
                         </div>
-                        {{ form_end(webDownloadForm) }}
                     </div>
                 {% endif %}
 
                 {# Description #}
-                <div class="mb-6">
+                <div class="mt-8 pt-6 border-t border-gray-200">
                     <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Description</h3>
                     <p class="text-gray-700 leading-relaxed">
                         {{ asset.description|default('No description available.') }}
@@ -91,7 +95,7 @@
                 </div>
 
                 {# Metadata Details Table #}
-                <div>
+                <div class="mt-8 pt-6 border-t border-gray-200">
                     <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Details</h3>
                     <dl class="space-y-3">
                         <div class="flex justify-between">
@@ -105,7 +109,6 @@
                         <div class="flex justify-between">
                             <dt class="text-sm font-medium text-gray-600">File Size</dt>
                             <dd class="text-sm text-gray-800">{{ fileSizeMacro.format(asset.fileSize) }}</dd>
-                            {# <dd class="text-sm text-gray-800">{{ (asset.fileSize / 1024)|round(2) }} KB</dd> #}
                         </div>
                         {% if asset.embargoDate %}
                             <div class="flex justify-between">
@@ -158,17 +161,10 @@
                             {% endfor %}
                         </div>
                     </div>
-
-                    {% if is_granted('ROLE_FTP_ADMIN') %}
-                        <div class="mt-3">
-                            <a href="{{ path('admin_asset_edit', {id: asset.id}) }}" class="w-full inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
-                                Edit
-                            </a>
-                        </div>
-                    {% endif %}
                 </div>
 
             </div>
         </div>
     </div>
 {% endblock %}
+
