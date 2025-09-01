@@ -23,7 +23,11 @@
                 </a>
                 {# Website Title Added Here #}
                 <h1 class="ml-4 text-xl font-semibold text-gray-700 hidden lg:block">
-                   DAM
+                    {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
+                        DAM
+                    {% else %}
+                        Digital Assets Manager
+                    {% endif %}
                 </h1>
             </div>
             {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
