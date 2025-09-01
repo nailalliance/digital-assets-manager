@@ -132,15 +132,15 @@ class AssetType extends AbstractType
                 'required' => false,
                 'mapped' => false,
                 'constraints' => [
-                    new File([
-                        'maxSize' => '5M',
-                        'mimeTypes' => [
+                    new File(
+                        maxSize: '5M',
+                        mimeTypes: [
                             'image/jpeg',
                             'image/png',
                             'image/webp'
                         ],
-                        'mimeTypesMessage' => 'Please upload a valid image (JPG, PNG, WebP).',
-                    ])
+                        mimeTypesMessage:  'Please upload a valid image (JPG, PNG, WebP).'
+                    )
                 ]
             ])
         ;
