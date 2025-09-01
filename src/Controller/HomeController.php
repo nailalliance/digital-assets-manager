@@ -15,7 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class HomeController extends AbstractController
 {
     #[Route('/home/{id?}', name: 'app_home')]
-    #[Route('/{id?}', name: 'home')]
+    #[Route('/', name: 'home')]
     public function index(
         ?Brands $brand, // The selected parent brand (optional)
         AssetsRepository $assetsRepository,
