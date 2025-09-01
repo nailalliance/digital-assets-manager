@@ -14,15 +14,44 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class HomeController extends AbstractController
 {
-    #[Route('/home', name: 'app_home')]
-    #[Route('/', name: 'home')]
-    public function index(BrandsRepository $brandsRepository): Response
-    {
-        // Fetch only parent brands for the filter buttons
+    #[Route('/home/{id?}', name: 'app_home')]
+    #[Route('/{id?}', name: 'home')]
+    public function index(
+        ?Brands $brand, // The selected parent brand (optional)
+        AssetsRepository $assetsRepository,
+        BrandsRepository $brandsRepository,
+        CategoriesRepository $categoriesRepository,
+        CollectionsRepository $collectionsRepository
+    ): Response {
+        // Always fetch the top-level brands for the navigation buttons
         $parentBrands = $brandsRepository->findBy(['brands' => null]);
+
+        $recentAssets = [];
+        $categories = [];
+        $collections = [];
+        $childBrands = [];
+
+        // If a brand has been selected, fetch its related content
+        if ($brand) {
+            // Create an array of the parent brand and all its children
+            $brandFamilyIds = [$brand->getId()];
+            foreach ($brand->getParent() as $child) {
+                $brandFamilyIds[] = $child->getId();
+            }
+
+            $recentAssets = $assetsRepository->findRecentByBrandFamily($brandFamilyIds, 12);
+            $categories = $categoriesRepository->findActiveByBrandFamily($brandFamilyIds);
+            $collections = $collectionsRepository->findActiveByBrandFamily($brandFamilyIds);
+            $childBrands = $brand->getParent(); // Get the children of the selected brand
+        }
 
         return $this->render('home/index.html.twig', [
             'parentBrands' => $parentBrands,
+            'selectedBrand' => $brand,
+            'childBrands' => $childBrands,
+            'recentAssets' => $recentAssets,
+            'categories' => $categories,
+            'collections' => $collections,
         ]);
     }
 
