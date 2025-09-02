@@ -3,7 +3,7 @@
 {% block title %}{{ board.name }}{% endblock %}
 
 {% block body %}
-    <div {{ stimulus_controller('board', { boardId: board.id }) }} class="flex h-screen bg-gray-100 overflow-hidden">
+    <div {{ stimulus_controller('board', { boardId: board.id }) }} class="flex h-screen bg-gray-100 overflow-hidden relative">
         {# Left-hand Toolbar #}
         <div class="absolute top-1/2 -translate-y-1/2 left-4 z-20 bg-white shadow-lg rounded-lg p-2 flex flex-col space-y-2">
             <button data-action="click->board#activateTool" data-tool="select" class="board-tool p-2 rounded hover:bg-gray-200" title="Select Tool">

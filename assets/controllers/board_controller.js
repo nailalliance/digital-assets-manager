@@ -222,7 +222,6 @@ export default class extends Controller {
         });
     }
 
-    // ... (addTextItemToBoard, addGroupItemToBoard, addAssetToBoard are unchanged)
     addTextItemToBoard(x, y, width = 200, height = 50, itemId = null, content = { text: 'Type here...' }) {
         const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
         const textEl = document.createElement('div');
@@ -328,7 +327,6 @@ export default class extends Controller {
         }
     }
 
-    // ... (saveBoardState, _syncStateFromServer, searchAssets, createAssetElement, initAssetPanelAndDropzone are unchanged)
     async saveBoardState(isAutoSave = false) {
         if (!isAutoSave) {
             this.saveBtnTarget.textContent = 'Saving...';
@@ -370,6 +368,7 @@ export default class extends Controller {
             }
         }
     }
+
     _syncStateFromServer(serverItems) {
         const serverItemIds = new Set();
         serverItems.forEach(serverItem => {
@@ -407,6 +406,7 @@ export default class extends Controller {
             }
         }
     }
+
     async searchAssets(event) {
         const query = event.target.value;
 
@@ -425,6 +425,7 @@ export default class extends Controller {
                 });
             });
     }
+
     createAssetElement(asset) {
         const assetElement = document.createElement('div');
         assetElement.classList.add('p-2', 'border-b', 'cursor-move', 'asset-item', 'flex', 'items-center');
@@ -437,6 +438,7 @@ export default class extends Controller {
         `;
         return assetElement;
     }
+
     initAssetPanelAndDropzone() {
         interact('#asset-list .asset-item').draggable({
             inertia: true,
