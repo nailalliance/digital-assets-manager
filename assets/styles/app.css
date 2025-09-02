@@ -53,3 +53,21 @@ body {
     outline: 3px solid #3b82f6; /* A prominent blue outline */
     outline-offset: 2px;
 }
+
+.board-item-line {
+    /* Allow clicks to pass through the SVG container to the line itself */
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: visible !important;
+}
+
+.board-item-line line {
+    /* Capture clicks on the line itself */
+    pointer-events: stroke;
+}
+
+.board-item.selected .visual-line {
+    stroke: #3b82f6; /* Blue */
+}
