@@ -8,6 +8,7 @@ use App\Entity\User;
 use App\Form\BoardType;
 use App\Repository\Assets\AssetsRepository;
 use App\Repository\Boards\BoardRepository;
+use App\Security\Voter\BoardVoter;
 use App\Service\SearchService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -54,9 +55,10 @@ class BoardsController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_boards_show', methods: ['GET'])]
-    #[IsGranted('ROLE_FTP_DESIGNER')]
     public function show(Board $board): Response
     {
+        $this->denyAccessUnlessGranted(BoardVoter::VIEW, $board);
+
         return $this->render('boards/show.html.twig', [
             'board' => $board,
         ]);
@@ -65,6 +67,8 @@ class BoardsController extends AbstractController
     #[Route('/assets/search', name: 'app_boards_asset_search', methods: ['GET'])]
     public function searchAssets(Request $request, SearchService $searchService, UrlGeneratorInterface $urlGenerator): JsonResponse
     {
+        $this->denyAccessUnlessGranted('ROLE_FTP_DESIGNER');
+
         $query = $request->query->get('q', '');
         $assets = $searchService->search($query, 1000, 0);
 
@@ -85,7 +89,7 @@ class BoardsController extends AbstractController
     #[Route('/{id}/items', name: 'app_boards_get_items', methods: ['GET'])]
     public function getBoardItems(Board $board, UrlGeneratorInterface $urlGenerator): JsonResponse
     {
-        // $this->denyAccessUnlessGranted('view', $board);
+        $this->denyAccessUnlessGranted(BoardVoter::VIEW, $board);
 
         $itemsData = [];
 
@@ -113,7 +117,7 @@ class BoardsController extends AbstractController
     #[Route('/{id}/save', name: 'app_boards_save', methods: ['POST'])]
     public function saveBoard(Request $request, Board $board, EntityManagerInterface $entityManager, AssetsRepository $assetRepository): JsonResponse
     {
-        // $this->denyAccessUnlessGranted('edit', $board); // We should create a voter for this
+        $this->denyAccessUnlessGranted(BoardVoter::EDIT, $board);
 
         $data = json_decode($request->getContent(), true);
 
