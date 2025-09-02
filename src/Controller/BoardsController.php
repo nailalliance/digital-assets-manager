@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Boards\Board;
+use App\Entity\Boards\BoardItem;
 use App\Entity\User;
 use App\Form\BoardType;
 use App\Repository\Assets\AssetsRepository;
@@ -79,5 +80,78 @@ class BoardsController extends AbstractController
         }, $assets);
 
         return $this->json($data);
+    }
+
+    #[Route('/{id}/items', name: 'app_boards_get_items', methods: ['GET'])]
+    public function getBoardItems(Board $board, UrlGeneratorInterface $urlGenerator): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('view', $board);
+
+        $itemsData = [];
+
+        foreach ($board->getItems() as $item) {
+            $content = $item->getContent();
+            if ($item->getType() === 'asset' && isset($content['assetId']))
+            {
+                $content['thumbnailUrl'] = $urlGenerator->generate('asset_thumbnail_by_id', ['id' => $content['assetId']]);
+            }
+
+            $itemsData[] = [
+                'id' => $item->getId(),
+                'type' => $item->getType(),
+                'pos_x' => $item->getPosX(),
+                'pos_y' => $item->getPosY(),
+                'width' => $item->getWidth(),
+                'height' => $item->getHeight(),
+                'content' => $content,
+            ];
+        }
+
+        return $this->json($itemsData);
+    }
+
+    #[Route('/{id}/save', name: 'app_boards_save', methods: ['POST'])]
+    public function saveBoard(Request $request, Board $board, EntityManagerInterface $entityManager, AssetsRepository $assetRepository): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('edit', $board); // We should create a voter for this
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['items'])) {
+            return $this->json(['status' => 'error', 'message' => 'Invalid data'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Clear existing items
+        foreach ($board->getItems() as $item) {
+            $entityManager->remove($item);
+        }
+        $board->getItems()->clear();
+
+        // Add new items
+        foreach ($data['items'] as $itemData) {
+            $boardItem = new BoardItem();
+            $boardItem->setBoard($board);
+            $boardItem->setType($itemData['type']);
+            $boardItem->setPosX($itemData['x']);
+            $boardItem->setPosY($itemData['y']);
+            $boardItem->setWidth($itemData['width']);
+            $boardItem->setHeight($itemData['height']);
+
+            $content = $itemData['content'];
+            if($itemData['type'] === 'asset'){
+                $asset = $assetRepository->find($itemData['content']['assetId']);
+                if($asset){
+                    $content['assetId'] = $asset->getId();
+                }
+            }
+
+            $boardItem->setContent($content);
+            $entityManager->persist($boardItem);
+            $board->addItem($boardItem);
+        }
+
+        $entityManager->flush();
+
+        return $this->json(['status' => 'success']);
     }
 }

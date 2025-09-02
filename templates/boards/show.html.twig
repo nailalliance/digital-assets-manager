@@ -3,7 +3,7 @@
 {% block title %}{{ board.name }}{% endblock %}
 
 {% block body %}
-    <div {{ stimulus_controller('board') }} class="flex h-screen bg-gray-100">
+    <div {{ stimulus_controller('board', { boardId: board.id }) }} class="flex h-screen bg-gray-100">
         {# Main Board Canvas #}
         <div data-board-target="canvas" id="board-canvas" class="flex-grow h-full bg-white relative overflow-hidden">
             {# Items will be dynamically added here #}

@@ -38,4 +38,23 @@ class ThumbnailController extends AbstractController
 
         return $response;
     }
+
+    #[Route('/thumbnail/{id}', name: 'asset_thumbnail_by_id', requirements: ['id' => '\d+'])]
+    public function thumbnailById(Assets $assets): BinaryFileResponse
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+
+        $fullPath = $assets->getThumbnailPath();
+
+        // 2. Check if the reconstructed file path exists
+        if (!file_exists($fullPath)) {
+            throw $this->createNotFoundException('Thumbnail not found.');
+        }
+
+        // 3. Serve the file
+        $response = new BinaryFileResponse($fullPath);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
+
+        return $response;
+    }
 }
