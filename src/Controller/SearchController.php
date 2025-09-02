@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Assets\Assets;
 use App\Repository\Assets\AssetsRepository;
 use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\CategoriesRepository;
@@ -25,8 +26,8 @@ class SearchController extends AbstractController
     ): Response {
         $query = $request->query->get('q', '');
         $selectedBrandIds = $request->query->all('brand_ids');
+        $selectedFileTypeGroup = $request->query->get('file_type_group');
 
-        // Handle both singular and plural from the form/links
         $selectedCategoryIds = $request->query->all('category_ids');
         if ($request->query->has('category_id')) {
             $selectedCategoryIds[] = $request->query->get('category_id');
@@ -47,7 +48,8 @@ class SearchController extends AbstractController
 
         if (!empty($query)) {
             $searchResult = $searchService->search($query, 1000, 0);
-            $assetIdsFromSearch = array_map(fn($hit) => $hit->getId(), $searchResult['hits']);
+            $assetIdsFromSearch = $searchResult['ids'];
+            $totalAssets = $searchResult['total'];
 
             $allPossibleAssets = $searchResult['hits'];
 
@@ -62,6 +64,7 @@ class SearchController extends AbstractController
                 $selectedCategoryIds,
                 $selectedCollectionIds,
                 $selectedBrandIds,
+                $selectedFileTypeGroup,
                 $limit,
                 $offset,
                 $assetIdsFromSearch
@@ -69,12 +72,15 @@ class SearchController extends AbstractController
             $assets = iterator_to_array($paginator);
             $totalAssets = count($paginator);
 
-            $allPossibleAssets = $assetsRepository->findByFilters(
-                $selectedCategoryIds,
-                $selectedCollectionIds,
-                $selectedBrandIds,
-                1000, 0, null
-            );
+            if (!isset($allPossibleAssets)) {
+                $allPossibleAssets = $assetsRepository->findByFilters(
+                    $selectedCategoryIds,
+                    $selectedCollectionIds,
+                    $selectedBrandIds,
+                    $selectedFileTypeGroup,
+                    1000, 0, null
+                );
+            }
         }
 
         $activeBrands = [];
@@ -114,6 +120,7 @@ class SearchController extends AbstractController
             'selectedBrandIds' => $selectedBrandIds,
             'selectedCategoryIds' => $selectedCategoryIds,
             'selectedCollectionIds' => $selectedCollectionIds,
+            'selectedFileTypeGroup' => $selectedFileTypeGroup,
             'paginator' => [
                 'currentPage' => $page,
                 'limit' => $limit,

@@ -114,6 +114,38 @@
                  </form>
              </div>
 
+            {# File Type Filters #}
+            <div class="mb-6">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {% set file_types = [
+                        { group: 'images', label: 'Images' },
+                        { group: 'documents', label: 'Documents' },
+                        { group: 'videos', label: 'Videos' },
+                        { group: 'audio', label: 'Audio' },
+                        { group: 'zip', label: 'Zip' },
+                    ] %}
+
+                    {% for type in file_types %}
+                        {% if selectedFileTypeGroup == type.group %}
+                            <a href="{{ path('app_search', app.request.query.all|merge({'file_type_group': null})) }}" data-turbo="false"
+                               class="flex flex-col items-center justify-center text-center p-4 rounded-lg border-2 transition-colors bg-violet-600 text-white border-violet-600">
+                                <span class="font-semibold text-sm">{{ type.label }}</span>
+                            </a>
+                        {% else %}
+                            <a href="{{ path('app_search', app.request.query.all|merge({'file_type_group': type.group})) }}" data-turbo="false"
+                               class="flex flex-col items-center justify-center text-center p-4 rounded-lg border-2 transition-colors bg-white text-gray-700 border-gray-200 hover:border-violet-400">
+                                <span class="font-semibold text-sm">{{ type.label }}</span>
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if selectedFileTypeGroup %}
+                    <div class="text-center mt-2">
+                        <a href="{{ path('app_search', app.request.query.all|merge({'file_type_group': null})) }}" data-turbo="false"  class="text-xs text-gray-500 hover:text-violet-600">Clear File Type Filter</a>
+                    </div>
+                {% endif %}
+            </div>
+
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-3xl font-bold">
                     {% if query is not empty %}

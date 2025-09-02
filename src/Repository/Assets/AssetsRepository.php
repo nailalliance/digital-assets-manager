@@ -22,7 +22,15 @@ class AssetsRepository extends ServiceEntityRepository
      *
      * @return Paginator
      */
-    public function findByFilters(?array $categoryIds, ?array $collectionIds, ?array $brandIds, int $limit, int $offset, ?array $assetIds = null): Paginator
+    public function findByFilters(
+        ?array $categoryIds,
+        ?array $collectionIds,
+        ?array $brandIds,
+        ?string $fileTypeGroup,
+        int $limit,
+        int $offset,
+        ?array $assetIds = null
+    ): Paginator
     {
         $qb = $this->createQueryBuilder('a')
             ->where('a.status = :status')
@@ -30,6 +38,14 @@ class AssetsRepository extends ServiceEntityRepository
             ->andWhere('a.expirationDate IS NULL OR a.expirationDate >= :now')
             ->setParameter('status', 'active')
             ->setParameter('now', new \DateTimeImmutable());
+
+        if ($fileTypeGroup) {
+            $mimeTypes = $this->getMimeTypesForGroup($fileTypeGroup);
+            if (!empty($mimeTypes)) {
+                $qb->andWhere('a.mime_type IN (:mimeTypes)')
+                    ->setParameter('mimeTypes', $mimeTypes);
+            }
+        }
 
         // If asset IDs are provided from a search, filter by them first.
         if ($assetIds !== null) {
@@ -49,7 +65,7 @@ class AssetsRepository extends ServiceEntityRepository
             $qb->innerJoin('a.collections', 'coll')->andWhere('coll.id IN (:collectionIds)')->setParameter('collectionIds', $collectionIds);
         }
         if (!empty($brandIds)) {
-            $qb->innerJoin('a.brand', 'b')->andWhere('b.id IN (:brandIds)')->setParameter('brandIds', $brandIds);
+            $qb->innerJoin('a.brand', 'b')->andWhere('(b.id IN (:brandIds) OR b.brands IN (:brandIds))')->setParameter('brandIds', $brandIds);
         }
 
         $qb->orderBy('a.createdAt', 'DESC')
@@ -59,7 +75,6 @@ class AssetsRepository extends ServiceEntityRepository
         return new Paginator($qb->getQuery(), true);
     }
 
-    // Add this method to your BrandsRepository
     public function findWithActiveAssets(): array
     {
         return $this->createQueryBuilder('b')
@@ -86,6 +101,50 @@ class AssetsRepository extends ServiceEntityRepository
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Finds assets by their IDs and eagerly loads all necessary relations
+     * to prevent the N+1 query problem.
+     *
+     * @param array $ids
+     * @return Assets[]
+     */
+    public function findByIdsWithRelations(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('a')
+            ->select('a, b, c, coll, t, ic') // Select the asset and all related entities
+            ->leftJoin('a.brand', 'b')
+            ->leftJoin('a.categories', 'c')
+            ->leftJoin('a.collections', 'coll')
+            ->leftJoin('a.tags', 't')
+            ->leftJoin('a.itemCodes', 'ic')
+            ->where('a.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Maps a simple group name to an array of MIME types.
+     */
+    private function getMimeTypesForGroup(string $group): array
+    {
+        $map = [
+            'images' => ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/tiff', 'image/svg+xml', 'image/x-eps'],
+            'videos' => ['video/mp4', 'video/quicktime', 'video/x-msvideo'],
+            'audio' => ['audio/mpeg', 'audio/wav', 'audio/aiff'],
+            'documents' => ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+            '3d' => ['model/gltf-binary', 'model/obj'],
+            'code' => ['text/html', 'text/css', 'application/javascript'],
+            'zip' => ['application/zip'],
+        ];
+
+        return $map[$group] ?? [];
     }
 
     //    /**

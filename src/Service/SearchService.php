@@ -18,19 +18,21 @@ class SearchService
     }
 
     /**
-     * Performs a search against the Meilisearch index and returns hydrated Doctrine entities.
+     * Performs a search against Meilisearch and returns the raw results.
      *
      * @param string $query The user's search term.
-     * @return array{hits: Assets[], total: int} An array of Asset entities.
+     * @param int $limit
+     * @param int $offset
+     * @return array{ids: int[], hits:Assets[], total: int}
      */
     public function search(string $query, int $limit, int $offset): array
     {
         if (empty($query)) {
-            return ['hits' => [], 'total' => 0];
+            return ['ids' => [], 'hits' => [], 'total' => 0];
         }
 
-        // Pass the EntityManager as the first argument.
-        $assets = $this->meilisearch->search(
+        // 1. Get the raw search results from Meilisearch
+        $searchResults = $this->meilisearch->search(
             $this->entityManager,
             Assets::class,
             $query,
@@ -40,23 +42,13 @@ class SearchService
             ]
         );
 
-        // $assetIds = array_map(fn($hit) => $hit['id'], $searchResults['hits']);
-        // $assetIds = [];
-        // foreach($searchResults as $result) {
-        //     $assetIds[] = $result->getId();
-        // }
-
-        if (empty($assets)) {
-            return ['hits' => [], 'total' => 0];
-        }
-
-        // $assets = $this->assetsRepository->findBy(['id' => $assetIds]);
-
-        // $orderedAssets = array_replace(array_flip($assetIds), $assets);
+        // 2. Extract only the IDs from the results
+        $assetIds = array_map(fn($hit) => $hit->getId(), $searchResults ?? []);
 
         return [
-            'hits' => array_values($assets),
-            'total' => count($assets),
+            'ids' => $assetIds,
+            'hits' => $searchResults ?? [],
+            'total' => count($searchResults) ?? 0,
         ];
     }
 }
