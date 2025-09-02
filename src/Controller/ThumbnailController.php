@@ -39,7 +39,7 @@ class ThumbnailController extends AbstractController
         return $response;
     }
 
-    #[Route('/thumbnail/{id}', name: 'asset_thumbnail_by_id', requirements: ['id' => '\d+'])]
+    #[Route('/thumbnailId/{id}', name: 'asset_thumbnail_by_id', requirements: ['id' => '\d+'])]
     public function thumbnailById(Assets $assets): BinaryFileResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
