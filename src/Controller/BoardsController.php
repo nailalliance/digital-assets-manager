@@ -174,7 +174,7 @@ class BoardsController extends AbstractController
 
             $content = $item->getContent();
             if ($item->getType() === 'asset' && isset($content['assetId'])) {
-                $content['thumbnailUrl'] = $urlGenerator->generate('app_thumbnail', ['assetId' => $content['assetId']]);
+                $content['thumbnailUrl'] = $urlGenerator->generate('asset_thumbnail_by_id', ['id' => $content['assetId']]);
             }
 
             $responseItem = [

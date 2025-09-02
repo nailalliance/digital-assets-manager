@@ -7,22 +7,21 @@ export default class extends Controller {
     static values = { boardId: Number };
 
     connect() {
-        this.boardItems = new Map(); // Use a Map to easily update items by ID
+        this.boardItems = new Map();
         this.assetSearchTarget.addEventListener('input', this.searchAssets.bind(this));
         this.saveBtnTarget.addEventListener('click', () => this.saveBoardState(false));
 
         this.initAssetPanelAndDropzone();
         this.loadBoardState();
 
-        // Set up auto-save
         this.autoSaveInterval = setInterval(() => this.saveBoardState(true), 30000);
     }
 
     disconnect() {
-        // Clean up the interval when the controller is disconnected
         clearInterval(this.autoSaveInterval);
     }
 
+    // ... (searchAssets and createAssetElement methods are unchanged)
     searchAssets(event) {
         const query = event.target.value;
 
@@ -55,8 +54,8 @@ export default class extends Controller {
         return assetElement;
     }
 
+
     initAssetPanelAndDropzone() {
-        // Make assets in the side panel draggable
         interact('#asset-list .asset-item').draggable({
             inertia: true,
             listeners: {
@@ -84,7 +83,6 @@ export default class extends Controller {
             }
         });
 
-        // Make the main canvas a dropzone
         interact(this.canvasTarget).dropzone({
             accept: '.asset-item',
             ondrop: (event) => {
@@ -101,27 +99,17 @@ export default class extends Controller {
 
     makeItemInteractive(element) {
         const interactive = interact(element);
-
         interactive.draggable({
             inertia: true,
             modifiers: [
-                interact.modifiers.restrictRect({
-                    restriction: 'parent',
-                    endOnly: true
-                })
+                interact.modifiers.restrictRect({ restriction: 'parent', endOnly: true })
             ],
-            listeners: {
-                move: this.dragMoveListener,
-            }
+            listeners: { move: this.dragMoveListener }
         });
-
         interactive.resizable({
             edges: { left: true, right: true, bottom: true, top: true },
-            listeners: {
-                move: this.resizeMoveListener,
-            }
+            listeners: { move: this.resizeMoveListener }
         });
-
         interactive.on('dragend resizeend', (event) => {
             const target = event.target;
             const itemId = target.dataset.itemId;
@@ -158,9 +146,7 @@ export default class extends Controller {
     }
 
     addAssetToBoard(assetId, thumbnailUrl, x, y, width = 200, height = 200, itemId = null) {
-        // Ensure itemId is a string for consistent Map keying
         const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
-
         const boardItemEl = document.createElement('div');
         boardItemEl.classList.add('board-item', 'absolute', 'p-1', 'bg-white', 'shadow-lg', 'box-border');
         boardItemEl.style.left = '0px';
@@ -172,18 +158,13 @@ export default class extends Controller {
         boardItemEl.setAttribute('data-x', x);
         boardItemEl.setAttribute('data-y', y);
         boardItemEl.innerHTML = `<img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">`;
-
         this.canvasTarget.appendChild(boardItemEl);
         this.makeItemInteractive(boardItemEl);
-
         const newItem = {
             id: finalItemId,
             type: 'asset',
             content: { assetId: assetId, thumbnailUrl: thumbnailUrl },
-            x: x,
-            y: y,
-            width: width,
-            height: height
+            x: x, y: y, width: width, height: height
         };
         this.boardItems.set(finalItemId, newItem);
     }
@@ -191,15 +172,7 @@ export default class extends Controller {
     async loadBoardState() {
         const response = await fetch(`/boards/${this.boardIdValue}/items`);
         const items = await response.json();
-
-        this.canvasTarget.querySelectorAll('.board-item').forEach(el => el.remove());
-        this.boardItems.clear();
-
-        items.forEach(item => {
-            if (item.type === 'asset') {
-                this.addAssetToBoard(item.content.assetId, item.content.thumbnailUrl, item.pos_x, item.pos_y, item.width, item.height, item.id);
-            }
-        });
+        this._syncStateFromServer(items);
     }
 
     async saveBoardState(isAutoSave = false) {
@@ -219,12 +192,12 @@ export default class extends Controller {
                 },
                 body: JSON.stringify({ items: payload })
             });
-
             if (!response.ok) throw new Error('Failed to save board');
 
-            // On a manual save, reload the board from the server to sync IDs.
+            const serverState = await response.json();
+            this._syncStateFromServer(serverState); // Always sync after any save.
+
             if (!isAutoSave) {
-                await this.loadBoardState();
                 this.saveBtnTarget.textContent = 'Saved!';
                 setTimeout(() => {
                     this.saveBtnTarget.textContent = 'Save';
@@ -239,6 +212,50 @@ export default class extends Controller {
                     this.saveBtnTarget.textContent = 'Save';
                     this.saveBtnTarget.disabled = false;
                 }, 2000);
+            }
+        }
+    }
+
+    _syncStateFromServer(serverItems) {
+        const serverItemIds = new Set();
+
+        // Update local state and DOM elements based on server response
+        serverItems.forEach(serverItem => {
+            const serverId = String(serverItem.id);
+            serverItemIds.add(serverId);
+            let localItem = null;
+            let domElement = null;
+
+            if (serverItem.tempId && this.boardItems.has(serverItem.tempId)) {
+                // This is a new item that was just saved. Update its ID.
+                localItem = this.boardItems.get(serverItem.tempId);
+                domElement = this.canvasTarget.querySelector(`[data-item-id="${serverItem.tempId}"]`);
+
+                this.boardItems.delete(serverItem.tempId);
+                localItem.id = serverId;
+                this.boardItems.set(serverId, localItem);
+
+                if (domElement) domElement.dataset.itemId = serverId;
+
+            } else {
+                // This is an existing item.
+                localItem = this.boardItems.get(serverId);
+            }
+
+            // If item doesn't exist locally, it's new from another session/user. Add it.
+            if (!localItem) {
+                if (serverItem.type === 'asset') {
+                    this.addAssetToBoard(serverItem.content.assetId, serverItem.content.thumbnailUrl, serverItem.pos_x, serverItem.pos_y, serverItem.width, serverItem.height, serverItem.id);
+                }
+            }
+        });
+
+        // Remove local items that are no longer on the server
+        for (const localId of this.boardItems.keys()) {
+            if (!serverItemIds.has(localId)) {
+                this.boardItems.delete(localId);
+                const domElement = this.canvasTarget.querySelector(`[data-item-id="${localId}"]`);
+                if (domElement) domElement.remove();
             }
         }
     }
