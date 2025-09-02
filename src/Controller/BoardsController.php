@@ -115,7 +115,7 @@ class BoardsController extends AbstractController
     }
 
     #[Route('/{id}/save', name: 'app_boards_save', methods: ['POST'])]
-    public function saveBoard(Request $request, Board $board, EntityManagerInterface $entityManager, AssetsRepository $assetRepository): JsonResponse
+    public function saveBoard(Request $request, Board $board, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator): JsonResponse
     {
         $this->denyAccessUnlessGranted(BoardVoter::EDIT, $board);
 
@@ -126,29 +126,29 @@ class BoardsController extends AbstractController
 
         $incomingItemsData = $data['items'];
         $existingItems = $board->getItems()->toArray();
-        $existingItemsById = [];
-        foreach ($existingItems as $item) {
-            $existingItemsById[$item->getId()] = $item;
-        }
+        $existingItemsById = array_combine(array_map(fn($item) => $item->getId(), $existingItems), $existingItems);
 
         $processedIds = [];
+        $tempIdMap = []; // This will map temporary client IDs to the newly persisted entities
 
         foreach ($incomingItemsData as $itemData) {
             $itemId = $itemData['id'];
+            $boardItem = null;
 
-            // Check if it's an existing item that we need to update
             if (is_numeric($itemId) && isset($existingItemsById[$itemId])) {
                 $boardItem = $existingItemsById[$itemId];
                 $processedIds[] = (int)$itemId;
             } else {
-                // Otherwise, it's a new item
                 $boardItem = new BoardItem();
                 $boardItem->setBoard($board);
                 $entityManager->persist($boardItem);
                 $board->addItem($boardItem);
+                if (!is_numeric($itemId)) {
+                    // Use a unique object hash to track the new entity before it has an ID
+                    $tempIdMap[spl_object_hash($boardItem)] = $itemId;
+                }
             }
 
-            // Update all properties
             $boardItem->setType($itemData['type']);
             $boardItem->setPosX((int)$itemData['x']);
             $boardItem->setPosY((int)$itemData['y']);
@@ -157,7 +157,6 @@ class BoardsController extends AbstractController
             $boardItem->setContent($itemData['content']);
         }
 
-        // Remove items that are no longer present in the payload
         foreach ($existingItemsById as $id => $itemToRemove) {
             if (!in_array($id, $processedIds, true)) {
                 $board->removeItem($itemToRemove);
@@ -165,8 +164,35 @@ class BoardsController extends AbstractController
             }
         }
 
-        $entityManager->flush();
+        $entityManager->flush(); // At this point, all new entities have a permanent ID
 
-        return $this->json(['status' => 'success']);
+        // Build the response payload
+        $responseItems = [];
+        foreach ($board->getItems() as $item) {
+            $hash = spl_object_hash($item);
+            $tempId = $tempIdMap[$hash] ?? null;
+
+            $content = $item->getContent();
+            if ($item->getType() === 'asset' && isset($content['assetId'])) {
+                $content['thumbnailUrl'] = $urlGenerator->generate('app_thumbnail', ['assetId' => $content['assetId']]);
+            }
+
+            $responseItem = [
+                'id' => $item->getId(),
+                'type' => $item->getType(),
+                'pos_x' => $item->getPosX(),
+                'pos_y' => $item->getPosY(),
+                'width' => $item->getWidth(),
+                'height' => $item->getHeight(),
+                'content' => $content,
+            ];
+
+            if ($tempId) {
+                $responseItem['tempId'] = $tempId;
+            }
+            $responseItems[] = $responseItem;
+        }
+
+        return $this->json($responseItems);
     }
 }
