@@ -120,38 +120,49 @@ class BoardsController extends AbstractController
         $this->denyAccessUnlessGranted(BoardVoter::EDIT, $board);
 
         $data = json_decode($request->getContent(), true);
-
         if (!isset($data['items'])) {
             return $this->json(['status' => 'error', 'message' => 'Invalid data'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Clear existing items
-        foreach ($board->getItems() as $item) {
-            $entityManager->remove($item);
+        $incomingItemsData = $data['items'];
+        $existingItems = $board->getItems()->toArray();
+        $existingItemsById = [];
+        foreach ($existingItems as $item) {
+            $existingItemsById[$item->getId()] = $item;
         }
-        $board->getItems()->clear();
 
-        // Add new items
-        foreach ($data['items'] as $itemData) {
-            $boardItem = new BoardItem();
-            $boardItem->setBoard($board);
-            $boardItem->setType($itemData['type']);
-            $boardItem->setPosX($itemData['x']);
-            $boardItem->setPosY($itemData['y']);
-            $boardItem->setWidth($itemData['width']);
-            $boardItem->setHeight($itemData['height']);
+        $processedIds = [];
 
-            $content = $itemData['content'];
-            if($itemData['type'] === 'asset'){
-                $asset = $assetRepository->find($itemData['content']['assetId']);
-                if($asset){
-                    $content['assetId'] = $asset->getId();
-                }
+        foreach ($incomingItemsData as $itemData) {
+            $itemId = $itemData['id'];
+
+            // Check if it's an existing item that we need to update
+            if (is_numeric($itemId) && isset($existingItemsById[$itemId])) {
+                $boardItem = $existingItemsById[$itemId];
+                $processedIds[] = (int)$itemId;
+            } else {
+                // Otherwise, it's a new item
+                $boardItem = new BoardItem();
+                $boardItem->setBoard($board);
+                $entityManager->persist($boardItem);
+                $board->addItem($boardItem);
             }
 
-            $boardItem->setContent($content);
-            $entityManager->persist($boardItem);
-            $board->addItem($boardItem);
+            // Update all properties
+            $boardItem->setType($itemData['type']);
+            $boardItem->setPosX((int)$itemData['x']);
+            $boardItem->setPosY((int)$itemData['y']);
+            $boardItem->setWidth((int)$itemData['width']);
+            $boardItem->setHeight((int)$itemData['height']);
+            $boardItem->setContent($itemData['content']);
+        }
+
+        // Remove items that are no longer present in the payload
+        foreach ($existingItemsById as $id => $itemToRemove) {
+            if (!in_array($id, $processedIds, true)) {
+                $board->removeItem($itemToRemove);
+                $entityManager->remove($itemToRemove);
+            }
         }
 
         $entityManager->flush();

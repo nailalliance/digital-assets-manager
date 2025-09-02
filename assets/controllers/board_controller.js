@@ -1,24 +1,26 @@
 import { Controller } from '@hotwired/stimulus';
 import interact from 'interactjs';
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuidv4 } from 'uuid';
 
 export default class extends Controller {
     static targets = ["canvas", "assetSearch", "assetList", "saveBtn"];
     static values = { boardId: Number };
 
     connect() {
-        this.boardItems = new Map();
+        this.boardItems = new Map(); // Use a Map to easily update items by ID
         this.assetSearchTarget.addEventListener('input', this.searchAssets.bind(this));
-        this.saveBtnTarget.addEventListener('click', this.saveBoardState.bind(this));
-        this.initDragAndDrop();
+        this.saveBtnTarget.addEventListener('click', () => this.saveBoardState(false));
+
+        this.initAssetPanelAndDropzone();
         this.loadBoardState();
 
-        this.autoSaveInterval = setInterval(() => this.saveBoardState(true), 30_000);
+        // Set up auto-save
+        this.autoSaveInterval = setInterval(() => this.saveBoardState(true), 30000);
     }
 
     disconnect() {
+        // Clean up the interval when the controller is disconnected
         clearInterval(this.autoSaveInterval);
-        super.disconnect();
     }
 
     searchAssets(event) {
@@ -53,19 +55,16 @@ export default class extends Controller {
         return assetElement;
     }
 
-    initDragAndDrop() {
-        // Make assets in the panel draggable
+    initAssetPanelAndDropzone() {
+        // Make assets in the side panel draggable
         interact('#asset-list .asset-item').draggable({
             inertia: true,
             listeners: {
                 start: (event) => {
-                    // Create a clone of the dragged element
                     const original = event.target;
                     const clone = original.cloneNode(true);
                     clone.classList.add('dragging-clone');
                     document.body.appendChild(clone);
-
-                    // Store clone and position info in the event
                     event.interaction.clone = clone;
                     const rect = original.getBoundingClientRect();
                     clone.style.left = `${rect.left}px`;
@@ -75,7 +74,6 @@ export default class extends Controller {
                     const clone = event.interaction.clone;
                     const x = (parseFloat(clone.getAttribute('data-x')) || 0) + event.dx;
                     const y = (parseFloat(clone.getAttribute('data-y')) || 0) + event.dy;
-
                     clone.style.transform = `translate(${x}px, ${y}px)`;
                     clone.setAttribute('data-x', x);
                     clone.setAttribute('data-y', y);
@@ -86,25 +84,25 @@ export default class extends Controller {
             }
         });
 
-        // Make the canvas a dropzone
+        // Make the main canvas a dropzone
         interact(this.canvasTarget).dropzone({
             accept: '.asset-item',
             ondrop: (event) => {
                 const droppedElement = event.relatedTarget;
                 const canvasRect = this.canvasTarget.getBoundingClientRect();
-
-                // Calculate position relative to the canvas
                 const dropX = event.dragEvent.client.x - canvasRect.left;
                 const dropY = event.dragEvent.client.y - canvasRect.top;
-
                 const assetId = droppedElement.dataset.assetId;
                 const assetThumbnail = droppedElement.dataset.assetThumbnail;
-
                 this.addAssetToBoard(assetId, assetThumbnail, dropX, dropY);
             }
         });
+    }
 
-        interact('.board-item').draggable({
+    makeItemInteractive(element) {
+        const interactive = interact(element);
+
+        interactive.draggable({
             inertia: true,
             modifiers: [
                 interact.modifiers.restrictRect({
@@ -113,86 +111,73 @@ export default class extends Controller {
                 })
             ],
             listeners: {
-                move: (event) => {
-                    const target = event.target;
-                    const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-                    const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-
-                    target.style.transform = `transform(${x}px, ${y}px)`;
-                    target.setAttribute('data-x', x);
-                    target.setAttribute('data-y', y);
-                },
-                end: (event) => {
-                    const target = event.target;
-                    const itemId = target.dataset.itemId;
-                    const item = this.boardItems.get(itemId);
-                    if (item) {
-                        item.x = parseFloat(target.getAttribute('data-x'));
-                        item.y = parseFloat(target.getAttribute('data-y'));
-                    }
-                }
+                move: this.dragMoveListener,
             }
-        }).resizable({
-            edges: {
-                left: true,
-                right: true,
-                bottom: true,
-                top: true,
-            },
+        });
+
+        interactive.resizable({
+            edges: { left: true, right: true, bottom: true, top: true },
             listeners: {
-                move: (event) => {
-                    const target = event.target;
-                    let x = parseFloat(target.getAttribute('data-x')) || 0;
-                    let y = parseFloat(target.getAttribute('data-y')) || 0;
+                move: this.resizeMoveListener,
+            }
+        });
 
-                    target.style.width = `${event.rect.width}px`;
-                    target.style.height = `${event.rect.height}px`;
-
-                    x += event.deltaRect.left;
-                    y += event.deltaRect.top;
-
-                    target.style.transform = `translate(${x}px, ${y})`;
-                    target.setAttribute('data-x', x);
-                    target.setAttribute('data-y', y);
-                },
-                end: (event) => {
-                    const target = event.target;
-                    const itemId = target.dataset.itemId;
-                    const item = this.boardItems.get(itemId);
-                    if (item) {
-                        item.width = event.rect.width;
-                        item.height = event.rect.height;
-                        item.x = parseFloat(target.getAttribute('data-x'));
-                        item.y = parseFloat(target.getAttribute('data-y'));
-                    }
-                }
+        interactive.on('dragend resizeend', (event) => {
+            const target = event.target;
+            const itemId = target.dataset.itemId;
+            const item = this.boardItems.get(itemId);
+            if (item) {
+                item.x = parseFloat(target.getAttribute('data-x'));
+                item.y = parseFloat(target.getAttribute('data-y'));
+                item.width = parseFloat(target.style.width);
+                item.height = parseFloat(target.style.height);
             }
         });
     }
 
+    dragMoveListener(event) {
+        const target = event.target;
+        const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+        const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+        target.style.transform = `translate(${x}px, ${y}px)`;
+        target.setAttribute('data-x', x);
+        target.setAttribute('data-y', y);
+    }
+
+    resizeMoveListener(event) {
+        const target = event.target;
+        let x = parseFloat(target.getAttribute('data-x')) || 0;
+        let y = parseFloat(target.getAttribute('data-y')) || 0;
+        target.style.width = `${event.rect.width}px`;
+        target.style.height = `${event.rect.height}px`;
+        x += event.deltaRect.left;
+        y += event.deltaRect.top;
+        target.style.transform = `translate(${x}px, ${y}px)`;
+        target.setAttribute('data-x', x);
+        target.setAttribute('data-y', y);
+    }
+
     addAssetToBoard(assetId, thumbnailUrl, x, y, width = 200, height = 200, itemId = null) {
-        if (!itemId) {
-            itemId = `item-${uuidv4()}`;
-        }
+        // Ensure itemId is a string for consistent Map keying
+        const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
 
         const boardItemEl = document.createElement('div');
         boardItemEl.classList.add('board-item', 'absolute', 'p-1', 'bg-white', 'shadow-lg', 'box-border');
-        boardItemEl.style.left = `0px`; // Use transform for positioning
-        boardItemEl.style.top = `0px`;
+        boardItemEl.style.left = '0px';
+        boardItemEl.style.top = '0px';
         boardItemEl.style.width = `${width}px`;
         boardItemEl.style.height = `${height}px`;
         boardItemEl.style.transform = `translate(${x}px, ${y}px)`;
-
-        boardItemEl.dataset.itemId = itemId;
+        boardItemEl.dataset.itemId = finalItemId;
         boardItemEl.setAttribute('data-x', x);
         boardItemEl.setAttribute('data-y', y);
-
         boardItemEl.innerHTML = `<img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">`;
 
         this.canvasTarget.appendChild(boardItemEl);
+        this.makeItemInteractive(boardItemEl);
 
         const newItem = {
-            id: itemId,
+            id: finalItemId,
             type: 'asset',
             content: { assetId: assetId, thumbnailUrl: thumbnailUrl },
             x: x,
@@ -200,22 +185,21 @@ export default class extends Controller {
             width: width,
             height: height
         };
-
-        this.boardItems.set(itemId, newItem);
+        this.boardItems.set(finalItemId, newItem);
     }
 
     async loadBoardState() {
         const response = await fetch(`/boards/${this.boardIdValue}/items`);
         const items = await response.json();
 
+        this.canvasTarget.querySelectorAll('.board-item').forEach(el => el.remove());
+        this.boardItems.clear();
+
         items.forEach(item => {
             if (item.type === 'asset') {
                 this.addAssetToBoard(item.content.assetId, item.content.thumbnailUrl, item.pos_x, item.pos_y, item.width, item.height, item.id);
             }
         });
-
-        // Re-initialize interactjs for the loaded items
-        this.initDragAndDrop();
     }
 
     async saveBoardState(isAutoSave = false) {
@@ -236,21 +220,27 @@ export default class extends Controller {
                 body: JSON.stringify({ items: payload })
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to save board');
-            }
+            if (!response.ok) throw new Error('Failed to save board');
 
+            // On a manual save, reload the board from the server to sync IDs.
             if (!isAutoSave) {
+                await this.loadBoardState();
+                this.saveBtnTarget.textContent = 'Saved!';
                 setTimeout(() => {
                     this.saveBtnTarget.textContent = 'Save';
                     this.saveBtnTarget.disabled = false;
-                }, 1000);
+                }, 1500);
             }
         } catch (error) {
             console.error('Save error:', error);
             if (!isAutoSave) {
                 this.saveBtnTarget.textContent = 'Save Failed';
+                setTimeout(() => {
+                    this.saveBtnTarget.textContent = 'Save';
+                    this.saveBtnTarget.disabled = false;
+                }, 2000);
             }
         }
     }
 }
+
