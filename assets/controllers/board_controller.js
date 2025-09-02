@@ -13,6 +13,7 @@ export default class extends Controller {
         this.zoom = 1;
         this.isPanning = false;
         this.panStart = { x: 0, y: 0 };
+        this.isSaving = false; // Add save lock flag
 
         this.element.addEventListener('keydown', this.handleKeyDown.bind(this));
         this.element.addEventListener('keyup', this.handleKeyUp.bind(this));
@@ -328,6 +329,12 @@ export default class extends Controller {
     }
 
     async saveBoardState(isAutoSave = false) {
+        if (this.isSaving) {
+            console.log("Save operation already in progress. Skipping.");
+            return;
+        }
+        this.isSaving = true;
+
         if (!isAutoSave) {
             this.saveBtnTarget.textContent = 'Saving...';
             this.saveBtnTarget.disabled = true;
@@ -366,6 +373,8 @@ export default class extends Controller {
                     this.saveBtnTarget.disabled = false;
                 }, 2000);
             }
+        } finally {
+            this.isSaving = false;
         }
     }
 
@@ -467,11 +476,11 @@ export default class extends Controller {
             }
         });
 
-        interact(this.canvasTarget).dropzone({
+        interact(this.viewportTarget).dropzone({
             accept: '.asset-item',
             ondrop: (event) => {
                 const droppedElement = event.relatedTarget;
-                const viewportRect = this.viewportTarget.getBoundingClientRect(); // Use viewport for drop calcs
+                const viewportRect = this.viewportTarget.getBoundingClientRect();
 
                 const dropX_viewport = event.dragEvent.client.x - viewportRect.left;
                 const dropY_viewport = event.dragEvent.client.y - viewportRect.top;
