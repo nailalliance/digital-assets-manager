@@ -13,3 +13,38 @@ body {
     width: 200px;
     height: 200px;
 }
+
+.board-tool.active {
+    background-color: #e5e7eb; /* gray-200 */
+}
+
+#board-canvas {
+    transform-origin: 0 0;
+}
+
+.board-item {
+    /* Ensure items are above the canvas but below the UI */
+    z-index: 5;
+}
+
+.board-item-text {
+    /* Default styles for text items */
+    padding: 8px;
+    font-family: 'Helvetica', sans-serif;
+    font-size: 16px;
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    box-sizing: border-box;
+    white-space: pre-wrap; /* Preserve line breaks */
+    word-wrap: break-word; /* Break long words */
+}
+
+.board-item-text:focus {
+    outline: 2px solid #4f46e5; /* indigo-600 */
+    border-color: transparent;
+}
+
+.board-item-group {
+    background-color: rgba(209, 213, 229, 0.3); /* gray-300 with transparency */
+    border: 1px dashed #6b7280; /* gray-500 */
+}
