@@ -48,3 +48,8 @@ body {
     background-color: rgba(209, 213, 229, 0.3); /* gray-300 with transparency */
     border: 1px dashed #6b7280; /* gray-500 */
 }
+
+.board-item.selected {
+    outline: 3px solid #3b82f6; /* A prominent blue outline */
+    outline-offset: 2px;
+}

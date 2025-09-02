@@ -3,7 +3,7 @@ import interact from 'interactjs';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class extends Controller {
-    static targets = ["canvas", "svgCanvas", "viewport", "assetSearch", "assetList", "saveBtn", "zoomValue"];
+    static targets = ["canvas", "svgCanvas", "viewport", "assetSearch", "assetList", "saveBtn", "zoomValue", "contextToolbar"];
     static values = { boardId: Number };
 
     connect() {
@@ -13,10 +13,15 @@ export default class extends Controller {
         this.zoom = 1;
         this.isPanning = false;
         this.panStart = { x: 0, y: 0 };
-        this.isSaving = false; // Add save lock flag
+        this.isSaving = false;
+        this.selectedItemId = null;
+        this.zCounter = 0; // Tracks the highest z-index
 
-        this.element.addEventListener('keydown', this.handleKeyDown.bind(this));
-        this.element.addEventListener('keyup', this.handleKeyUp.bind(this));
+        this.boundHandleKeyDown = this.handleKeyDown.bind(this);
+        this.boundHandleKeyUp = this.handleKeyUp.bind(this);
+        document.addEventListener('keydown', this.boundHandleKeyDown);
+        document.addEventListener('keyup', this.boundHandleKeyUp);
+
         this.viewportTarget.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.viewportTarget.addEventListener('mousemove', this.handleMouseMove.bind(this));
         this.viewportTarget.addEventListener('mouseup', this.handleMouseUp.bind(this));
@@ -32,6 +37,43 @@ export default class extends Controller {
 
     disconnect() {
         clearInterval(this.autoSaveInterval);
+        document.removeEventListener('keydown', this.boundHandleKeyDown);
+        document.removeEventListener('keyup', this.boundHandleKeyUp);
+    }
+
+    // --- Selection & Deletion --- //
+
+    selectItem(element) {
+        if (!element) return;
+
+        // Deselect previous item
+        this.deselectAll();
+
+        this.selectedItemId = element.dataset.itemId;
+        element.classList.add('selected');
+        this.contextToolbarTarget.classList.remove('hidden');
+    }
+
+    deselectAll() {
+        if (this.selectedItemId) {
+            const previouslySelected = this.canvasTarget.querySelector(`[data-item-id="${this.selectedItemId}"]`);
+            if (previouslySelected) {
+                previouslySelected.classList.remove('selected');
+            }
+        }
+        this.selectedItemId = null;
+        this.contextToolbarTarget.classList.add('hidden');
+    }
+
+    deleteSelectedItem() {
+        if (!this.selectedItemId) return;
+
+        const itemElement = this.canvasTarget.querySelector(`[data-item-id="${this.selectedItemId}"]`);
+        if (itemElement) {
+            itemElement.remove();
+        }
+        this.boardItems.delete(this.selectedItemId);
+        this.deselectAll();
     }
 
     // --- Tool Selection & Canvas Interaction --- //
@@ -44,6 +86,26 @@ export default class extends Controller {
     }
 
     handleKeyDown(event) {
+        // Delete item
+        if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectedItemId) {
+            // Prevent deleting text if user is editing a text item
+            if(document.activeElement.getAttribute('contenteditable') !== 'true') {
+                event.preventDefault();
+                this.deleteSelectedItem();
+            }
+        }
+
+        // Zoom shortcuts
+        if (event.metaKey || event.ctrlKey) {
+            if (event.key === '=') { // Cmd/Ctrl +
+                event.preventDefault();
+                this.zoomIn();
+            } else if (event.key === '-') { // Cmd/Ctrl -
+                event.preventDefault();
+                this.zoomOut();
+            }
+        }
+
         if (event.code === 'Space' && !this.isPanning) {
             event.preventDefault();
             this.isPanning = true;
@@ -59,10 +121,33 @@ export default class extends Controller {
     }
 
     handleMouseDown(event) {
-        if (this.isPanning || (event.button === 1)) { // Middle mouse button
+        // Determine if a pan should start.
+        const canPan = this.isPanning || event.button === 1 || (this.activeTool === 'select' && event.target === this.viewportTarget);
+
+        if (canPan) {
             this.isPanning = true;
             this.viewportTarget.style.cursor = 'grabbing';
             this.panStart = { x: event.clientX, y: event.clientY };
+            this.deselectAll();
+        }
+    }
+
+
+    handleMouseUp(event) {
+        // If we were panning, simply stop the pan.
+        if (this.isPanning) {
+            this.isPanning = false;
+            this.viewportTarget.style.cursor = 'default';
+        }
+        // Otherwise, if it was a click on the background, perform the tool action.
+        else if (event.target === this.viewportTarget) {
+            if (this.activeTool === 'text') {
+                const pos = this.getCanvasCoordinates(event.clientX, event.clientY);
+                this.addTextItemToBoard(pos.x, pos.y);
+            } else if (this.activeTool === 'group') {
+                const pos = this.getCanvasCoordinates(event.clientX, event.clientY);
+                this.addGroupItemToBoard(pos.x, pos.y);
+            }
         }
     }
 
@@ -75,18 +160,146 @@ export default class extends Controller {
         }
     }
 
-    handleMouseUp(event) {
-        if (this.isPanning) {
-            this.isPanning = false;
-            this.viewportTarget.style.cursor = 'default';
+    // --- Layering --- //
+
+    _getSortedItemsByZIndex() {
+        return Array.from(this.boardItems.values()).sort((a, b) => a.zIndex - b.zIndex);
+    }
+
+    bringToFront() {
+        if (!this.selectedItemId) return;
+        const item = this.boardItems.get(this.selectedItemId);
+        item.zIndex = ++this.zCounter;
+        this.canvasTarget.querySelector(`[data-item-id="${this.selectedItemId}"]`).style.zIndex = item.zIndex;
+    }
+
+    sendToBack() {
+        if (!this.selectedItemId) return;
+        const sortedItems = this._getSortedItemsByZIndex();
+        const minZ = sortedItems.length > 0 ? sortedItems[0].zIndex : 0;
+
+        const item = this.boardItems.get(this.selectedItemId);
+        item.zIndex = minZ - 1;
+        this.canvasTarget.querySelector(`[data-item-id="${this.selectedItemId}"]`).style.zIndex = item.zIndex;
+    }
+
+    bringForward() {
+        if (!this.selectedItemId) return;
+        const sortedItems = this._getSortedItemsByZIndex();
+        const currentIndex = sortedItems.findIndex(i => i.id === this.selectedItemId);
+
+        if (currentIndex < sortedItems.length - 1) {
+            const currentItem = sortedItems[currentIndex];
+            const nextItem = sortedItems[currentIndex + 1];
+
+            // Swap z-indices
+            [currentItem.zIndex, nextItem.zIndex] = [nextItem.zIndex, currentItem.zIndex];
+
+            this.canvasTarget.querySelector(`[data-item-id="${currentItem.id}"]`).style.zIndex = currentItem.zIndex;
+            this.canvasTarget.querySelector(`[data-item-id="${nextItem.id}"]`).style.zIndex = nextItem.zIndex;
         }
-        else if (this.activeTool === 'text' && event.target === this.viewportTarget) {
-            const pos = this.getCanvasCoordinates(event.clientX, event.clientY);
-            this.addTextItemToBoard(pos.x, pos.y);
-        } else if (this.activeTool === 'group' && event.target === this.viewportTarget) {
-            const pos = this.getCanvasCoordinates(event.clientX, event.clientY);
-            this.addGroupItemToBoard(pos.x, pos.y);
+    }
+
+    sendBackward() {
+        if (!this.selectedItemId) return;
+        const sortedItems = this._getSortedItemsByZIndex();
+        const currentIndex = sortedItems.findIndex(i => i.id === this.selectedItemId);
+
+        if (currentIndex > 0) {
+            const currentItem = sortedItems[currentIndex];
+            const prevItem = sortedItems[currentIndex - 1];
+
+            // Swap z-indices
+            [currentItem.zIndex, prevItem.zIndex] = [prevItem.zIndex, currentItem.zIndex];
+
+            this.canvasTarget.querySelector(`[data-item-id="${currentItem.id}"]`).style.zIndex = currentItem.zIndex;
+            this.canvasTarget.querySelector(`[data-item-id="${prevItem.id}"]`).style.zIndex = prevItem.zIndex;
         }
+    }
+
+    // --- Item Creation (with z-index and selection) --- //
+
+    _addItemToBoard(element, itemData) {
+        if (typeof itemData.zIndex === 'undefined' || itemData.zIndex === null) {
+            itemData.zIndex = ++this.zCounter;
+        }
+        element.style.zIndex = itemData.zIndex;
+
+        this.canvasTarget.appendChild(element);
+        this.makeItemInteractive(element);
+        this.boardItems.set(itemData.id, itemData);
+
+        // Add a mousedown listener to handle selection
+        element.addEventListener('mousedown', (e) => {
+            e.stopPropagation(); // Prevent canvas deselection
+            this.selectItem(element);
+        });
+
+        this.selectItem(element); // Select the new item
+    }
+
+    addTextItemToBoard(x, y, width = 200, height = 50, itemId = null, content = { text: 'Type here...' }, zIndex) {
+        const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
+        const textEl = document.createElement('div');
+        // ... (element setup is the same)
+        textEl.classList.add('board-item', 'board-item-text', 'absolute');
+        textEl.style.left = '0px';
+        textEl.style.top = '0px';
+        textEl.style.width = `${width}px`;
+        textEl.style.height = `${height}px`;
+        textEl.style.transform = `translate(${x}px, ${y}px)`;
+        textEl.dataset.itemId = finalItemId;
+        textEl.setAttribute('data-x', x);
+        textEl.setAttribute('data-y', y);
+        textEl.setAttribute('contenteditable', 'true');
+        textEl.innerText = content.text;
+
+        textEl.addEventListener('focusout', () => {
+            const item = this.boardItems.get(finalItemId);
+            if (item) item.content.text = textEl.innerText;
+        });
+
+        const newItem = { id: finalItemId, type: 'text', content, x, y, width, height, zIndex };
+        this._addItemToBoard(textEl, newItem);
+        if(!itemId) textEl.focus(); // Auto-focus new text boxes
+    }
+
+    addGroupItemToBoard(x, y, width = 300, height = 250, itemId = null, content = {}, zIndex) {
+        const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
+        const groupEl = document.createElement('div');
+        // ... (element setup is the same)
+        groupEl.classList.add('board-item', 'board-item-group', 'absolute');
+        groupEl.style.left = '0px';
+        groupEl.style.top = '0px';
+        groupEl.style.width = `${width}px`;
+        groupEl.style.height = `${height}px`;
+        groupEl.style.transform = `translate(${x}px, ${y}px)`;
+        groupEl.dataset.itemId = finalItemId;
+        groupEl.setAttribute('data-x', x);
+        groupEl.setAttribute('data-y', y);
+
+        const newItem = { id: finalItemId, type: 'group', content, x, y, width, height, zIndex };
+        this._addItemToBoard(groupEl, newItem);
+    }
+
+    addAssetToBoard(assetId, thumbnailUrl, x, y, width = 200, height = 200, itemId = null, content = {}, zIndex) {
+        const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
+        const boardItemEl = document.createElement('div');
+        // ... (element setup is the same)
+        boardItemEl.classList.add('board-item', 'absolute', 'p-1', 'bg-white', 'shadow-lg', 'box-border');
+        boardItemEl.style.left = '0px';
+        boardItemEl.style.top = '0px';
+        boardItemEl.style.width = `${width}px`;
+        boardItemEl.style.height = `${height}px`;
+        boardItemEl.style.transform = `translate(${x}px, ${y}px)`;
+        boardItemEl.dataset.itemId = finalItemId;
+        boardItemEl.setAttribute('data-x', x);
+        boardItemEl.setAttribute('data-y', y);
+        boardItemEl.innerHTML = `<img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">`;
+
+        const newContent = { assetId, thumbnailUrl };
+        const newItem = { id: finalItemId, type: 'asset', content: newContent, x, y, width, height, zIndex };
+        this._addItemToBoard(boardItemEl, newItem);
     }
 
     getCanvasCoordinates(clientX, clientY) {
@@ -223,79 +436,6 @@ export default class extends Controller {
         });
     }
 
-    addTextItemToBoard(x, y, width = 200, height = 50, itemId = null, content = { text: 'Type here...' }) {
-        const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
-        const textEl = document.createElement('div');
-        textEl.classList.add('board-item', 'board-item-text', 'absolute');
-        textEl.style.left = '0px';
-        textEl.style.top = '0px';
-        textEl.style.width = `${width}px`;
-        textEl.style.height = `${height}px`;
-        textEl.style.transform = `translate(${x}px, ${y}px)`;
-        textEl.dataset.itemId = finalItemId;
-        textEl.setAttribute('data-x', x);
-        textEl.setAttribute('data-y', y);
-        textEl.setAttribute('contenteditable', 'true');
-        textEl.innerText = content.text;
-
-        textEl.addEventListener('focusout', () => {
-            const item = this.boardItems.get(finalItemId);
-            if (item) item.content.text = textEl.innerText;
-        });
-
-        this.canvasTarget.appendChild(textEl);
-        this.makeItemInteractive(textEl);
-
-        const newItem = { id: finalItemId, type: 'text', content, x, y, width, height };
-        this.boardItems.set(finalItemId, newItem);
-    }
-    addGroupItemToBoard(x, y, width = 300, height = 250, itemId = null, content = {}) {
-        const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
-        const groupEl = document.createElement('div');
-        groupEl.classList.add('board-item', 'board-item-group', 'absolute');
-        groupEl.style.left = '0px';
-        groupEl.style.top = '0px';
-        groupEl.style.width = `${width}px`;
-        groupEl.style.height = `${height}px`;
-        groupEl.style.transform = `translate(${x}px, ${y}px)`;
-        groupEl.dataset.itemId = finalItemId;
-        groupEl.setAttribute('data-x', x);
-        groupEl.setAttribute('data-y', y);
-
-        this.canvasTarget.appendChild(groupEl);
-        this.makeItemInteractive(groupEl);
-
-        const newItem = { id: finalItemId, type: 'group', content, x, y, width, height };
-        this.boardItems.set(finalItemId, newItem);
-    }
-    addAssetToBoard(assetId, thumbnailUrl, x, y, width = 200, height = 200, itemId = null) {
-        const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
-        const boardItemEl = document.createElement('div');
-        boardItemEl.classList.add('board-item', 'absolute', 'p-1', 'bg-white', 'shadow-lg', 'box-border');
-        boardItemEl.style.left = '0px';
-        boardItemEl.style.top = '0px';
-        boardItemEl.style.width = `${width}px`;
-        boardItemEl.style.height = `${height}px`;
-        boardItemEl.style.transform = `translate(${x}px, ${y}px)`;
-        boardItemEl.dataset.itemId = finalItemId;
-        boardItemEl.setAttribute('data-x', x);
-        boardItemEl.setAttribute('data-y', y);
-        boardItemEl.innerHTML = `<img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">`;
-
-        this.canvasTarget.appendChild(boardItemEl);
-        this.makeItemInteractive(boardItemEl);
-
-        const newItem = {
-            id: finalItemId,
-            type: 'asset',
-            content: { assetId: assetId, thumbnailUrl: thumbnailUrl },
-            x: x,
-            y: y,
-            width: width,
-            height: height
-        };
-        this.boardItems.set(finalItemId, newItem);
-    }
 
     // --- State Management --- //
 
@@ -307,24 +447,30 @@ export default class extends Controller {
 
             this.canvasTarget.innerHTML = '';
             this.boardItems.clear();
+            this.zCounter = 0; // Reset z-index counter
 
             items.forEach(item => {
                 try {
                     if (item.type === 'asset') {
-                        this.addAssetToBoard(item.content.assetId, item.content.thumbnailUrl, item.pos_x, item.pos_y, item.width, item.height, item.id);
+                        this.addAssetToBoard(item.content.assetId, item.content.thumbnailUrl, item.pos_x, item.pos_y, item.width, item.height, item.id, item.content, item.zIndex);
                     } else if (item.type === 'text') {
-                        this.addTextItemToBoard(item.pos_x, item.pos_y, item.width, item.height, item.id, item.content);
+                        this.addTextItemToBoard(item.pos_x, item.pos_y, item.width, item.height, item.id, item.content, item.zIndex);
                     } else if (item.type === 'group') {
-                        this.addGroupItemToBoard(item.pos_x, item.pos_y, item.width, item.height, item.id, item.content);
+                        this.addGroupItemToBoard(item.pos_x, item.pos_y, item.width, item.height, item.id, item.content, item.zIndex);
+                    }
+                    // Update the z-counter to the highest loaded z-index
+                    if(item.zIndex > this.zCounter) {
+                        this.zCounter = item.zIndex;
                     }
                 } catch(e) { console.error('Failed to render a board item:', { item, error: e }); }
             });
 
-            this.frameContent(); // Automatically frame content after loading
+            this.deselectAll();
+            this.frameContent();
 
         } catch (error) {
             console.error("Fatal error loading board state:", error);
-            this.canvasTarget.innerHTML = `<div class="p-4 text-red-600 bg-red-100 border border-red-400 rounded">Could not load board. See developer console for details.</div>`;
+            //...
         }
     }
 
@@ -398,12 +544,17 @@ export default class extends Controller {
 
             if (!localItem) {
                 if (serverItem.type === 'asset') {
-                    this.addAssetToBoard(serverItem.content.assetId, serverItem.content.thumbnailUrl, serverItem.pos_x, serverItem.pos_y, serverItem.width, serverItem.height, serverItem.id);
+                    this.addAssetToBoard(serverItem.content.assetId, serverItem.content.thumbnailUrl, serverItem.pos_x, serverItem.pos_y, serverItem.width, serverItem.height, serverItem.id, serverItem.content, serverItem.zIndex);
                 } else if (serverItem.type === 'text') {
-                    this.addTextItemToBoard(serverItem.pos_x, serverItem.pos_y, serverItem.width, serverItem.height, serverItem.id, serverItem.content);
+                    this.addTextItemToBoard(serverItem.pos_x, serverItem.pos_y, serverItem.width, serverItem.height, serverItem.id, serverItem.content, serverItem.zIndex);
                 } else if (serverItem.type === 'group') {
-                    this.addGroupItemToBoard(serverItem.pos_x, serverItem.pos_y, serverItem.width, serverItem.height, serverItem.id, serverItem.content);
+                    this.addGroupItemToBoard(serverItem.pos_x, serverItem.pos_y, serverItem.width, serverItem.height, serverItem.id, serverItem.content, serverItem.zIndex);
                 }
+            } else {
+                // Also sync zIndex for existing items
+                localItem.zIndex = serverItem.zIndex;
+                const domElement = this.canvasTarget.querySelector(`[data-item-id="${serverItem.id}"]`);
+                if(domElement) domElement.style.zIndex = serverItem.zIndex;
             }
         });
 

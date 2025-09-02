@@ -35,6 +35,9 @@ class BoardItem
     #[ORM\Column]
     private array $content = [];
 
+    #[ORM\Column(options: ["default" => 0])]
+    private ?int $zIndex = 0;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -121,6 +124,17 @@ class BoardItem
     {
         $this->content = $content;
 
+        return $this;
+    }
+
+    public function getZIndex(): ?int
+    {
+        return $this->zIndex;
+    }
+
+    public function setZIndex(?int $zIndex): BoardItem
+    {
+        $this->zIndex = $zIndex;
         return $this;
     }
 }

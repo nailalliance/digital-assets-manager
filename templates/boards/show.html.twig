@@ -24,6 +24,22 @@
             </button>
         </div>
 
+        {# Item Context Toolbar (New) #}
+        <div data-board-target="contextToolbar" class="absolute top-4 left-4 z-20 bg-white shadow-lg rounded-lg p-2 flex space-x-2 hidden">
+            <button data-action="click->board#bringForward" class="board-tool p-2 rounded hover:bg-gray-200" title="Bring Forward">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+            </button>
+            <button data-action="click->board#sendBackward" class="board-tool p-2 rounded hover:bg-gray-200" title="Send Backward">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+            </button>
+            <button data-action="click->board#bringToFront" class="board-tool p-2 rounded hover:bg-gray-200" title="Bring to Front">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8l7-7 7 7"></path></svg>
+            </button>
+            <button data-action="click->board#sendToBack" class="board-tool p-2 rounded hover:bg-gray-200" title="Send to Back">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 16l-7 7-7-7"></path></svg>
+            </button>
+        </div>
+
         {# Main Board Area #}
         <div id="board-viewport" class="flex-grow h-full bg-gray-200 relative overflow-hidden" data-action="wheel->board#handleZoom" data-board-target="viewport">
             <div id="board-canvas" data-board-target="canvas" class="absolute top-0 left-0">
@@ -39,8 +55,10 @@
             </svg>
         </div>
 
+
+
         {# Top Right Controls #}
-        <div class="absolute top-4 right-96 z-20 flex space-x-2 items-center">
+        <div class="absolute top-4 right-[21rem] z-20 flex space-x-2 items-center">
             <button data-action="click->board#zoomIn" class="px-3 py-1 bg-white text-gray-800 rounded shadow hover:bg-gray-100" title="Zoom In">+</button>
             <span data-board-target="zoomValue" class="text-sm text-gray-700 bg-white px-2 py-1 rounded shadow">100%</span>
             <button data-action="click->board#zoomOut" class="px-3 py-1 bg-white text-gray-800 rounded shadow hover:bg-gray-100" title="Zoom Out">-</button>
