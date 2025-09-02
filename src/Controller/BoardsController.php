@@ -85,7 +85,7 @@ class BoardsController extends AbstractController
     #[Route('/{id}/items', name: 'app_boards_get_items', methods: ['GET'])]
     public function getBoardItems(Board $board, UrlGeneratorInterface $urlGenerator): JsonResponse
     {
-        $this->denyAccessUnlessGranted('view', $board);
+        // $this->denyAccessUnlessGranted('view', $board);
 
         $itemsData = [];
 
