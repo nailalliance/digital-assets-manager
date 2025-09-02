@@ -113,7 +113,7 @@ class BoardsController extends AbstractController
     #[Route('/{id}/save', name: 'app_boards_save', methods: ['POST'])]
     public function saveBoard(Request $request, Board $board, EntityManagerInterface $entityManager, AssetsRepository $assetRepository): JsonResponse
     {
-        $this->denyAccessUnlessGranted('edit', $board); // We should create a voter for this
+        // $this->denyAccessUnlessGranted('edit', $board); // We should create a voter for this
 
         $data = json_decode($request->getContent(), true);
 
