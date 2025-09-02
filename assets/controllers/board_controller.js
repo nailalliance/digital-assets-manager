@@ -49,10 +49,7 @@ export default class extends Controller {
 
     selectItem(element) {
         if (!element) return;
-
-        // Deselect previous item
         this.deselectAll();
-
         this.selectedItemId = element.dataset.itemId;
         element.classList.add('selected');
         this.contextToolbarTarget.classList.remove('hidden');
@@ -60,7 +57,7 @@ export default class extends Controller {
 
     deselectAll() {
         if (this.selectedItemId) {
-            const previouslySelected = this.canvasTarget.querySelector(`[data-item-id="${this.selectedItemId}"]`);
+            const previouslySelected = this.element.querySelector(`[data-item-id="${this.selectedItemId}"]`);
             if (previouslySelected) {
                 previouslySelected.classList.remove('selected');
             }
@@ -137,7 +134,7 @@ export default class extends Controller {
             this.tempLine.setAttribute('x2', this.lineStartPoint.x);
             this.tempLine.setAttribute('y2', this.lineStartPoint.y);
             this.tempLine.setAttribute('stroke', '#3b82f6');
-            this.tempLine.setAttribute('stroke-width', '3');
+            this.tempLine.setAttribute('stroke-width', '2');
             this.tempLine.setAttribute('stroke-dasharray', '5,5');
 
             if (this.activeTool === 'arrow') {
@@ -267,7 +264,14 @@ export default class extends Controller {
         element.style.zIndex = itemData.zIndex;
 
         this.canvasTarget.appendChild(element);
-        this.makeItemInteractive(element);
+
+        // Dispatch to the correct interaction setup
+        if (itemData.type === 'line' || itemData.type === 'arrow') {
+            this.makeLineInteractive(element, itemData);
+        } else {
+            this.makeItemInteractive(element);
+        }
+
         this.boardItems.set(String(itemData.id), itemData);
 
         element.addEventListener('mousedown', (e) => {
@@ -278,26 +282,21 @@ export default class extends Controller {
         this.selectItem(element);
     }
 
+
     addLineItemToBoard(start, end, type, itemId = null, content = {}, zIndex) {
         const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
+        const newContent = { x1: start.x, y1: start.y, x2: end.x, y2: end.y, ...content };
 
-        const newContent = {
-            x1: start.x, y1: start.y,
-            x2: end.x, y2: end.y,
-            ...content
-        };
+        const { x, y, width, height } = this.getLineBoundingBox(newContent);
 
-        const x = Math.min(start.x, end.x);
-        const y = Math.min(start.y, end.y);
-        const width = Math.abs(start.x - end.x);
-        const height = Math.abs(start.y - end.y);
+        const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgEl.classList.add('board-item', 'board-item-line');
+        svgEl.dataset.itemId = finalItemId;
 
         const newItem = { id: finalItemId, type, content: newContent, x, y, width, height, zIndex };
 
-        this._addItemToBoard(document.createElement('div'), newItem); // Add a dummy div for map consistency
-        this.canvasTarget.querySelector(`[data-item-id="${finalItemId}"]`).remove(); // Then remove it, we only need map data
-
-        this._renderAllLines();
+        this.updateLineElement(svgEl, newItem); // Use helper to build the SVG content
+        this._addItemToBoard(svgEl, newItem);
     }
 
     addTextItemToBoard(x, y, width = 200, height = 50, itemId = null, content = { text: 'Type here...' }, zIndex) {
@@ -369,33 +368,6 @@ export default class extends Controller {
         const x = (clientX - viewportRect.left - this.pan.x) / this.zoom;
         const y = (clientY - viewportRect.top - this.pan.y) / this.zoom;
         return { x, y };
-    }
-
-    // --- Rendering --- //
-
-    _renderAllLines() {
-        // Clear existing lines
-        this.svgCanvasTarget.querySelectorAll('.board-line').forEach(l => l.remove());
-
-        this.boardItems.forEach(item => {
-            if (item.type === 'line' || item.type === 'arrow') {
-                const lineEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                lineEl.classList.add('board-line');
-                lineEl.dataset.itemId = item.id;
-                lineEl.setAttribute('x1', item.content.x1);
-                lineEl.setAttribute('y1', item.content.y1);
-                lineEl.setAttribute('x2', item.content.x2);
-                lineEl.setAttribute('y2', item.content.y2);
-                lineEl.setAttribute('stroke', item.content.color || 'black');
-                lineEl.setAttribute('stroke-width', item.content.strokeWidth || '2');
-
-                if (item.type === 'arrow') {
-                    lineEl.setAttribute('marker-end', 'url(#arrowhead)');
-                }
-
-                this.svgCanvasTarget.appendChild(lineEl);
-            }
-        });
     }
 
     // --- Pan & Zoom --- //
@@ -525,6 +497,108 @@ export default class extends Controller {
         });
     }
 
+    makeLineInteractive(svgEl, item) {
+        const startHandle = svgEl.querySelector('.start-handle');
+        const endHandle = svgEl.querySelector('.end-handle');
+
+        // 1. Make the whole SVG draggable for moving the line
+        interact(svgEl).draggable({
+            listeners: {
+                start: (event) => {
+                    event.interaction.startPos = { x: item.x, y: item.y };
+                },
+                move: (event) => {
+                    const newX = event.interaction.startPos.x + (event.pageX - event.x0) / this.zoom;
+                    const newY = event.interaction.startPos.y + (event.pageY - event.y0) / this.zoom;
+                    event.target.style.transform = `translate(${newX}px, ${newY}px)`;
+                    event.target.setAttribute('data-x', newX);
+                    event.target.setAttribute('data-y', newY);
+                },
+                end: (event) => {
+                    const movedItem = this.boardItems.get(item.id);
+                    if (!movedItem) return;
+
+                    const oldX = movedItem.x;
+                    const oldY = movedItem.y;
+                    const newX = parseFloat(event.target.getAttribute('data-x'));
+                    const newY = parseFloat(event.target.getAttribute('data-y'));
+
+                    movedItem.content.x1 += newX - oldX;
+                    movedItem.content.y1 += newY - oldY;
+                    movedItem.content.x2 += newX - oldX;
+                    movedItem.content.y2 += newY - oldY;
+
+                    movedItem.x = newX;
+                    movedItem.y = newY;
+
+                    event.interaction.startPos = null;
+                }
+            }
+        });
+
+        // 2. Make the handles draggable for resizing the line
+        interact(startHandle).draggable({
+            listeners: {
+                move: (event) => {
+                    const movedItem = this.boardItems.get(item.id);
+                    if (!movedItem) return;
+                    movedItem.content.x1 += event.dx / this.zoom;
+                    movedItem.content.y1 += event.dy / this.zoom;
+                    this.updateLineElement(svgEl, movedItem);
+                },
+            }
+        });
+
+        interact(endHandle).draggable({
+            listeners: {
+                move: (event) => {
+                    const movedItem = this.boardItems.get(item.id);
+                    if (!movedItem) return;
+                    movedItem.content.x2 += event.dx / this.zoom;
+                    movedItem.content.y2 += event.dy / this.zoom;
+                    this.updateLineElement(svgEl, movedItem);
+                },
+            }
+        });
+    }
+
+    getLineBoundingBox(content) {
+        const x = Math.min(content.x1, content.x2);
+        const y = Math.min(content.y1, content.y2);
+        const width = Math.abs(content.x1 - content.x2);
+        const height = Math.abs(content.y1 - content.y2);
+        return { x, y, width, height };
+    }
+
+    updateLineElement(svgEl, item) {
+        const { x, y, width, height } = this.getLineBoundingBox(item.content);
+
+        // Update item data
+        item.x = x;
+        item.y = y;
+        item.width = width;
+        item.height = height;
+
+        // Update SVG container
+        svgEl.style.transform = `translate(${x}px, ${y}px)`;
+        svgEl.setAttribute('data-x', x);
+        svgEl.setAttribute('data-y', y);
+
+        // Recalculate relative line coordinates
+        const relX1 = item.content.x1 - x;
+        const relY1 = item.content.y1 - y;
+        const relX2 = item.content.x2 - x;
+        const relY2 = item.content.y2 - y;
+
+        // Clear and rebuild SVG content
+        svgEl.innerHTML = `
+            <line class="hitbox-line" x1="${relX1}" y1="${relY1}" x2="${relX2}" y2="${relY2}" stroke="transparent" stroke-width="15"></line>
+            <line class="visual-line" x1="${relX1}" y1="${relY1}" x2="${relX2}" y2="${relY2}" stroke="black" stroke-width="2" ${item.type === 'arrow' ? 'marker-end="url(#arrowhead)"' : ''}></line>
+            <circle class="line-handle start-handle" cx="${relX1}" cy="${relY1}" r="5"></circle>
+            <circle class="line-handle end-handle" cx="${relX2}" cy="${relY2}" r="5"></circle>
+        `;
+    }
+
 
     // --- State Management --- //
 
@@ -555,7 +629,6 @@ export default class extends Controller {
 
             this.deselectAll();
             this.frameContent();
-            this._renderAllLines();
 
         } catch (error) {
             console.error("Fatal error loading board state:", error);
@@ -641,8 +714,6 @@ export default class extends Controller {
                 if (domElement) domElement.remove();
             }
         }
-
-        this._renderAllLines();
     }
 
     async searchAssets(event) {

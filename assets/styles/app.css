@@ -63,11 +63,24 @@ body {
     overflow: visible !important;
 }
 
-.board-item-line line {
-    /* Capture clicks on the line itself */
-    pointer-events: stroke;
+.board-item-line line, .board-item-line circle {
+    /* Capture clicks on the line and its handles */
+    pointer-events: all;
 }
 
 .board-item.selected .visual-line {
     stroke: #3b82f6; /* Blue */
+}
+
+/* Styles for the draggable line handles */
+.line-handle {
+    fill: white;
+    stroke: #3b82f6; /* Blue */
+    stroke-width: 2;
+    cursor: grab;
+    display: none; /* Hidden by default */
+}
+
+.board-item.selected .line-handle {
+    display: block; /* Shown only when the line is selected */
 }
