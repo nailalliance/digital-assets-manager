@@ -1,14 +1,24 @@
 import { Controller } from '@hotwired/stimulus';
 import interact from 'interactjs';
+import { v4 as uuidv4 } from "uuid";
 
 export default class extends Controller {
     static targets = ["canvas", "assetSearch", "assetList", "saveBtn"];
+    static values = { boardId: Number };
 
     connect() {
-        this.boardItems = [];
+        this.boardItems = new Map();
         this.assetSearchTarget.addEventListener('input', this.searchAssets.bind(this));
+        this.saveBtnTarget.addEventListener('click', this.saveBoardState.bind(this));
         this.initDragAndDrop();
         this.loadBoardState();
+
+        this.autoSaveInterval = setInterval(() => this.saveBoardState(true), 30_000);
+    }
+
+    disconnect() {
+        clearInterval(this.autoSaveInterval);
+        super.disconnect();
     }
 
     searchAssets(event) {
@@ -84,8 +94,8 @@ export default class extends Controller {
                 const canvasRect = this.canvasTarget.getBoundingClientRect();
 
                 // Calculate position relative to the canvas
-                const dropX = event.client.x - canvasRect.left;
-                const dropY = event.client.y - canvasRect.top;
+                const dropX = event.dragEvent.client.x - canvasRect.left;
+                const dropY = event.dragEvent.client.y - canvasRect.top;
 
                 const assetId = droppedElement.dataset.assetId;
                 const assetThumbnail = droppedElement.dataset.assetThumbnail;
@@ -93,37 +103,154 @@ export default class extends Controller {
                 this.addAssetToBoard(assetId, assetThumbnail, dropX, dropY);
             }
         });
+
+        interact('.board-item').draggable({
+            inertia: true,
+            modifiers: [
+                interact.modifiers.restrictRect({
+                    restriction: 'parent',
+                    endOnly: true
+                })
+            ],
+            listeners: {
+                move: (event) => {
+                    const target = event.target;
+                    const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                    const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+
+                    target.style.transform = `transform(${x}px, ${y}px)`;
+                    target.setAttribute('data-x', x);
+                    target.setAttribute('data-y', y);
+                },
+                end: (event) => {
+                    const target = event.target;
+                    const itemId = target.dataset.itemId;
+                    const item = this.boardItems.get(itemId);
+                    if (item) {
+                        item.x = parseFloat(target.getAttribute('data-x'));
+                        item.y = parseFloat(target.getAttribute('data-y'));
+                    }
+                }
+            }
+        }).resizable({
+            edges: {
+                left: true,
+                right: true,
+                bottom: true,
+                top: true,
+            },
+            listeners: {
+                move: (event) => {
+                    const target = event.target;
+                    let x = parseFloat(target.getAttribute('data-x')) || 0;
+                    let y = parseFloat(target.getAttribute('data-y')) || 0;
+
+                    target.style.width = `${event.rect.width}px`;
+                    target.style.height = `${event.rect.height}px`;
+
+                    x += event.deltaRect.left;
+                    y += event.deltaRect.top;
+
+                    target.style.transform = `translate(${x}px, ${y})`;
+                    target.setAttribute('data-x', x);
+                    target.setAttribute('data-y', y);
+                },
+                end: (event) => {
+                    const target = event.target;
+                    const itemId = target.dataset.itemId;
+                    const item = this.boardItems.get(itemId);
+                    if (item) {
+                        item.width = event.rect.width;
+                        item.height = event.rect.height;
+                        item.x = parseFloat(target.getAttribute('data-x'));
+                        item.y = parseFloat(target.getAttribute('data-y'));
+                    }
+                }
+            }
+        });
     }
 
-    addAssetToBoard(assetId, thumbnailUrl, x, y) {
-        const boardItem = document.createElement('div');
-        boardItem.classList.add('board-item', 'absolute', 'p-1', 'bg-white', 'shadow-lg');
-        boardItem.style.left = `${x}px`;
-        boardItem.style.top = `${y}px`;
+    addAssetToBoard(assetId, thumbnailUrl, x, y, width = 200, height = 200, itemId = null) {
+        if (!itemId) {
+            itemId = `item-${uuidv4()}`;
+        }
 
-        boardItem.innerHTML = `<img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">`;
+        const boardItemEl = document.createElement('div');
+        boardItemEl.classList.add('board-item', 'absolute', 'p-1', 'bg-white', 'shadow-lg', 'box-border');
+        boardItemEl.style.left = `0px`; // Use transform for positioning
+        boardItemEl.style.top = `0px`;
+        boardItemEl.style.width = `${width}px`;
+        boardItemEl.style.height = `${height}px`;
+        boardItemEl.style.transform = `translate(${x}px, ${y}px)`;
 
-        this.canvasTarget.appendChild(boardItem);
+        boardItemEl.dataset.itemId = itemId;
+        boardItemEl.setAttribute('data-x', x);
+        boardItemEl.setAttribute('data-y', y);
 
-        // Add to our internal state
-        this.boardItems.push({
+        boardItemEl.innerHTML = `<img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">`;
+
+        this.canvasTarget.appendChild(boardItemEl);
+
+        const newItem = {
+            id: itemId,
             type: 'asset',
-            assetId: assetId,
+            content: { assetId: assetId, thumbnailUrl: thumbnailUrl },
             x: x,
             y: y,
-            width: 200, // Default size
-            height: 200 // Default size
+            width: width,
+            height: height
+        };
+
+        this.boardItems.set(itemId, newItem);
+    }
+
+    async loadBoardState() {
+        const response = await fetch(`/boards/${this.boardIdValue}/items`);
+        const items = await response.json();
+
+        items.forEach(item => {
+            if (item.type === 'asset') {
+                this.addAssetToBoard(item.content.assetId, item.content.thumbnailUrl, item.pos_x, item.pos_y, item.width, item.height, item.id);
+            }
         });
 
-        console.log('Board state updated:', this.boardItems);
+        // Re-initialize interactjs for the loaded items
+        this.initDragAndDrop();
     }
 
-    loadBoardState() {
-        // We will implement this later
-    }
+    async saveBoardState(isAutoSave = false) {
+        if (!isAutoSave) {
+            this.saveBtnTarget.textContent = 'Saving...';
+            this.saveBtnTarget.disabled = true;
+        }
 
-    saveBoardState() {
-        // We will implement this later
-        console.log("Saving board state...");
+        const payload = Array.from(this.boardItems.values());
+
+        try {
+            const response = await fetch(`/boards/${this.boardIdValue}/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ items: payload })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save board');
+            }
+
+            if (!isAutoSave) {
+                setTimeout(() => {
+                    this.saveBtnTarget.textContent = 'Save';
+                    this.saveBtnTarget.disabled = false;
+                }, 1000);
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            if (!isAutoSave) {
+                this.saveBtnTarget.textContent = 'Save Failed';
+            }
+        }
     }
 }
