@@ -49,6 +49,7 @@
 
                     {# Role-specific links #}
                     {% if is_granted('ROLE_FTP_DESIGNER') %}
+                        <a href="{{ path('app_boards_index') }}" class="text-gray-600 hover:text-violet-600">Boards</a>
                         <a href="{{ url('admin_direct_share_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Direct Share</a>
                     {% endif %}
                     {% if is_granted('ROLE_FTP_ADMIN') %}

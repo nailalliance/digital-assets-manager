@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}New Board{% endblock %}
+
+{% block body %}
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">Create New Board</h1>
+
+        <div class="bg-white p-6 shadow sm:rounded-md">
+            {{ form_start(form) }}
+
+            <div>
+                {{ form_label(form.name) }}
+                {{ form_widget(form.name) }}
+                <div class="text-red-600 text-sm mt-1">
+                    {{ form_errors(form.name) }}
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Create Board
+                </button>
+                <a href="{{ path('app_boards_index') }}" class="ml-4 text-sm font-medium text-gray-700 hover:text-gray-900">
+                    Cancel
+                </a>
+            </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

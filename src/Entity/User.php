@@ -2,6 +2,8 @@
 
 namespace App\Entity;
 
+use App\Entity\Boards\Board;
+use App\Entity\Boards\BoardCollaborator;
 use App\Entity\Downloads\Lists;
 use App\Entity\Restrictions\Groups;
 use App\Repository\UserRepository;
@@ -43,10 +45,24 @@ class User implements UserInterface
     #[ORM\OneToMany(targetEntity: Lists::class, mappedBy: 'creator')]
     private Collection $downloadLists;
 
+    /**
+     * @var Collection<int, Board>
+     */
+    #[ORM\OneToMany(targetEntity: Board::class, mappedBy: 'owner')]
+    private Collection $ownedBoards;
+
+    /**
+     * @var Collection<int, BoardCollaborator>
+     */
+    #[ORM\OneToMany(targetEntity: BoardCollaborator::class, mappedBy: 'user')]
+    private Collection $boardCollaborations;
+
     public function __construct()
     {
         $this->groups = new ArrayCollection();
         $this->downloadLists = new ArrayCollection();
+        $this->ownedBoards = new ArrayCollection();
+        $this->boardCollaborations = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -176,5 +192,65 @@ class User implements UserInterface
     public function eraseCredentials(): void
     {
         // @deprecated, to be removed when upgrading to Symfony 8
+    }
+
+    /**
+     * @return Collection<int, Board>
+     */
+    public function getOwnedBoards(): Collection
+    {
+        return $this->ownedBoards;
+    }
+
+    public function addOwnedBoard(Board $ownedBoard): static
+    {
+        if (!$this->ownedBoards->contains($ownedBoard)) {
+            $this->ownedBoards->add($ownedBoard);
+            $ownedBoard->setOwner($this);
+        }
+
+        return $this;
+    }
+
+    public function removeOwnedBoard(Board $ownedBoard): static
+    {
+        if ($this->ownedBoards->removeElement($ownedBoard)) {
+            // set the owning side to null (unless already changed)
+            if ($ownedBoard->getOwner() === $this) {
+                $ownedBoard->setOwner(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, BoardCollaborator>
+     */
+    public function getBoardCollaborations(): Collection
+    {
+        return $this->boardCollaborations;
+    }
+
+    public function addBoardCollaboration(BoardCollaborator $boardCollaboration): static
+    {
+        if (!$this->boardCollaborations->contains($boardCollaboration)) {
+            $this->boardCollaborations->add($boardCollaboration);
+            $boardCollaboration->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBoardCollaboration(BoardCollaborator $boardCollaboration): static
+    {
+        if ($this->boardCollaborations->removeElement($boardCollaboration)) {
+            // set the owning side to null (unless already changed)
+            if ($boardCollaboration->getUser() === $this) {
+                $boardCollaboration->setUser(null);
+            }
+        }
+
+        return $this;
     }
 }

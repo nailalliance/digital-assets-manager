@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ board.name }}{% endblock %}
+
+{% block body %}
+    <div {{ stimulus_controller('board') }} class="flex h-screen bg-gray-100">
+        {# Main Board Canvas #}
+        <div data-board-target="canvas" id="board-canvas" class="flex-grow h-full bg-white relative overflow-hidden">
+            {# Items will be dynamically added here #}
+            <div class="absolute top-2 left-2 z-10">
+                <h1 class="text-xl font-bold">{{ board.name }}</h1>
+            </div>
+            <div class="absolute top-2 right-2 z-10 flex space-x-2">
+                <button id="save-board-btn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
+                <button id="download-all-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Download All</button>
+            </div>
+        </div>
+
+        {# Right-hand Asset Panel #}
+        <div id="asset-panel" class="w-80 h-full bg-gray-50 border-l border-gray-200 p-4 overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4">Assets</h2>
+            <div class="mb-4">
+                <input type="text" data-board-target="assetSearch" id="asset-search" placeholder="Search assets..." class="w-full px-3 py-2 border border-gray-300 rounded-md">
+            </div>
+            <div data-board-target="assetList" id="asset-list">
+                {# Asset search results will be loaded here #}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {# We will add our board's javascript here #}
+{% endblock %}

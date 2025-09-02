@@ -1,3 +1,15 @@
 body {
     background-color: white;
 }
+
+.dragging-clone {
+    position: fixed;
+    z-index: 1000;
+    opacity: 0.8;
+    pointer-events: none; /* Make sure it doesn't interfere with drop events */
+}
+
+.board-item {
+    width: 200px;
+    height: 200px;
+}
