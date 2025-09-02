@@ -3,16 +3,14 @@ import interact from 'interactjs';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class extends Controller {
-    static targets = ["canvas", "svgCanvas", "viewport", "assetSearch", "assetList", "saveBtn"];
+    static targets = ["canvas", "svgCanvas", "viewport", "assetSearch", "assetList", "saveBtn", "zoomValue"];
     static values = { boardId: Number };
 
     connect() {
         this.boardItems = new Map();
-        this.activeTool = 'select'; // select, text, group, line
+        this.activeTool = 'select';
         this.pan = { x: 0, y: 0 };
         this.zoom = 1;
-
-        // Panning state
         this.isPanning = false;
         this.panStart = { x: 0, y: 0 };
 
@@ -27,7 +25,6 @@ export default class extends Controller {
 
         this.initAssetPanelAndDropzone();
         this.loadBoardState();
-        this.updateCanvasTransform();
 
         this.autoSaveInterval = setInterval(() => this.saveBoardState(true), 30000);
     }
@@ -61,11 +58,10 @@ export default class extends Controller {
     }
 
     handleMouseDown(event) {
-        if (this.isPanning) {
+        if (this.isPanning || (event.button === 1)) { // Middle mouse button
+            this.isPanning = true;
+            this.viewportTarget.style.cursor = 'grabbing';
             this.panStart = { x: event.clientX, y: event.clientY };
-        } else if (this.activeTool !== 'select' && event.target === this.viewportTarget) {
-            const pos = this.getCanvasCoordinates(event.clientX, event.clientY);
-            // Logic for drawing new shapes will go here
         }
     }
 
@@ -79,7 +75,11 @@ export default class extends Controller {
     }
 
     handleMouseUp(event) {
-        if (this.activeTool === 'text' && event.target === this.viewportTarget) {
+        if (this.isPanning) {
+            this.isPanning = false;
+            this.viewportTarget.style.cursor = 'default';
+        }
+        else if (this.activeTool === 'text' && event.target === this.viewportTarget) {
             const pos = this.getCanvasCoordinates(event.clientX, event.clientY);
             this.addTextItemToBoard(pos.x, pos.y);
         } else if (this.activeTool === 'group' && event.target === this.viewportTarget) {
@@ -102,7 +102,6 @@ export default class extends Controller {
         const scaleAmount = event.deltaY > 0 ? -0.1 : 0.1;
         const newZoom = Math.max(0.1, Math.min(3, this.zoom + scaleAmount));
 
-        // Adjust pan to keep the zoom centered on the cursor
         const viewportRect = this.viewportTarget.getBoundingClientRect();
         const cursorX = event.clientX - viewportRect.left;
         const cursorY = event.clientY - viewportRect.top;
@@ -128,58 +127,88 @@ export default class extends Controller {
         const transform = `translate(${this.pan.x}px, ${this.pan.y}px) scale(${this.zoom})`;
         this.canvasTarget.style.transform = transform;
         this.svgCanvasTarget.style.transform = transform;
+        if (this.hasZoomValueTarget) {
+            this.zoomValueTarget.textContent = `${Math.round(this.zoom * 100)}%`;
+        }
+    }
+
+    frameContent() {
+        if (this.boardItems.size === 0) {
+            this.pan = { x: this.viewportTarget.clientWidth / 2, y: this.viewportTarget.clientHeight / 2 };
+            this.zoom = 1;
+            this.updateCanvasTransform();
+            return;
+        }
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        this.boardItems.forEach(item => {
+            minX = Math.min(minX, item.x);
+            minY = Math.min(minY, item.y);
+            maxX = Math.max(maxX, item.x + item.width);
+            maxY = Math.max(maxY, item.y + item.height);
+        });
+
+        const contentWidth = maxX - minX;
+        const contentHeight = maxY - minY;
+        const viewportWidth = this.viewportTarget.clientWidth;
+        const viewportHeight = this.viewportTarget.clientHeight;
+
+        const padding = 100; // 100px padding around the content
+
+        const xZoom = viewportWidth / (contentWidth + padding * 2);
+        const yZoom = viewportHeight / (contentHeight + padding * 2);
+
+        this.zoom = Math.min(xZoom, yZoom, 1); // Cap initial zoom at 100%
+
+        const contentCenterX = minX + contentWidth / 2;
+        const contentCenterY = minY + contentHeight / 2;
+
+        this.pan.x = (viewportWidth / 2) - (contentCenterX * this.zoom);
+        this.pan.y = (viewportHeight / 2) - (contentCenterY * this.zoom);
+
+        this.updateCanvasTransform();
     }
 
     // --- Item Creation & Interaction --- //
 
     makeItemInteractive(element) {
-        const interactive = interact(element);
-
-        interactive.draggable({
+        interact(element).draggable({
             inertia: true,
-            modifiers: [
-                interact.modifiers.restrictRect({
-                    restriction: 'parent',
-                    endOnly: true
-                })
-            ],
             listeners: {
+                start: (event) => {
+                    const target = event.target;
+                    event.interaction.startPos = {
+                        x: parseFloat(target.getAttribute('data-x')) || 0,
+                        y: parseFloat(target.getAttribute('data-y')) || 0,
+                    };
+                },
                 move: (event) => {
                     const target = event.target;
-                    const x = (parseFloat(target.getAttribute('data-x')) || 0) + (event.dx / this.zoom);
-                    const y = (parseFloat(target.getAttribute('data-y')) || 0) + (event.dy / this.zoom);
-                    target.style.transform = `translate(${x}px, ${y}px)`;
-                    target.setAttribute('data-x', x);
-                    target.setAttribute('data-y', y);
-                }
+                    const startPos = event.interaction.startPos;
+                    const newX = startPos.x + (event.pageX - event.x0) / this.zoom;
+                    const newY = startPos.y + (event.pageY - event.y0) / this.zoom;
+                    target.style.transform = `translate(${newX}px, ${newY}px)`;
+                    target.setAttribute('data-x', newX);
+                    target.setAttribute('data-y', newY);
+                },
             }
-        });
-
-        interactive.resizable({
+        }).resizable({
             edges: { left: true, right: true, bottom: true, top: true },
             listeners: {
                 move: (event) => {
                     const target = event.target;
                     let x = parseFloat(target.getAttribute('data-x')) || 0;
                     let y = parseFloat(target.getAttribute('data-y')) || 0;
-
-                    const newWidth = event.rect.width / this.zoom;
-                    const newHeight = event.rect.height / this.zoom;
-
-                    target.style.width = `${newWidth}px`;
-                    target.style.height = `${newHeight}px`;
-
+                    target.style.width = `${event.rect.width / this.zoom}px`;
+                    target.style.height = `${event.rect.height / this.zoom}px`;
                     x += event.deltaRect.left / this.zoom;
                     y += event.deltaRect.top / this.zoom;
-
                     target.style.transform = `translate(${x}px, ${y}px)`;
                     target.setAttribute('data-x', x);
                     target.setAttribute('data-y', y);
                 }
             }
-        });
-
-        interactive.on('dragend resizeend', (event) => {
+        }).on('dragend resizeend', (event) => {
             const target = event.target;
             const itemId = target.dataset.itemId;
             const item = this.boardItems.get(itemId);
@@ -189,9 +218,11 @@ export default class extends Controller {
                 item.width = parseFloat(target.style.width);
                 item.height = parseFloat(target.style.height);
             }
+            if (event.interaction) event.interaction.startPos = null;
         });
     }
 
+    // ... (addTextItemToBoard, addGroupItemToBoard, addAssetToBoard are unchanged)
     addTextItemToBoard(x, y, width = 200, height = 50, itemId = null, content = { text: 'Type here...' }) {
         const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
         const textEl = document.createElement('div');
@@ -218,7 +249,6 @@ export default class extends Controller {
         const newItem = { id: finalItemId, type: 'text', content, x, y, width, height };
         this.boardItems.set(finalItemId, newItem);
     }
-
     addGroupItemToBoard(x, y, width = 300, height = 250, itemId = null, content = {}) {
         const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
         const groupEl = document.createElement('div');
@@ -238,10 +268,8 @@ export default class extends Controller {
         const newItem = { id: finalItemId, type: 'group', content, x, y, width, height };
         this.boardItems.set(finalItemId, newItem);
     }
-
     addAssetToBoard(assetId, thumbnailUrl, x, y, width = 200, height = 200, itemId = null) {
         const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
-
         const boardItemEl = document.createElement('div');
         boardItemEl.classList.add('board-item', 'absolute', 'p-1', 'bg-white', 'shadow-lg', 'box-border');
         boardItemEl.style.left = '0px';
@@ -272,23 +300,35 @@ export default class extends Controller {
     // --- State Management --- //
 
     async loadBoardState() {
-        const response = await fetch(`/boards/${this.boardIdValue}/items`);
-        const items = await response.json();
+        try {
+            const response = await fetch(`/boards/${this.boardIdValue}/items`);
+            if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+            const items = await response.json();
 
-        this.canvasTarget.innerHTML = '';
-        this.boardItems.clear();
+            this.canvasTarget.innerHTML = '';
+            this.boardItems.clear();
 
-        items.forEach(item => {
-            if (item.type === 'asset') {
-                this.addAssetToBoard(item.content.assetId, item.content.thumbnailUrl, item.pos_x, item.pos_y, item.width, item.height, item.id);
-            } else if (item.type === 'text') {
-                this.addTextItemToBoard(item.pos_x, item.pos_y, item.width, item.height, item.id, item.content);
-            } else if (item.type === 'group') {
-                this.addGroupItemToBoard(item.pos_x, item.pos_y, item.width, item.height, item.id, item.content);
-            }
-        });
+            items.forEach(item => {
+                try {
+                    if (item.type === 'asset') {
+                        this.addAssetToBoard(item.content.assetId, item.content.thumbnailUrl, item.pos_x, item.pos_y, item.width, item.height, item.id);
+                    } else if (item.type === 'text') {
+                        this.addTextItemToBoard(item.pos_x, item.pos_y, item.width, item.height, item.id, item.content);
+                    } else if (item.type === 'group') {
+                        this.addGroupItemToBoard(item.pos_x, item.pos_y, item.width, item.height, item.id, item.content);
+                    }
+                } catch(e) { console.error('Failed to render a board item:', { item, error: e }); }
+            });
+
+            this.frameContent(); // Automatically frame content after loading
+
+        } catch (error) {
+            console.error("Fatal error loading board state:", error);
+            this.canvasTarget.innerHTML = `<div class="p-4 text-red-600 bg-red-100 border border-red-400 rounded">Could not load board. See developer console for details.</div>`;
+        }
     }
 
+    // ... (saveBoardState, _syncStateFromServer, searchAssets, createAssetElement, initAssetPanelAndDropzone are unchanged)
     async saveBoardState(isAutoSave = false) {
         if (!isAutoSave) {
             this.saveBtnTarget.textContent = 'Saving...';
@@ -330,7 +370,6 @@ export default class extends Controller {
             }
         }
     }
-
     _syncStateFromServer(serverItems) {
         const serverItemIds = new Set();
         serverItems.forEach(serverItem => {
@@ -368,7 +407,6 @@ export default class extends Controller {
             }
         }
     }
-
     async searchAssets(event) {
         const query = event.target.value;
 
@@ -387,7 +425,6 @@ export default class extends Controller {
                 });
             });
     }
-
     createAssetElement(asset) {
         const assetElement = document.createElement('div');
         assetElement.classList.add('p-2', 'border-b', 'cursor-move', 'asset-item', 'flex', 'items-center');
@@ -400,7 +437,6 @@ export default class extends Controller {
         `;
         return assetElement;
     }
-
     initAssetPanelAndDropzone() {
         interact('#asset-list .asset-item').draggable({
             inertia: true,
@@ -433,11 +469,10 @@ export default class extends Controller {
             accept: '.asset-item',
             ondrop: (event) => {
                 const droppedElement = event.relatedTarget;
-                const canvasRect = this.canvasTarget.getBoundingClientRect();
+                const viewportRect = this.viewportTarget.getBoundingClientRect(); // Use viewport for drop calcs
 
-                // We need to calculate the drop position relative to the viewport first, then convert to canvas coordinates
-                const dropX_viewport = event.dragEvent.client.x - canvasRect.left;
-                const dropY_viewport = event.dragEvent.client.y - canvasRect.top;
+                const dropX_viewport = event.dragEvent.client.x - viewportRect.left;
+                const dropY_viewport = event.dragEvent.client.y - viewportRect.top;
 
                 const dropX_canvas = (dropX_viewport - this.pan.x) / this.zoom;
                 const dropY_canvas = (dropY_viewport - this.pan.y) / this.zoom;

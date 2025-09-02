@@ -18,6 +18,10 @@
             <button data-action="click->board#activateTool" data-tool="line" class="board-tool p-2 rounded hover:bg-gray-200" title="Draw Line">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"></path></svg>
             </button>
+            <hr class="my-1 border-gray-200">
+            <button data-action="click->board#frameContent" class="board-tool p-2 rounded hover:bg-gray-200" title="Center Content">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"></path></svg>
+            </button>
         </div>
 
         {# Main Board Area #}
@@ -36,10 +40,11 @@
         </div>
 
         {# Top Right Controls #}
-        <div class="absolute top-4 right-96 z-20 flex space-x-2">
+        <div class="absolute top-4 right-96 z-20 flex space-x-2 items-center">
             <button data-action="click->board#zoomIn" class="px-3 py-1 bg-white text-gray-800 rounded shadow hover:bg-gray-100" title="Zoom In">+</button>
+            <span data-board-target="zoomValue" class="text-sm text-gray-700 bg-white px-2 py-1 rounded shadow">100%</span>
             <button data-action="click->board#zoomOut" class="px-3 py-1 bg-white text-gray-800 rounded shadow hover:bg-gray-100" title="Zoom Out">-</button>
-            <button data-board-target="saveBtn" id="save-board-btn" class="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600">Save</button>
+            <button data-board-target="saveBtn" id="save-board-btn" class="ml-4 px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600">Save</button>
             <button id="download-all-btn" class="px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600">Download All</button>
         </div>
 
