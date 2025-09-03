@@ -7,10 +7,13 @@ use App\Entity\Assets\ColorSpaceEnum;
 use App\Entity\User;
 use App\Message\ProcessAssetUpload;
 use App\Repository\Assets\AssetsRepository;
+use App\Service\ImageProcessorService;
 use App\Service\UniqueFilePathGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Exception\IOException;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -22,6 +25,9 @@ final class ProcessAssetUploadHandler
         private readonly EntityManagerInterface $entityManager,
         private readonly AssetsRepository $assetsRepository,
         private readonly LockFactory $lockFactory,
+        private readonly ImageProcessorService $imageProcessorService,
+        private readonly ParameterBagInterface $params,
+        private readonly Filesystem $filesystem,
         private readonly string $uploadDir
     )
     {
@@ -72,6 +78,24 @@ final class ProcessAssetUploadHandler
             rename($filePath, $finalFilePath);
 
             $asset = new Assets();
+
+            if (in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
+                $thumbnailBinary = $this->imageProcessorService->makeThumbnail($finalFilePath, 700, 700);
+
+                if ($thumbnailBinary) {
+                    $thumbnailDir = $this->params->get('thumbnail_dir');
+                    $safeFilename = basename($finalFilePath);
+                    $firstLetter = strtolower(mb_substr($safeFilename, 0, 1));
+                    $secondLetter = strtolower(mb_substr($safeFilename, 1, 1));
+                    $finalDir = sprintf('%s/%s/%s', $thumbnailDir, $firstLetter, $secondLetter);
+                    $this->filesystem->mkdir($finalDir);
+                    $thumbnailPath = $finalDir . '/' . pathinfo($safeFilename, PATHINFO_FILENAME) . '.webp';
+
+                    $this->filesystem->dumpFile($thumbnailPath, $thumbnailBinary);
+                    $asset->setThumbnailPath($thumbnailPath);
+                }
+            }
+
             $asset->setName($originalFilename);
             $asset->setFilePath($finalFilePath);
             $asset->setMimeType($mimeType);
