@@ -319,7 +319,6 @@ export default class extends Controller {
         const target = event.currentTarget;
         const property = target.dataset.styleProperty;
 
-        // CORRECTED: Prioritize data-style-value for buttons, fallback to .value for inputs
         let value = target.dataset.styleValue || target.value;
 
         if (property === 'fontSize') {
