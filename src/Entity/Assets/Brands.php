@@ -3,6 +3,7 @@
 namespace App\Entity\Assets;
 
 use App\Entity\Restrictions\Groups;
+use App\Entity\User;
 use App\Repository\Assets\BrandsRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -40,11 +41,18 @@ class Brands
     #[ORM\ManyToMany(targetEntity: Groups::class, mappedBy: 'brands')]
     private Collection $restrictedGroups;
 
+    /**
+     * @var Collection<int, User>
+     */
+    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'restrictedBrands')]
+    private Collection $restrictedUsers;
+
     public function __construct()
     {
         $this->parent = new ArrayCollection();
         $this->assets = new ArrayCollection();
         $this->restrictedGroups = new ArrayCollection();
+        $this->restrictedUsers = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -155,6 +163,33 @@ class Brands
     {
         if ($this->restrictedGroups->removeElement($restrictedGroup)) {
             $restrictedGroup->removeBrand($this);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function getRestrictedUsers(): Collection
+    {
+        return $this->restrictedUsers;
+    }
+
+    public function addRestrictedUser(User $restrictedUser): static
+    {
+        if (!$this->restrictedUsers->contains($restrictedUser)) {
+            $this->restrictedUsers->add($restrictedUser);
+            $restrictedUser->addRestrictedBrand($this);
+        }
+
+        return $this;
+    }
+
+    public function removeRestrictedUser(User $restrictedUser): static
+    {
+        if ($this->restrictedUsers->removeElement($restrictedUser)) {
+            $restrictedUser->removeRestrictedBrand($this);
         }
 
         return $this;

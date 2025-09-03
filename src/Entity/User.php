@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\Assets\Brands;
 use App\Entity\Boards\Board;
 use App\Entity\Boards\BoardCollaborator;
 use App\Entity\Downloads\Lists;
@@ -57,12 +58,19 @@ class User implements UserInterface
     #[ORM\OneToMany(targetEntity: BoardCollaborator::class, mappedBy: 'user')]
     private Collection $boardCollaborations;
 
+    /**
+     * @var Collection<int, Brands>
+     */
+    #[ORM\ManyToMany(targetEntity: Brands::class, inversedBy: 'restrictedUsers')]
+    private Collection $restrictedBrands;
+
     public function __construct()
     {
         $this->groups = new ArrayCollection();
         $this->downloadLists = new ArrayCollection();
         $this->ownedBoards = new ArrayCollection();
         $this->boardCollaborations = new ArrayCollection();
+        $this->restrictedBrands = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -250,6 +258,30 @@ class User implements UserInterface
                 $boardCollaboration->setUser(null);
             }
         }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Brands>
+     */
+    public function getRestrictedBrands(): Collection
+    {
+        return $this->restrictedBrands;
+    }
+
+    public function addRestrictedBrand(Brands $restrictedBrand): static
+    {
+        if (!$this->restrictedBrands->contains($restrictedBrand)) {
+            $this->restrictedBrands->add($restrictedBrand);
+        }
+
+        return $this;
+    }
+
+    public function removeRestrictedBrand(Brands $restrictedBrand): static
+    {
+        $this->restrictedBrands->removeElement($restrictedBrand);
 
         return $this;
     }
