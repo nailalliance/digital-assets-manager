@@ -657,7 +657,7 @@ export default class extends Controller {
             <line class="hitbox-line" x1="${relX1}" y1="${relY1}" x2="${relX2}" y2="${relY2}" stroke="transparent" stroke-width="15"></line>
             <line class="visual-line" x1="${relX1}" y1="${relY1}" x2="${relX2}" y2="${relY2}" stroke="black" stroke-width="2" ${item.type === 'arrow' ? 'marker-end="url(#arrowhead)"' : ''}></line>
             <circle class="line-handle start-handle" cx="${relX1}" cy="${relY1}" r="5"></circle>
-            <circle class.body-handle end-handle" cx="${relX2}" cy="${relY2}" r="5"></circle>
+            <circle class="line-handle end-handle" cx="${relX2}" cy="${relY2}" r="5"></circle>
         `;
     }
 
