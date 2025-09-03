@@ -36,8 +36,10 @@
                 <button data-action="click->board#bringToFront" class="board-tool p-2 rounded hover:bg-gray-200" title="Bring to Front"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8l7-7 7 7"></path></svg></button>
                 <button data-action="click->board#sendToBack" class="board-tool p-2 rounded hover:bg-gray-200" title="Send to Back"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 16l-7 7-7-7"></path></svg></button>
             </div>
+        </div>
 
-            {# Text-Specific Context Toolbar #}
+        {# Text-Specific Context Toolbar #}
+        <div class="absolute top-16 left-4 z-20 flex space-x-2">
             <div data-board-target="textContextToolbar" class="bg-white shadow-lg rounded-lg p-1 flex space-x-2 items-center hidden">
                 {# Font Family #}
                 <select data-action="change->board#changeTextStyle" data-style-property="fontFamily" data-board-target="fontFamilySelect" class="text-sm rounded border-gray-300 focus:ring-indigo-500 focus:border-indigo-500">

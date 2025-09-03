@@ -315,11 +315,20 @@ export default class extends Controller {
         if (!this.selectedItemId) return;
         const item = this.boardItems.get(this.selectedItemId);
         if (!item || item.type !== 'text') return;
-        const property = event.currentTarget.dataset.styleProperty;
-        let value = event.currentTarget.value;
-        if (property === 'fontSize') value = parseInt(value, 10);
+
+        const target = event.currentTarget;
+        const property = target.dataset.styleProperty;
+
+        // CORRECTED: Prioritize data-style-value for buttons, fallback to .value for inputs
+        let value = target.dataset.styleValue || target.value;
+
+        if (property === 'fontSize') {
+            value = parseInt(value, 10);
+        }
+
         item.content[property] = value;
         this.applyTextStyles(this.element.querySelector(`[data-item-id="${this.selectedItemId}"]`), item.content);
+        this.updateTextToolbarState();
     }
 
     toggleTextStyle(event) {
