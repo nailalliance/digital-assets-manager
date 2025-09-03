@@ -1,0 +1,39 @@
+{% extends 'base.html.twig' %}
+
+{% form_theme form 'tailwind_form_theme.html.twig' %}
+
+{% block title %}Edit User: {{ user.name }}{% endblock %}
+
+{% block body %}
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-4">
+            <a href="{{ path('admin_user_index') }}" class="text-blue-500 hover:underline">&larr; Back to user list</a>
+        </div>
+
+        <h1 class="text-2xl font-semibold mb-4">Edit User: <span class="font-bold">{{ user.name }}</span></h1>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            {{ form_start(form) }}
+            <div class="space-y-6">
+                {{ form_row(form.name) }}
+                {{ form_row(form.username) }}
+                {{ form_row(form.roles) }}
+
+                {# The restrictedBrands field will only be rendered if it exists in the form object #}
+                {% if form.restrictedBrands is defined %}
+                    <div class="p-4 border rounded-md bg-gray-50">
+                        <h2 class="text-lg font-semibold mb-2 text-gray-700">Brand Permissions</h2>
+                        {{ form_row(form.restrictedBrands) }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="mt-6">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                    Save Changes
+                </button>
+            </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}
