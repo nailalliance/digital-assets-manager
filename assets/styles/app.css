@@ -88,3 +88,37 @@ svg.board-item.selected {
 .board-item.selected .line-handle {
     display: block; /* Shown only when the line is selected */
 }
+
+.board-item-asset {
+    display: flex;
+    flex-direction: column;
+    background-color: #f9fafb; /* gray-50 */
+}
+
+.board-item-asset .asset-image-container {
+    flex-grow: 1;
+    min-height: 0; /* Important for flexbox shrinking */
+    padding: 0.25rem;
+}
+
+.board-item-asset .asset-button-ribbon {
+    flex-shrink: 0;
+    background-color: #f3f4f6; /* gray-200 */
+    padding: 0.25rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    border-top: 1px solid #e5e7eb; /* gray-200 */
+}
+
+.board-item-asset .asset-button-ribbon button {
+    pointer-events: all; /* Ensure buttons are clickable */
+    background-color: white;
+    border-radius: 0.25rem;
+    padding: 0.25rem;
+    line-height: 1;
+}
+
+.board-item-asset .asset-button-ribbon button:hover {
+    background-color: #e5e7eb; /* gray-200 */
+}

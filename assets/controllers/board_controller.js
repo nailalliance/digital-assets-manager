@@ -380,7 +380,7 @@ export default class extends Controller {
     addAssetToBoard(assetId, thumbnailUrl, x, y, width = 200, height = 200, itemId = null, zIndex) {
         const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
         const boardItemEl = document.createElement('div');
-        boardItemEl.classList.add('board-item', 'absolute', 'p-1', 'bg-white', 'shadow-lg', 'box-border');
+        boardItemEl.classList.add('board-item', 'board-item-asset', 'absolute', 'p-1', 'bg-white', 'shadow-lg', 'box-border');
         boardItemEl.style.left = '0px';
         boardItemEl.style.top = '0px';
         boardItemEl.style.width = `${width}px`;
@@ -389,7 +389,19 @@ export default class extends Controller {
         boardItemEl.dataset.itemId = finalItemId;
         boardItemEl.setAttribute('data-x', x);
         boardItemEl.setAttribute('data-y', y);
-        boardItemEl.innerHTML = `<img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">`;
+        boardItemEl.innerHTML = `
+            <div class="asset-image-container w-full h-full">
+                <img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">
+            </div>
+            <div class="asset-button-ribbon">
+                <button data-action="click->board#downloadAsset" data-asset-id="${assetId}" title="Download">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                </button>
+                <button data-action="click->board#addToDownloadList" data-asset-id="${assetId}" title="Add to Download List">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+            </div>
+        `;
         const newContent = { assetId, thumbnailUrl };
         const newItem = { id: finalItemId, type: 'asset', content: newContent, x, y, width, height, zIndex };
         this._addItemToBoard(boardItemEl, newItem);
@@ -450,6 +462,32 @@ export default class extends Controller {
     }
 
     makeItemInteractive(element) {
+        const resizableOptions = {
+            edges: { left: true, right: true, bottom: true, top: true },
+            listeners: {
+                move: (event) => {
+                    const target = event.target;
+                    let x = parseFloat(target.getAttribute('data-x')) || 0;
+                    let y = parseFloat(target.getAttribute('data-y')) || 0;
+                    target.style.width = `${event.rect.width / this.zoom}px`;
+                    target.style.height = `${event.rect.height / this.zoom}px`;
+                    x += event.deltaRect.left / this.zoom;
+                    y += event.deltaRect.top / this.zoom;
+                    target.style.transform = `translate(${x}px, ${y}px)`;
+                    target.setAttribute('data-x', x);
+                    target.setAttribute('data-y', y);
+                }
+            }
+        };
+
+        if (element.classList.contains('board-item-asset')) {
+            resizableOptions.modifiers = [
+                interact.modifiers.restrictSize({
+                    min: { width: 150, height: 150 }
+                })
+            ];
+        }
+
         interact(element).draggable({ inertia: true, listeners: {
                 start: (event) => {
                     const target = event.target;
@@ -545,7 +583,38 @@ export default class extends Controller {
             }});
     }
 
-    // --- 8. HELPER FUNCTIONS --- //
+    // --- 8. ASSET CARD ACTIONS (New) --- //
+
+    downloadAsset(event) {
+        event.stopPropagation();
+        const assetId = event.currentTarget.dataset.assetId;
+        window.open(`/asset/${assetId}/download`, '_blank');
+    }
+
+    addToDownloadList(event) {
+        event.stopPropagation();
+        const button = event.currentTarget;
+        const assetId = button.dataset.assetId;
+
+        button.disabled = true;
+
+        fetch(`/download-list/add/${assetId}`, { method: 'POST' })
+            .then(response => {
+                if (response.ok) {
+                    button.innerHTML = 'Added!';
+                    setTimeout(() => {
+                        // Revert back to plus icon after a delay
+                        button.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
+                        button.disabled = false;
+                    }, 2000);
+                } else {
+                    button.innerHTML = 'Error';
+                    button.disabled = false;
+                }
+            });
+    }
+
+    // --- 9. HELPER FUNCTIONS --- //
 
     getLineBoundingBox(content) {
         const x = Math.min(content.x1, content.x2);
@@ -596,7 +665,7 @@ export default class extends Controller {
         svgEl.querySelector('.end-handle').setAttribute('cy', relY2);
     }
 
-    // --- 9. STATE MANAGEMENT & API --- //
+    // --- 10. STATE MANAGEMENT & API --- //
 
     async loadBoardState() {
         try {
