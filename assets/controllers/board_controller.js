@@ -393,10 +393,10 @@ export default class extends Controller {
                 <img src="${thumbnailUrl}" class="w-full h-full object-contain pointer-events-none">
             </div>
             <div class="asset-button-ribbon">
-                <button data-action="click->board#downloadAsset" data-asset-id="${assetId}" title="Download">
+                <button data-action="click->board#downloadAsset" data-asset-id="${assetId}" title="Download" class="text-gray-500">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 </button>
-                <button data-action="click->board#addToDownloadList" data-asset-id="${assetId}" title="Add to Download List">
+                <button data-action="click->board#addToDownloadList" data-asset-id="${assetId}" title="Add to Download List" class="text-gray-500">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 </button>
             </div>
@@ -624,7 +624,7 @@ export default class extends Controller {
                     button.innerHTML = 'Added!';
                     setTimeout(() => {
                         // Revert back to plus icon after a delay
-                        button.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>';
+                        button.innerHTML = '<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
                         button.disabled = false;
                     }, 2000);
                 } else {
