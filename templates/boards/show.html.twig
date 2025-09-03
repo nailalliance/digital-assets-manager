@@ -27,6 +27,39 @@
             </button>
         </div>
 
+        {# Context Toolbars Container #}
+        <div class="absolute top-4 left-4 z-20 flex space-x-2">
+            {# General Context Toolbar (Layers) #}
+            <div data-board-target="contextToolbar" class="bg-white shadow-lg rounded-lg p-1 flex space-x-1 hidden">
+                <button data-action="click->board#bringForward" class="board-tool p-2 rounded hover:bg-gray-200" title="Bring Forward"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg></button>
+                <button data-action="click->board#sendBackward" class="board-tool p-2 rounded hover:bg-gray-200" title="Send Backward"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg></button>
+                <button data-action="click->board#bringToFront" class="board-tool p-2 rounded hover:bg-gray-200" title="Bring to Front"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8l7-7 7 7"></path></svg></button>
+                <button data-action="click->board#sendToBack" class="board-tool p-2 rounded hover:bg-gray-200" title="Send to Back"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 16l-7 7-7-7"></path></svg></button>
+            </div>
+
+            {# Text-Specific Context Toolbar #}
+            <div data-board-target="textContextToolbar" class="bg-white shadow-lg rounded-lg p-1 flex space-x-2 items-center hidden">
+                {# Font Family #}
+                <select data-action="change->board#changeTextStyle" data-style-property="fontFamily" data-board-target="fontFamilySelect" class="text-sm rounded border-gray-300 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="Helvetica, sans-serif">Helvetica</option>
+                    <option value="Times, serif">Times</option>
+                </select>
+                {# Font Size #}
+                <input type="number" data-action="input->board#changeTextStyle" data-style-property="fontSize" data-board-target="fontSizeInput" class="w-16 text-sm rounded border-gray-300 focus:ring-indigo-500 focus:border-indigo-500" min="8" max="120">
+                {# Bold/Italic #}
+                <button data-action="click->board#toggleTextStyle" data-style-property="fontWeight" data-style-value="bold" data-board-target="boldButton" class="board-tool p-2 rounded hover:bg-gray-200" title="Bold">B</button>
+                <button data-action="click->board#toggleTextStyle" data-style-property="fontStyle" data-style-value="italic" data-board-target="italicButton" class="board-tool p-2 rounded hover:bg-gray-200 italic" title="Italic">I</button>
+                {# Text Align #}
+                <button data-action="click->board#changeTextStyle" data-style-property="textAlign" data-style-value="left" class="board-tool p-2 rounded hover:bg-gray-200" title="Align Left"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M3 8h18M3 12h12M3 16h18M3 20h12"></path></svg></button>
+                <button data-action="click->board#changeTextStyle" data-style-property="textAlign" data-style-value="center" class="board-tool p-2 rounded hover:bg-gray-200" title="Align Center"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M3 8h18M6 12h12M3 16h18M6 20h12"></path></svg></button>
+                <button data-action="click->board#changeTextStyle" data-style-property="textAlign" data-style-value="right" class="board-tool p-2 rounded hover:bg-gray-200" title="Align Right"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M3 8h18M9 12h12M3 16h18M9 20h12"></path></svg></button>
+                {# Colors #}
+                <input type="color" data-action="input->board#changeTextStyle" data-style-property="color" data-board-target="colorInput" title="Font Color" class="w-8 h-8 p-0 border-none">
+                <input type="color" data-action="input->board#changeTextStyle" data-style-property="backgroundColor" data-board-target="backgroundColorInput" title="Background Color" class="w-8 h-8 p-0 border-none">
+                <input type="color" data-action="input->board#changeTextStyle" data-style-property="borderColor" data-board-target="borderColorInput" title="Border Color" class="w-8 h-8 p-0 border-none">
+            </div>
+        </div>
+
         {# Item Context Toolbar (New) #}
         <div data-board-target="contextToolbar" class="absolute top-4 left-4 z-20 bg-white shadow-lg rounded-lg p-2 flex space-x-2 hidden">
             <button data-action="click->board#bringForward" class="board-tool p-2 rounded hover:bg-gray-200" title="Bring Forward">
