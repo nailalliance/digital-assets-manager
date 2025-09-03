@@ -72,6 +72,10 @@ body {
     stroke: #3b82f6; /* Blue */
 }
 
+svg.board-item.selected {
+    outline: none;
+}
+
 /* Styles for the draggable line handles */
 .line-handle {
     fill: white;

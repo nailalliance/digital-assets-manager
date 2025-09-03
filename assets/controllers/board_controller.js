@@ -265,9 +265,8 @@ export default class extends Controller {
 
         this.canvasTarget.appendChild(element);
 
-        // Dispatch to the correct interaction setup
         if (itemData.type === 'line' || itemData.type === 'arrow') {
-            this.makeLineInteractive(element, itemData);
+            this.makeLineInteractive(element);
         } else {
             this.makeItemInteractive(element);
         }
@@ -287,15 +286,14 @@ export default class extends Controller {
         const finalItemId = itemId ? String(itemId) : `item-${uuidv4()}`;
         const newContent = { x1: start.x, y1: start.y, x2: end.x, y2: end.y, ...content };
 
-        const { x, y, width, height } = this.getLineBoundingBox(newContent);
-
         const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svgEl.classList.add('board-item', 'board-item-line');
         svgEl.dataset.itemId = finalItemId;
 
+        const { x, y, width, height } = this.getLineBoundingBox(newContent);
         const newItem = { id: finalItemId, type, content: newContent, x, y, width, height, zIndex };
 
-        this.updateLineElement(svgEl, newItem); // Use helper to build the SVG content
+        this.buildLineElement(svgEl, newItem);
         this._addItemToBoard(svgEl, newItem);
     }
 
@@ -497,14 +495,17 @@ export default class extends Controller {
         });
     }
 
-    makeLineInteractive(svgEl, item) {
+    makeLineInteractive(svgEl) {
+        const itemId = svgEl.dataset.itemId;
         const startHandle = svgEl.querySelector('.start-handle');
         const endHandle = svgEl.querySelector('.end-handle');
 
-        // 1. Make the whole SVG draggable for moving the line
         interact(svgEl).draggable({
+            allowFrom: '.hitbox-line', // Only allow drag from the invisible hitbox
             listeners: {
                 start: (event) => {
+                    const item = this.boardItems.get(itemId);
+                    if (!item) return;
                     event.interaction.startPos = { x: item.x, y: item.y };
                 },
                 move: (event) => {
@@ -515,36 +516,32 @@ export default class extends Controller {
                     event.target.setAttribute('data-y', newY);
                 },
                 end: (event) => {
-                    const movedItem = this.boardItems.get(item.id);
-                    if (!movedItem) return;
+                    const item = this.boardItems.get(itemId);
+                    if (!item) return;
 
-                    const oldX = movedItem.x;
-                    const oldY = movedItem.y;
+                    const oldX = item.x;
+                    const oldY = item.y;
                     const newX = parseFloat(event.target.getAttribute('data-x'));
                     const newY = parseFloat(event.target.getAttribute('data-y'));
 
-                    movedItem.content.x1 += newX - oldX;
-                    movedItem.content.y1 += newY - oldY;
-                    movedItem.content.x2 += newX - oldX;
-                    movedItem.content.y2 += newY - oldY;
-
-                    movedItem.x = newX;
-                    movedItem.y = newY;
-
-                    event.interaction.startPos = null;
+                    item.content.x1 += newX - oldX;
+                    item.content.y1 += newY - oldY;
+                    item.content.x2 += newX - oldX;
+                    item.content.y2 += newY - oldY;
+                    item.x = newX;
+                    item.y = newY;
                 }
             }
         });
 
-        // 2. Make the handles draggable for resizing the line
         interact(startHandle).draggable({
             listeners: {
                 move: (event) => {
-                    const movedItem = this.boardItems.get(item.id);
-                    if (!movedItem) return;
-                    movedItem.content.x1 += event.dx / this.zoom;
-                    movedItem.content.y1 += event.dy / this.zoom;
-                    this.updateLineElement(svgEl, movedItem);
+                    const item = this.boardItems.get(itemId);
+                    if (!item) return;
+                    item.content.x1 += event.dx / this.zoom;
+                    item.content.y1 += event.dy / this.zoom;
+                    this.updateLineElement(svgEl, item);
                 },
             }
         });
@@ -552,11 +549,11 @@ export default class extends Controller {
         interact(endHandle).draggable({
             listeners: {
                 move: (event) => {
-                    const movedItem = this.boardItems.get(item.id);
-                    if (!movedItem) return;
-                    movedItem.content.x2 += event.dx / this.zoom;
-                    movedItem.content.y2 += event.dy / this.zoom;
-                    this.updateLineElement(svgEl, movedItem);
+                    const item = this.boardItems.get(itemId);
+                    if (!item) return;
+                    item.content.x2 += event.dx / this.zoom;
+                    item.content.y2 += event.dy / this.zoom;
+                    this.updateLineElement(svgEl, item);
                 },
             }
         });
@@ -570,27 +567,17 @@ export default class extends Controller {
         return { x, y, width, height };
     }
 
-    updateLineElement(svgEl, item) {
-        const { x, y, width, height } = this.getLineBoundingBox(item.content);
-
-        // Update item data
-        item.x = x;
-        item.y = y;
-        item.width = width;
-        item.height = height;
-
-        // Update SVG container
+    buildLineElement(svgEl, item) {
+        const { x, y } = this.getLineBoundingBox(item.content);
         svgEl.style.transform = `translate(${x}px, ${y}px)`;
         svgEl.setAttribute('data-x', x);
         svgEl.setAttribute('data-y', y);
 
-        // Recalculate relative line coordinates
         const relX1 = item.content.x1 - x;
         const relY1 = item.content.y1 - y;
         const relX2 = item.content.x2 - x;
         const relY2 = item.content.y2 - y;
 
-        // Clear and rebuild SVG content
         svgEl.innerHTML = `
             <line class="hitbox-line" x1="${relX1}" y1="${relY1}" x2="${relX2}" y2="${relY2}" stroke="transparent" stroke-width="15"></line>
             <line class="visual-line" x1="${relX1}" y1="${relY1}" x2="${relX2}" y2="${relY2}" stroke="black" stroke-width="2" ${item.type === 'arrow' ? 'marker-end="url(#arrowhead)"' : ''}></line>
@@ -599,6 +586,36 @@ export default class extends Controller {
         `;
     }
 
+    updateLineElement(svgEl, item) {
+        const { x, y } = this.getLineBoundingBox(item.content);
+        item.x = x;
+        item.y = y;
+
+        svgEl.style.transform = `translate(${x}px, ${y}px)`;
+        svgEl.setAttribute('data-x', x);
+        svgEl.setAttribute('data-y', y);
+
+        const relX1 = item.content.x1 - x;
+        const relY1 = item.content.y1 - y;
+        const relX2 = item.content.x2 - x;
+        const relY2 = item.content.y2 - y;
+
+        svgEl.querySelector('.hitbox-line').setAttribute('x1', relX1);
+        svgEl.querySelector('.hitbox-line').setAttribute('y1', relY1);
+        svgEl.querySelector('.hitbox-line').setAttribute('x2', relX2);
+        svgEl.querySelector('.hitbox-line').setAttribute('y2', relY2);
+
+        svgEl.querySelector('.visual-line').setAttribute('x1', relX1);
+        svgEl.querySelector('.visual-line').setAttribute('y1', relY1);
+        svgEl.querySelector('.visual-line').setAttribute('x2', relX2);
+        svgEl.querySelector('.visual-line').setAttribute('y2', relY2);
+
+        svgEl.querySelector('.start-handle').setAttribute('cx', relX1);
+        svgEl.querySelector('.start-handle').setAttribute('cy', relY1);
+
+        svgEl.querySelector('.end-handle').setAttribute('cx', relX2);
+        svgEl.querySelector('.end-handle').setAttribute('cy', relY2);
+    }
 
     // --- State Management --- //
 
