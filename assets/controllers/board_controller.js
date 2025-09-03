@@ -531,56 +531,77 @@ export default class extends Controller {
 
     makeLineInteractive(svgEl) {
         const itemId = svgEl.dataset.itemId;
-        interact(svgEl).draggable({ listeners: {
+        const startHandle = svgEl.querySelector('.start-handle');
+        const endHandle = svgEl.querySelector('.end-handle');
+
+        interact(svgEl).draggable({
+            allowFrom: '.hitbox-line',
+            listeners: {
                 start: (event) => {
                     const item = this.boardItems.get(itemId);
                     if (!item) return;
-                    if (event.target.classList.contains('line-handle')) {
-                        event.interaction.mode = event.target.classList.contains('start-handle') ? 'resizeStart' : 'resizeEnd';
-                    } else {
-                        event.interaction.mode = 'drag';
-                        event.interaction.startPos = { x: item.x, y: item.y };
-                    }
+                    event.interaction.startPos = { x: item.x, y: item.y };
                 },
                 move: (event) => {
-                    const item = this.boardItems.get(itemId);
-                    if (!item) return;
-                    const mode = event.interaction.mode;
-                    if (mode === 'resizeStart') {
-                        item.content.x1 += event.dx / this.zoom;
-                        item.content.y1 += event.dy / this.zoom;
-                        this.updateLineElement(svgEl, item);
-                    } else if (mode === 'resizeEnd') {
-                        item.content.x2 += event.dx / this.zoom;
-                        item.content.y2 += event.dy / this.zoom;
-                        this.updateLineElement(svgEl, item);
-                    } else if (mode === 'drag') {
-                        const newX = event.interaction.startPos.x + (event.pageX - event.x0) / this.zoom;
-                        const newY = event.interaction.startPos.y + (event.pageY - event.y0) / this.zoom;
-                        event.target.style.transform = `translate(${newX}px, ${newY}px)`;
-                        event.target.setAttribute('data-x', newX);
-                        event.target.setAttribute('data-y', newY);
-                    }
+                    const newX = event.interaction.startPos.x + (event.pageX - event.x0) / this.zoom;
+                    const newY = event.interaction.startPos.y + (event.pageY - event.y0) / this.zoom;
+                    event.target.style.transform = `translate(${newX}px, ${newY}px`;
+                    event.target.setAttribute('data-x', newX);
+                    event.target.setAttribute('data-y', newY);
                 },
                 end: (event) => {
                     const item = this.boardItems.get(itemId);
                     if (!item) return;
-                    if (event.interaction.mode === 'drag') {
-                        const oldX = item.x, oldY = item.y;
-                        const newX = parseFloat(event.target.getAttribute('data-x'));
-                        const newY = parseFloat(event.target.getAttribute('data-y'));
-                        const dx = newX - oldX, dy = newY - oldY;
-                        item.content.x1 += dx;
-                        item.content.y1 += dy;
-                        item.content.x2 += dx;
-                        item.content.y2 += dy;
-                        const {x, y, width, height} = this.getLineBoundingBox(item.content);
-                        item.x = x; item.y = y; item.width = width; item.height = height;
-                    }
-                    event.interaction.mode = null;
+
+                    const oldX = item.x;
+                    const oldY = item.y;
+                    const newX = parseFloat(event.target.getAttribute('data-x'));
+                    const newY = parseFloat(event.target.getAttribute('data-y'));
+
+                    const dx = newX - oldX;
+                    const dy = newY - oldY;
+
+                    item.content.x1 += dx;
+                    item.content.y1 += dy;
+                    item.content.x2 += dx;
+                    item.content.y2 += dy;
+
+                    const {x, y, width, height} = this.getLineBoundingBox(item.content);
+                    item.x = x;
+                    item.y = y;
+                    item.width = width;
+                    item.height = height;
+
                     event.interaction.startPos = null;
                 }
-            }});
+            }
+        });
+
+        interact(startHandle).draggable({
+            listeners: {
+                move: (event) => {
+                    const item = this.boardItems.get(itemId);
+                    if (!item) return;
+
+                    item.content.x1 += event.dx / this.zoom;
+                    item.content.y1 += event.dy / this.zoom;
+                    this.updateLineElement(svgEl, item);
+                }
+            }
+        });
+
+        interact(endHandle).draggable({
+            listeners: {
+                move: (event) => {
+                    const item = this.boardItems.get(itemId);
+                    if (!item) return;
+
+                    item.content.x2 += event.dx / this.zoom;
+                    item.content.y2 += event.dy / this.zoom;
+                    this.updateLineElement(svgEl, item);
+                }
+            }
+        });
     }
 
     // --- 8. ASSET CARD ACTIONS (New) --- //
