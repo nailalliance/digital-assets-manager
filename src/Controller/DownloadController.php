@@ -16,7 +16,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class DownloadController extends AbstractController
 {
     #[Route('/asset/{id}/download', name: 'asset_download')]
-    #[IsGranted('ASSET_VIEW', subject: 'assets')]
+    #[IsGranted('ASSET_VIEW', subject: 'asset')]
     public function index(
         Assets $asset,
         Request $request,

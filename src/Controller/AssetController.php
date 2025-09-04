@@ -38,7 +38,7 @@ final class AssetController extends AbstractController
      * Handles the "Download for Web" form submission and streams the processed image.
      */
     #[Route('/asset/{id}/download-web', name: 'asset_download_web', methods: ['GET'])]
-    #[IsGranted('ASSET_VIEW', subject: 'assets')]
+    #[IsGranted('ASSET_VIEW', subject: 'asset')]
     public function downloadWeb(Assets $asset, Request $request, ImageProcessorService $imageProcessor): Response
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
