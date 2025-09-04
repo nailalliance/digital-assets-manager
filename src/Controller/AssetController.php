@@ -3,9 +3,12 @@
 namespace App\Controller;
 
 use App\Entity\Assets\Assets;
+use App\Entity\User;
 use App\Form\WebDownloadType;
+use App\Security\Voter\AssetVoter;
 use App\Service\ImageProcessorService;
 use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Request;
@@ -13,11 +16,13 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 final class AssetController extends AbstractController
 {
-    #[Route('/assets/{id}', name: 'app_asset')]
-    public function index(Assets $assets): Response
+    #[Route('/asset/{id}', name: 'app_asset')]
+    #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
+    public function index(Assets $assets, EntityManagerInterface $entityManager): Response
     {
         $webDownloadForm = $this->createForm(WebDownloadType::class, null, [
             'action' => $this->generateUrl('asset_download_web', ['id' => $assets->getId()]),
@@ -33,6 +38,7 @@ final class AssetController extends AbstractController
      * Handles the "Download for Web" form submission and streams the processed image.
      */
     #[Route('/asset/{id}/download-web', name: 'asset_download_web', methods: ['GET'])]
+    #[IsGranted('ASSET_VIEW', subject: 'assets')]
     public function downloadWeb(Assets $asset, Request $request, ImageProcessorService $imageProcessor): Response
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');

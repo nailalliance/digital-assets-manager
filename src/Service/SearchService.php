@@ -3,7 +3,9 @@
 namespace App\Service;
 
 use App\Entity\Assets\Assets;
+use App\Entity\User;
 use App\Repository\Assets\AssetsRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Meilisearch\Bundle\SearchService as MiliSearchService;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -13,7 +15,9 @@ class SearchService
     public function __construct(
         private readonly MiliSearchService $meilisearch,
         private readonly AssetsRepository $assetsRepository,
-        private readonly EntityManagerInterface $entityManager
+        private readonly EntityManagerInterface $entityManager,
+        private readonly Security $security,
+        private readonly UserRepository $userRepository
     ) {
     }
 
@@ -31,15 +35,32 @@ class SearchService
             return ['ids' => [], 'hits' => [], 'total' => 0];
         }
 
+        $searchParams = [
+            'limit' => $limit,
+            'offset' => $offset,
+        ];
+
+        /** @var User $user */
+        $user = $this->userRepository->find($this->security->getUser()->getId());
+
+        if ($user && !$this->security->isGranted('ROLE_FTP_DESIGNER'))
+        {
+            $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
+
+            if (empty($allowedBrandIds)) {
+                $searchParams['filter'] = 'parent_brand_ids = 0';
+            } else {
+                $searchParams['filter'] = 'parent_brand_ids IN [' . implode(',', $allowedBrandIds) . ']';
+            }
+        }
+
+
         // 1. Get the raw search results from Meilisearch
         $searchResults = $this->meilisearch->search(
             $this->entityManager,
             Assets::class,
             $query,
-            [
-                'limit' => $limit,
-                'offset' => $offset,
-            ]
+            $searchParams
         );
 
         // 2. Extract only the IDs from the results

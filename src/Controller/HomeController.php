@@ -3,11 +3,15 @@
 namespace App\Controller;
 
 use App\Entity\Assets\Brands;
+use App\Entity\User;
 use App\Repository\Assets\AssetsRepository;
 use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\CategoriesRepository;
 use App\Repository\Assets\CollectionsRepository;
+use App\Repository\UserRepository;
+use App\Security\Voter\BrandVoter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -22,10 +26,30 @@ final class HomeController extends AbstractController
         AssetsRepository $assetsRepository,
         BrandsRepository $brandsRepository,
         CategoriesRepository $categoriesRepository,
-        CollectionsRepository $collectionsRepository
+        CollectionsRepository $collectionsRepository,
+        UserRepository $userRepository,
+        Security $security,
     ): Response {
         // Always fetch the top-level brands for the navigation buttons
         $parentBrands = $brandsRepository->findBy(['brands' => null]);
+
+        /** @var User $user */
+        $user = $userRepository->find($this->getUser()->getId());
+
+        if ($user && !$security->isGranted('ROLE_FTP_DESIGNER'))
+        {
+            $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
+
+            if (!empty($allowedBrandIds)) {
+                $parentBrands = array_values(array_filter($parentBrands, function ($brand) use ($allowedBrandIds) {
+                    if (!in_array($brand->getId(), $allowedBrandIds))
+                    {
+                        return null;
+                    }
+                    return $brand;
+                }));
+            }
+        }
 
         $recentAssets = [];
         $categories = [];
@@ -34,6 +58,7 @@ final class HomeController extends AbstractController
 
         // If a brand has been selected, fetch its related content
         if ($brand) {
+            $this->denyAccessUnlessGranted(BrandVoter::VIEW, $brand);
             // Create an array of the parent brand and all its children
             $brandFamilyIds = [$brand->getId()];
             foreach ($brand->getParent() as $child) {

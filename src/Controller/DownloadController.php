@@ -11,10 +11,12 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 class DownloadController extends AbstractController
 {
     #[Route('/asset/{id}/download', name: 'asset_download')]
+    #[IsGranted('ASSET_VIEW', subject: 'assets')]
     public function index(
         Assets $asset,
         Request $request,

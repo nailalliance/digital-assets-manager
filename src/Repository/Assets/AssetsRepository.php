@@ -3,18 +3,51 @@
 namespace App\Repository\Assets;
 
 use App\Entity\Assets\Assets;
+use App\Entity\User;
+use App\Repository\UserRepository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * @extends ServiceEntityRepository<Assets>
  */
 class AssetsRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
+    public function __construct(
+        ManagerRegistry $registry,
+        private Security $security,
+        private UserRepository $userRepository,
+    )
     {
         parent::__construct($registry, Assets::class);
+    }
+
+    private function applyBrandRestrictions(QueryBuilder $qb): QueryBuilder
+    {
+        /** @var ?User $user */
+        $user = $this->userRepository->find($this->security->getUser()->getId());
+
+        if (null === $user || $this->security->isGranted('ROLE_FTP_DESIGNER'))
+        {
+            return $qb;
+        }
+
+        $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
+
+        if (empty($allowedBrandIds)) {
+            // if user has no brands, they see nothing
+            return $qb->andWhere('1 = 0');
+        }
+
+        $qb->innerJoin('a.brand', 'b_join')
+            ->innerJoin('b_join.brands', 'p_join') // Join from child brand to parent brand
+            ->andWhere($qb->expr()->in('p_join.id', ':allowedBrandIds'))
+            ->setParameter('allowedBrandIds', $allowedBrandIds);
+
+        return $qb;
     }
 
     /**
@@ -67,6 +100,8 @@ class AssetsRepository extends ServiceEntityRepository
         if (!empty($brandIds)) {
             $qb->innerJoin('a.brand', 'b')->andWhere('(b.id IN (:brandIds) OR b.brands IN (:brandIds))')->setParameter('brandIds', $brandIds);
         }
+
+        $qb = $this->applyBrandRestrictions($qb);
 
         $qb->orderBy('a.createdAt', 'DESC')
             ->setFirstResult($offset)

@@ -12,6 +12,7 @@ use Doctrine\ORM\Mapping as ORM;
 use MeiliSearch\Bundle\Searchable;
 use Symfony\Component\Serializer\Annotation\Groups as SerializerGroups;
 use Symfony\Component\Serializer\Annotation\Ignore;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 
 #[ORM\Entity(repositoryClass: AssetsRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -525,5 +526,25 @@ class Assets
     public function getTagsForSearch(): array
     {
         return $this->tags->map(fn(Tags $tag) => $tag->getName())->toArray();
+    }
+
+    /**
+     * Get all parent brand IDs for Meilisearch indexing
+     */
+    #[SerializerGroups(['searchable'])]
+    #[SerializedName('parent_brand_ids')]
+    public function getParentBrandIds(): array
+    {
+        $parentBrandIds = [];
+
+        foreach ($this->brand as $brand)
+        {
+            if ($parent = $brand->getBrands())
+            {
+                $parentBrandIds[] = $parent->getId();
+            }
+        }
+
+        return array_unique($parentBrandIds);
     }
 }

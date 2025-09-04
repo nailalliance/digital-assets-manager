@@ -29,6 +29,7 @@ meilisearch:
                     - 'sort'
                     - 'exactness'
                 filterableAttributes:
+                    - 'parent_brand_ids'
                     - 'brand'
                     - 'categories'
                     - 'collections'
