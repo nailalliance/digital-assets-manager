@@ -3,6 +3,7 @@
 namespace App\Security;
 
 use App\Entity\User; // Assuming your User entity is in this namespace
+use App\Service\UserPorter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -21,9 +22,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class SsoTokenAuthenticator extends AbstractAuthenticator
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
         private readonly UrlGeneratorInterface $urlGenerator,
-        private KernelInterface $kernel
+        private KernelInterface $kernel,
+        private UserPorter $userPorter,
     ) {
     }
 
@@ -80,30 +81,7 @@ class SsoTokenAuthenticator extends AbstractAuthenticator
         // Create a Passport. The UserBadge contains the logic to load or create the user.
         return new SelfValidatingPassport(
             new UserBadge($userData['user'], function ($userIdentifier) use ($userData) {
-                // 1. Try to find the user in Project 1's database by email
-                /** @var \App\Entity\User $userEntity */
-                $userEntity = $this->entityManager->getRepository(\App\Entity\User::class)
-                    ->findOneBy(['myNailAllianceId' => $userData['id']]);
-
-                if (empty($userEntity)) {
-                    $userEntity = new \App\Entity\User();
-                    $userEntity->setMyNailAllianceId($userData['id']);
-                }
-
-
-                $userEntity->setUsername($userIdentifier)
-                    ->setRoles($userData['roles'])
-                    ->setName($userData['name'])
-                ;
-
-                $this->entityManager->persist($userEntity);
-                $this->entityManager->flush();
-
-                // $user = new User();
-                // $user->setId($userData['id']);
-                // $user->setUsername($identifier);
-                // $user->setRoles($userData['roles']);
-                return $userEntity;
+                return $this->userPorter->port($userData);
             })
         );
     }

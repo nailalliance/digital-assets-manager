@@ -2,7 +2,7 @@
 
 namespace App\Security;
 
-use Doctrine\ORM\EntityManagerInterface;
+use App\Service\UserPorter;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,9 +25,9 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
     use TargetPathTrait;
 
     public function __construct(
-        private EntityManagerInterface $entityManager,
         private UrlGeneratorInterface $urlGenerator,
         private KernelInterface $kernel,
+        private UserPorter $userPorter,
     )
     {
     }
@@ -90,28 +90,7 @@ class LoginAuthenticator extends AbstractLoginFormAuthenticator
 
         $passport = new SelfValidatingPassport(
             new UserBadge($credentials['username'], function ($identifier) use ($myNAUser) {
-
-                /** @var \App\Entity\User $userEntity */
-                $userEntity = $this->entityManager->getRepository(\App\Entity\User::class)
-                    ->findOneBy(['myNailAllianceId' => $myNAUser['id']]);
-
-                if (empty($userEntity)) {
-                    $userEntity = new \App\Entity\User();
-                    $userEntity->setMyNailAllianceId($myNAUser['id']);
-                }
-
-                $userEntity->setUsername($identifier)
-                    ->setRoles($myNAUser['roles'])
-                    ->setName($myNAUser['name'])
-                ;
-                $this->entityManager->persist($userEntity);
-                $this->entityManager->flush();
-
-                // $user = new User();
-                // $user->setId($myNAUser['id']);
-                // $user->setUsername($identifier);
-                // $user->setRoles($myNAUser['roles']);
-                return $userEntity;
+                return $this->userPorter->port($myNAUser);
             }),
             [
                 new CsrfTokenBadge('authenticate', $credentials['csrf_token']),
