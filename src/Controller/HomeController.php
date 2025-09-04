@@ -48,6 +48,8 @@ final class HomeController extends AbstractController
                     }
                     return $brand;
                 }));
+            } else {
+                $parentBrands = [];
             }
         }
 
