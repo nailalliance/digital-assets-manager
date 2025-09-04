@@ -4,8 +4,6 @@ namespace App\Security\Voter;
 
 use App\Entity\Assets\Assets;
 use App\Entity\User;
-use App\Repository\UserRepository;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -16,8 +14,7 @@ class AssetVoter extends Voter
     public const VIEW = 'ASSET_VIEW';
 
     public function __construct(
-        private Security $security,
-        private UserRepository $userRepository,
+        private Security $security
     )
     {}
 
@@ -35,7 +32,7 @@ class AssetVoter extends Voter
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
     {
         /** @var User $user */
-        $user = $this->userRepository->find($token->getUser()->getId());
+        $user = $token->getUser();
 
 
         if (!$user instanceof UserInterface)

@@ -8,7 +8,6 @@ use App\Repository\Assets\AssetsRepository;
 use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\CategoriesRepository;
 use App\Repository\Assets\CollectionsRepository;
-use App\Repository\UserRepository;
 use App\Security\Voter\BrandVoter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -27,14 +26,13 @@ final class HomeController extends AbstractController
         BrandsRepository $brandsRepository,
         CategoriesRepository $categoriesRepository,
         CollectionsRepository $collectionsRepository,
-        UserRepository $userRepository,
         Security $security,
     ): Response {
         // Always fetch the top-level brands for the navigation buttons
         $parentBrands = $brandsRepository->findBy(['brands' => null]);
 
         /** @var User $user */
-        $user = $userRepository->find($this->getUser()->getId());
+        $user = $this->getUser();
 
         if ($user && !$security->isGranted('ROLE_FTP_DESIGNER'))
         {

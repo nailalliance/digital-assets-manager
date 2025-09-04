@@ -85,7 +85,7 @@ class DownloadListController extends AbstractController
 
         // Create a new DownloadList entity
         $downloadList = new Lists();
-        $user = $entityManager->getRepository(User::class)->find($this->getUser()->getId());
+        $user = $this->getUser();
         $downloadList->setCreator($user);
 
         if (!empty($listName)) {
@@ -128,7 +128,7 @@ class DownloadListController extends AbstractController
         $assets = $downloadListService->getAssets();
         $zipFileName = 'download_bag_' . date('Y-m-d') . '.zip';
         $request = $requestStack->getCurrentRequest();
-        $user = $entityManager->getRepository(User::class)->find($this->getUser()->getId());
+        $user = $this->getUser();
 
         $response = new StreamedResponse(function() use ($assets, $zipFileName, $entityManager, $request, $user) {
             $zip = new ZipStream(outputName: $zipFileName);

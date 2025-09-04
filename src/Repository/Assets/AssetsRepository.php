@@ -4,7 +4,6 @@ namespace App\Repository\Assets;
 
 use App\Entity\Assets\Assets;
 use App\Entity\User;
-use App\Repository\UserRepository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -18,8 +17,7 @@ class AssetsRepository extends ServiceEntityRepository
 {
     public function __construct(
         ManagerRegistry $registry,
-        private Security $security,
-        private UserRepository $userRepository,
+        private Security $security
     )
     {
         parent::__construct($registry, Assets::class);
@@ -28,7 +26,7 @@ class AssetsRepository extends ServiceEntityRepository
     private function applyBrandRestrictions(QueryBuilder $qb): QueryBuilder
     {
         /** @var ?User $user */
-        $user = $this->userRepository->find($this->security->getUser()->getId());
+        $user = $this->security->getUser();
 
         if (null === $user || $this->security->isGranted('ROLE_FTP_DESIGNER'))
         {

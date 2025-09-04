@@ -29,7 +29,8 @@ class DownloadController extends AbstractController
             throw $this->createNotFoundException('File not found');
         }
 
-        $user = $entityManager->getRepository(User::class)->find($this->getUser()->getId());
+        /** @var User $user */
+        $user = $this->getUser();
 
         $log = new DownloadLogs();
         $log->setAsset($asset)

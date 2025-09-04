@@ -3,7 +3,6 @@
 namespace App\Security\Voter;
 
 use App\Entity\Assets\Brands;
-use App\Repository\UserRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -14,8 +13,7 @@ class BrandVoter extends Voter
     public const VIEW = 'BRAND_VIEW';
 
     public function __construct(
-        private Security $security,
-        private UserRepository $userRepository
+        private Security $security
     )
     {}
 
@@ -32,7 +30,7 @@ class BrandVoter extends Voter
      */
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
     {
-        $user = $this->userRepository->find($token->getUser()->getId());
+        $user = $token->getUser();
 
         if (!$user instanceof UserInterface)
         {

@@ -40,7 +40,7 @@ class BoardsController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $user = $entityManager->getRepository(User::class)->find($this->getUser());
+            $user = $this->getUser();
             $board->setOwner($user);
             $entityManager->persist($board);
             $entityManager->flush();

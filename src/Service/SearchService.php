@@ -4,8 +4,6 @@ namespace App\Service;
 
 use App\Entity\Assets\Assets;
 use App\Entity\User;
-use App\Repository\Assets\AssetsRepository;
-use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Meilisearch\Bundle\SearchService as MiliSearchService;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -14,10 +12,8 @@ class SearchService
 {
     public function __construct(
         private readonly MiliSearchService $meilisearch,
-        private readonly AssetsRepository $assetsRepository,
         private readonly EntityManagerInterface $entityManager,
-        private readonly Security $security,
-        private readonly UserRepository $userRepository
+        private readonly Security $security
     ) {
     }
 
@@ -41,7 +37,7 @@ class SearchService
         ];
 
         /** @var User $user */
-        $user = $this->userRepository->find($this->security->getUser()->getId());
+        $user = $this->security->getUser();
 
         if ($user && !$this->security->isGranted('ROLE_FTP_DESIGNER'))
         {
