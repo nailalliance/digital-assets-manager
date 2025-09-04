@@ -4,6 +4,7 @@ namespace App\Security\Voter;
 
 use App\Entity\Boards\Board;
 use App\Entity\User;
+use App\Repository\UserRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -17,12 +18,11 @@ class BoardVoter extends Voter
     public const ROLE_VIEWER = 'viewer';
     public const ROLE_BOARD_MANAGER = 'board_manager';
 
-
-    private Security $security;
-
-    public function __construct(Security $security)
+    public function __construct(
+        private Security $security,
+        private UserRepository $userRepository,
+    )
     {
-        $this->security = $security;
     }
 
     protected function supports(string $attribute, mixed $subject): bool
@@ -42,7 +42,7 @@ class BoardVoter extends Voter
 
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
     {
-        $user = $token->getUser();
+        $user = $this->userRepository->find($token->getUser()->getId());
 
         if (!$user instanceof User) {
             // the user must be logged in; if not, deny access
