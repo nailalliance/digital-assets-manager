@@ -81,6 +81,7 @@ class SsoTokenAuthenticator extends AbstractAuthenticator
         // Create a Passport. The UserBadge contains the logic to load or create the user.
         return new SelfValidatingPassport(
             new UserBadge($userData['user'], function ($userIdentifier) use ($userData) {
+
                 return $this->userPorter->port($userData);
             })
         );

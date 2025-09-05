@@ -41,6 +41,8 @@ class UserPorter
             'id' => $myNailAllianceBrands
         ]);
 
+        $user->getRestrictedBrands()->clear();
+
         foreach ($brands as $brand) {
             $user->addRestrictedBrand($brand);
         }
