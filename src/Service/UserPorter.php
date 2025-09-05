@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\User;
+use App\Repository\Assets\BrandsRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -10,6 +11,7 @@ class UserPorter
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
+        private BrandsRepository $brandsRepository,
     )
     {}
 
@@ -19,6 +21,7 @@ class UserPorter
         $myNailAllianceUsername = $data['user'];
         $myNailAllianceUserRoles = $data['roles'];
         $myNailAllianceUserName = $data['name'];
+        $myNailAllianceBrands = $data['brands'];
 
         /** @var ?User $user */
         $user = $this->entityManager->getRepository(User::class)
@@ -33,6 +36,14 @@ class UserPorter
             ->setRoles($myNailAllianceUserRoles)
             ->setName($myNailAllianceUserName)
         ;
+
+        $brands = $this->brandsRepository->findBy([
+            'id' => $myNailAllianceBrands
+        ]);
+
+        foreach ($brands as $brand) {
+            $user->addRestrictedBrand($brand);
+        }
 
         $this->entityManager->persist($user);
         $this->entityManager->flush();
