@@ -77,7 +77,16 @@ final class ProcessAssetUploadHandler
             $finalFilePath = UniqueFilePathGenerator::get($finalDir, $safeFilename);
             rename($filePath, $finalFilePath);
 
-            $asset = new Assets();
+            if ($message->assetId)
+            {
+                $asset = $this->assetsRepository->find($message->assetId);
+                if (!$asset) {
+                    return;
+                }
+            } else {
+                $asset = new Assets();
+                $asset->setName($originalFilename);
+            }
 
             if (in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
                 $thumbnailBinary = $this->imageProcessorService->makeThumbnail($finalFilePath, 700, 700);
@@ -96,7 +105,6 @@ final class ProcessAssetUploadHandler
                 }
             }
 
-            $asset->setName($originalFilename);
             $asset->setFilePath($finalFilePath);
             $asset->setMimeType($mimeType);
             $asset->setFileSize($fileSize);

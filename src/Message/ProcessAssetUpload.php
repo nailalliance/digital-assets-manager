@@ -8,7 +8,8 @@ class ProcessAssetUpload
         public readonly array $fileMetaData,
         public readonly string $uploadKey,
         public readonly ?int $userId,
-        public readonly ?string $cacheItemKeyName
+        public readonly ?string $cacheItemKeyName,
+        public readonly ?int $assetId = null
     )
     {}
 }

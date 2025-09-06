@@ -8,6 +8,17 @@
     <div class="max-w-7xl mx-auto">
         <h1 class="text-3xl font-bold text-gray-900 mb-6">Edit Asset</h1>
 
+        {% if asset.parent %}
+        <div class="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
+            <p class="font-bold">Child Asset: {{ asset.assetVersionTypeEnum.value | capitalize }}</p>
+            <p>This page is not editable. Visit the parent asset to edit.</p>
+            <a data-turbo="false" href="{{ path('admin_asset_edit', {id: asset.parent.id}) }}"
+               class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Go To Parent Asset
+            </a>
+        </div>
+        {% endif %}
+
         {{ form_start(editForm) }}
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
@@ -28,7 +39,7 @@
                 </div>
 
                 {# Status & Visibility Card #}
-                <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="bg-white rounded-lg shadow-lg p-6" {{ asset.parent ? 'hidden' : '' }}>
                     <h3 class="text-lg font-bold mb-4">Status & Visibility</h3>
                     <div class="space-y-4">
                         {{ form_row(editForm.status) }}
@@ -37,15 +48,58 @@
                     </div>
                 </div>
 
+                {# New Asset Versions Card #}
+                {% if asset.parent is null %}
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <h3 class="text-lg font-bold mb-4">Asset Versions</h3>
+                        {% set editableChild = false %}
+                        {% set cmykChild = false %}
+                        {% for child in asset.children %}
+                            {% if child.assetVersionTypeEnum.value is same as ('editable') %}
+                                {% set editableChild = true %}
+                                <a data-turbo="false" href="{{ path('admin_asset_edit', {id: child.id}) }}"
+                                   class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                    Go To Editable Asset
+                                </a>
+                            {% else %}
+                                {% set cmykChild = true %}
+                                </a><a data-turbo="false" href="{{ path('admin_asset_edit', {id: child.id}) }}"
+                                   class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                    Go To CMYK Asset
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                        {% if editableChild == false or cmykChild == false %}
+                            <div class="space-y-3">
+                                <p class="text-sm text-gray-600">Create a child version of this asset.</p>
+                                {% if editableChild == false %}
+                                    {# "Add Editable" Button/Form #}
+                                    <a data-turbo="false" href="{{ path('admin_asset_duplicate_editable', {id: asset.id}) }}"
+                                       class="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                        Add Editable Version
+                                    </a>
+                                {% endif %}
+                                {% if cmykChild == false %}
+                                    {# "Add CMYK" Button/Form #}
+                                    <a data-turbo="false" href="{{ path('admin_asset_duplicate_cmyk', {id: asset.id}) }}" type="submit" class="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                        Add CMYK Version
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
                 {# Thumbnail Upload Card #}
-                <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="bg-white rounded-lg shadow-lg p-6" {{ asset.parent ? 'hidden' : '' }}>
                     <h3 class="text-lg font-bold mb-4">Update Thumbnail</h3>
                     <div class="space-y-4">
                         {# 3. Add the "input" target and the "updatePreview" action to the form field #}
                         {{ form_row(editForm.thumbnail, {
                             'attr': {
                                 'data-thumbnail-preview-target': 'input',
-                                'data-action': 'change->thumbnail-preview#updatePreview'
+                                'data-action': 'change->thumbnail-preview#updatePreview',
+                                (asset.parent ? 'disabled': ''): ''
                             }
                         }) }}
                         <p class="text-xs text-gray-500">
@@ -60,7 +114,7 @@
                 <div class="">
                     {# Name #}
                     <div>
-                        {{ form_row(editForm.name) }}
+                        {{ form_row(editForm.name, {'attr': {(asset.parent ? 'disabled': ''): ''}}) }}
                     </div>
 
                     {# Item Codes #}
@@ -73,7 +127,7 @@
                             {# This container will hold the visual tags #}
                             <div data-tag-input-target="container" class="flex flex-wrap items-center mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-50">
                                 {# The actual input field is rendered here #}
-                                {{ form_widget(editForm.itemCodes) }}
+                                {{ form_widget(editForm.itemCodes, {'attr': {(asset.parent ? 'disabled': ''): ''}}) }}
                             </div>
 
                             {{ form_help(editForm.itemCodes) }}
@@ -83,17 +137,58 @@
                     {# Description #}
                     <div>
                         {{ form_row(editForm.description, {
-                            'attr': {'style': 'height: 240px'}
+                            'attr': {
+                                'style': 'height: 240px',
+                                (asset.parent ? 'disabled': ''): ''
+                            }
                         }) }}
                     </div>
 
+                    {% if asset.filePath is null or asset.filePath == '' %}
+                        <form></form>
+                        <div class="bg-white rounded-lg shadow-lg p-6"
+                             data-controller="tus-upload"
+                             data-tus-upload-asset-id-value="{{ asset.id }}" {# Pass the asset ID #}
+                        >
+                            <h3 class="text-lg font-bold mb-4">Upload Asset File</h3>
+                            <form data-action="submit->tus-upload#upload">
+                                {# This is the same dropzone HTML from templates/admin/asset_upload/index.html.twig #}
+                                <div data-tus-upload-target="dropzone"
+                                     data-action="dragover->tus-upload#dragover dragleave->tus-upload#dragleave drop->tus-upload#drop"
+                                     class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-colors">
+                                    <div class="flex flex-col items-center pointer-events-none">
+                                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V16a4 4 0 01-4 4H7z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v6m-3-3h6"></path></svg>
+                                        <p class="mt-4 text-lg text-gray-600"><span class="font-semibold text-violet-600">Click to upload</span> or drag and drop</p>
+                                        <p class="mt-1 text-sm text-gray-500" data-tus-upload-target="fileNameDisplay">No file selected</p>
+                                    </div>
+                                    <input type="file" class="hidden" data-tus-upload-target="fileInput" data-action="change->tus-upload#fileSelected">
+                                </div>
+
+                                {# Progress Bar and Error sections #}
+                                <div class="hidden mt-4" data-tus-upload-target="progressContainer">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                                        <div class="bg-violet-600 h-2.5 rounded-full" data-tus-upload-target="progressBar" style="width: 0%"></div>
+                                    </div>
+                                    <p class="text-sm text-center text-gray-600" data-tus-upload-target="progressText"></p>
+                                </div>
+                                <div class="hidden bg-red-100 text-red-700 p-3 rounded-md my-4" data-tus-upload-target="errorMessage"></div>
+
+                                <div class="mt-4 flex justify-end">
+                                    <button type="submit" data-tus-upload-target="submitButton" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 disabled:bg-gray-400" disabled>
+                                        Start Upload
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    {% endif %}
+
                     {# Color Space #}
-                    <div>
+                    <div {{ asset.parent ? 'hidden' : '' }}>
                         {{ form_row(editForm.colorSpace) }}
                     </div>
 
                     {# Brands #}
-                    <div data-controller="brand-filter">
+                    <div data-controller="brand-filter"{{ asset.parent ? 'hidden' : '' }}>
                         <label for="parent_brand_filter" class="block text-sm font-medium text-gray-700">Filter Brands by Parent</label>
                         <select id="parent_brand_filter" data-action="change->brand-filter#filter" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500 sm:text-sm mb-4">
                             <option value="">Show All Brands</option>
@@ -109,38 +204,41 @@
                     </div>
 
                     {# Categories #}
-                    <div>
+                    <div {{ asset.parent ? 'hidden' : '' }}>
                         {{ form_row(editForm.categories) }}
                     </div>
 
                     {# Collections (Seasonal) #}
-                    <div>
+                    <div {{ asset.parent ? 'hidden' : '' }}>
                         {{ form_row(editForm.collections) }}
                     </div>
 
                      {# Tags  #}
-                    <div class="md:col-span-3">
+                    <div class="md:col-span-3" {{ asset.parent ? 'hidden' : '' }}>
                         {{ form_row(editForm.tags) }}
                     </div>
+
 
 
                 </div>
 
                 {# Similar Assets (Advanced) #}
-                <div class="mt-8 pt-6 border-t border-gray-200">
+                <div class="mt-8 pt-6 border-t border-gray-200" {{ asset.parent ? 'hidden' : '' }}>
                     <h3 class="text-lg font-bold mb-4">Similar Assets</h3>
                     {{ form_row(editForm.similarAssets) }}
                 </div>
 
-                {# Action Buttons #}
-                <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end space-x-3">
-                    <a href="{{ path('app_asset', {id: asset.id}) }}" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
-                        Cancel
-                    </a>
-                    <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                        Save Changes
-                    </button>
-                </div>
+                {% if asset.parent is null %}
+                    {# Action Buttons #}
+                    <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end space-x-3">
+                        <a href="{{ path('app_asset', {id: asset.id}) }}" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </a>
+                        <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                            Save Changes
+                        </button>
+                    </div>
+                {% endif %}
             </div>
 
         </div>

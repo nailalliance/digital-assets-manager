@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\AssetVersionTypeEnum;
 use App\Entity\User;
 use App\Form\WebDownloadType;
 use App\Security\Voter\AssetVoter;
@@ -20,10 +21,28 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 final class AssetController extends AbstractController
 {
-    #[Route('/asset/{id}', name: 'app_asset')]
+    #[Route('/assets/{id}', name: 'app_asset')]
     #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
     public function index(Assets $assets, EntityManagerInterface $entityManager): Response
     {
+        $primaryAsset = $assets->getParent() ?? $assets;
+
+        $children = $primaryAsset->getChildren();
+
+        $editableChild = null;
+        $cmykChild = null;
+
+        foreach ($children as $child) {
+            if ($child->getAssetVersionTypeEnum() === AssetVersionTypeEnum::EDITABLE)
+            {
+                $editableChild = $child;
+            }
+            if ($child->getAssetVersionTypeEnum() === AssetVersionTypeEnum::CMYK_VERSION)
+            {
+                $cmykChild = $child;
+            }
+        }
+
         $webDownloadForm = $this->createForm(WebDownloadType::class, null, [
             'action' => $this->generateUrl('asset_download_web', ['id' => $assets->getId()]),
         ]);
@@ -31,13 +50,16 @@ final class AssetController extends AbstractController
         return $this->render('asset/index.html.twig', [
             'asset' => $assets,
             'webDownloadForm' => $webDownloadForm->createView(),
+            'primaryAsset' => $primaryAsset,
+            'editableChild' => $editableChild,
+            'cmykChild' => $cmykChild,
         ]);
     }
 
     /**
      * Handles the "Download for Web" form submission and streams the processed image.
      */
-    #[Route('/asset/{id}/download-web', name: 'asset_download_web', methods: ['GET'])]
+    #[Route('/assets/{id}/download-web', name: 'asset_download_web', methods: ['GET'])]
     #[IsGranted('ASSET_VIEW', subject: 'asset')]
     public function downloadWeb(Assets $asset, Request $request, ImageProcessorService $imageProcessor): Response
     {

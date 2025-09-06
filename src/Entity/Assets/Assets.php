@@ -121,6 +121,21 @@ class Assets
     #[ORM\Column(length: 255, unique: true, nullable: true)]
     private ?string $tusUploadKey = null;
 
+    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
+    #[ORM\JoinColumn(name: 'parent_id', referencedColumnName: 'id', onDelete: 'SET NULL')]
+    #[Ignore]
+    private ?self $parent = null;
+
+    /**
+     * @var Collection<int, self>
+     */
+    #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
+    #[Ignore]
+    private Collection $children;
+
+    #[ORM\Column(length: 50, nullable: true, enumType: AssetVersionTypeEnum::class)]
+    private ?AssetVersionTypeEnum $assetVersionTypeEnum = null;
+
     public function __construct()
     {
         $this->similarAssets = new ArrayCollection();
@@ -131,6 +146,7 @@ class Assets
         $this->collections = new ArrayCollection();
         $this->categories = new ArrayCollection();
         $this->restrictedGroups = new ArrayCollection();
+        $this->children = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -546,5 +562,59 @@ class Assets
         }
 
         return array_unique($parentBrandIds);
+    }
+
+    public function getParent(): ?self
+    {
+        return $this->parent;
+    }
+
+    public function setParent(?self $parent): static
+    {
+        $this->parent = $parent;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    public function getChildren(): Collection
+    {
+        return $this->children;
+    }
+
+    public function addChild(self $child): static
+    {
+        if (!$this->children->contains($child)) {
+            $this->children->add($child);
+            $child->setParent($this);
+        }
+
+        return $this;
+    }
+
+    public function removeChild(self $child): static
+    {
+        if ($this->children->removeElement($child)) {
+            // set the owning side to null (unless already changed)
+            if ($child->getParent() === $this) {
+                $child->setParent(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function getAssetVersionTypeEnum(): ?AssetVersionTypeEnum
+    {
+        return $this->assetVersionTypeEnum;
+    }
+
+    public function setAssetVersionTypeEnum(?AssetVersionTypeEnum $assetVersionTypeEnum): static
+    {
+        $this->assetVersionTypeEnum = $assetVersionTypeEnum;
+
+        return $this;
     }
 }

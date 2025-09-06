@@ -14,6 +14,10 @@ export default class extends Controller {
         "fileNameDisplay"
     ];
 
+    static values = {
+        assetId: Number,
+    };
+
     pollingInterval = null;
 
     connect() {
@@ -70,8 +74,12 @@ export default class extends Controller {
 
         let assetId = null;
 
+        const endpoint = this.assetIdValue
+            ? `/admin/assets/${this.assetIdValue}/upload/`
+            : `/admin/assets/upload/`;
+
         const upload = new tus.Upload(file, {
-            endpoint: '/admin/assets/upload/',
+            endpoint: endpoint,
             retryDelays: [0, 3000, 5000, 10000, 20000],
             metadata: {
                 filename: file.name,
@@ -96,19 +104,14 @@ export default class extends Controller {
                 this.progressTextTarget.textContent = `${percentage}%`;
             },
             onSuccess: () => {
-                this.progressTextTarget.textContent = "Upload complete! Processing...";
-
-                const uploadKey = upload.url.split('/').pop();
-
-                this.startPolling(uploadKey)
-
-                // if (assetId)
-                // {
-                //     setTimeout(() => window.location.href = `/assets/${assetId}`, 1500);
-                // } else {
-                //     // setTimeout(() => window.location.href = '/', 1500);
-                // }
-
+                if (this.assetIdValue) {
+                    this.progressTextTarget.textContent = "Upload complete! Refreshing...";
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    this.progressTextTarget.textContent = "Upload complete! Processing...";
+                    const uploadKey = upload.url.split('/').pop();
+                    this.startPolling(uploadKey)
+                }
             }
         });
 
