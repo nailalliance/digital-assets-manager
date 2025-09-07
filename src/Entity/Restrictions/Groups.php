@@ -12,9 +12,11 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: GroupsRepository::class)]
+#[ORM\Table(name: '`groups`')]
 class Groups
 {
     #[ORM\Id]
+
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
