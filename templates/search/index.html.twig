@@ -16,18 +16,21 @@
         <aside class="w-full md:w-1/4 lg:w-1/5">
             <h2 class="text-xl font-bold mb-4">Refine Results</h2>
 
-            <form name="filters" method="get" action="{{ path('app_search') }}" data-controller="filter">
+            <form name="filters" method="get" action="{{ path('app_search') }}" data-controller="filter-form" data-action="change->filter-form#submit">
                 <input type="hidden" name="q" value="{{ query }}">
 
                 {# Collections Filter #}
                 {% if activeCollections is not empty %}
-                    <div class="mb-6">
-                        <h3 class="font-semibold mb-2">Collections</h3>
-                        <div class="space-y-2">
+                    <div class="mb-2" data-controller="accordion">
+                        <h3 class="font-semibold mb-2 p-2 rounded-md hover:bg-gray-100 cursor-pointer flex justify-between items-center" data-action="click->accordion#toggle">
+                            <span>Collections</span>
+                            <svg class="h-5 w-5 transform transition-transform" data-accordion-target="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </h3>
+                        <div class="space-y-2 pl-2 hidden" data-accordion-target="content">
                             {% set year = -1 %}
                             {% for collection in activeCollections|sort((a, b) => b.year <=> a.year) %}
                                 {% if year != collection.year %}
-                                    <h4>{{ collection.year }}</h4>
+                                    <h4 class="font-bold pt-2">{{ collection.year }}</h4>
                                     {% set year = collection.year %}
                                 {% endif %}
                                 <label class="flex items-center">
@@ -41,9 +44,12 @@
 
                 {# Categories Filter #}
                 {% if activeCategories is not empty %}
-                    <div class="mb-6 pt-6 border-t border-gray-200">
-                        <h3 class="font-semibold mb-2">Categories</h3>
-                        <div class="space-y-2">
+                    <div class="mb-2 pt-2 border-t border-gray-200" data-controller="accordion">
+                        <h3 class="font-semibold mb-2 p-2 rounded-md hover:bg-gray-100 cursor-pointer flex justify-between items-center" data-action="click->accordion#toggle">
+                            <span>Categories</span>
+                            <svg class="h-5 w-5 transform transition-transform" data-accordion-target="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </h3>
+                        <div class="space-y-2 pl-2 hidden" data-accordion-target="content">
                             {% for category in activeCategories|sort((a, b) => a.name <=> b.name) %}
                                 <label class="flex items-center">
                                     <input type="checkbox" name="category_ids[]" value="{{ category.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" {{ category.id in selectedCategoryIds ? 'checked' : '' }}>
@@ -56,17 +62,20 @@
 
                 {# Brands Filter #}
                 {% if brandFilters.parents is not empty %}
-                    <div class="mb-6 pt-6 border-t border-gray-200">
-                        <h3 class="font-semibold mb-2">Brands</h3>
-                        <div class="space-y-2">
+                    <div class="mb-2 pt-2 border-t border-gray-200" data-controller="accordion">
+                        <h3 class="font-semibold mb-2 p-2 rounded-md hover:bg-gray-100 cursor-pointer flex justify-between items-center" data-action="click->accordion#toggle">
+                            <span>Brands</span>
+                            <svg class="h-5 w-5 transform transition-transform" data-accordion-target="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </h3>
+                        <div class="space-y-2 pl-2 hidden" data-accordion-target="content">
                             {% for parent in brandFilters.parents|sort((a, b) => a.name <=> b.name) %}
-                                <div>
-                                    <label class="flex items-center font-medium">
+                                <div data-controller="accordion">
+                                    <label class="flex items-center font-medium p-2 rounded-md hover:bg-gray-100 cursor-pointer" data-action="click->accordion#toggle">
                                         <input type="checkbox" name="brand_ids[]" value="{{ parent.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" {{ parent.id in selectedBrandIds ? 'checked' : '' }}>
                                         {{ parent.name }}
                                     </label>
                                     {% if brandFilters.children[parent.id] is defined %}
-                                        <div class="sub-brands pl-6 mt-2 space-y-2">
+                                        <div class="sub-brands pl-6 mt-2 space-y-2" data-accordion-target="content">
                                             {% for child in brandFilters.children[parent.id]|sort((a, b) => a.name <=> b.name) %}
                                                 <label class="flex items-center">
                                                     <input type="checkbox" name="brand_ids[]" value="{{ child.id }}" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 mr-2" {{ child.id in selectedBrandIds ? 'checked' : '' }}>
@@ -81,11 +90,11 @@
                     </div>
                 {% endif %}
 
-                <div class="pt-6 border-t border-gray-200">
-                    <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                        Apply Filters
-                    </button>
-                </div>
+                {# <div class="pt-6 border-t border-gray-200"> #}
+                {#     <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700"> #}
+                {#         Apply Filters #}
+                {#     </button> #}
+                {# </div> #}
             </form>
         </aside>
 
