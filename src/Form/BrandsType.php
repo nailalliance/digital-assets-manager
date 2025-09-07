@@ -21,10 +21,20 @@ class BrandsType extends AbstractType
                 'class' => Brands::class,
                 'query_builder' => function (BrandsRepository $br) {
                     return $br->createQueryBuilder('b')
-                        ->where('b.brands IS NULL')
-                        ->orderBy('b.name', 'ASC'); // Then sort by brand name
+                        ->orderBy('b.brands', 'ASC')
+                        ->addOrderBy('b.name', 'ASC');
                 },
-                'choice_label' => 'name',
+                'choice_label' => function (Brands $brand) {
+                    // Check if the brand's parent ('brands') is null.
+                    if ($brand->getBrands() === null) {
+                        return '[Main] ' . $brand->getName();
+                    }
+                    $parentBrandAcronym = array_reduce(explode(' ', $brand->getBrands()->getName()), function ($carry, $item) {
+                        return $carry . ucwords($item[0]);
+                    });
+                    // For child brands, you might want to indent them for clarity.
+                    return '— [' . $parentBrandAcronym . '] ' . $brand->getName();
+                },
                 'label' => 'Parent Brand',
                 'required' => false,
                 'placeholder' => 'Select a parent brand (optional)',
