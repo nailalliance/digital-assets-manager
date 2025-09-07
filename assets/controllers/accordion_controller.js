@@ -11,6 +11,7 @@ export default class extends Controller {
             const isOpening = targetElement.classList.contains('hidden');
 
             targetElement.classList.toggle('hidden');
+            if (icon)
             icon.classList.toggle('rotate-90');
 
             // If this is a brand accordion and it's being opened, scroll it into view.
