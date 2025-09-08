@@ -8,7 +8,7 @@
                 <h3 class="col-start-1 col-end-[-1]">{{ collection.year }}</h3>
                 {% set year = collection.year %}
             {% endif %}
-            <a href="{{ path('app_search', {'collection_ids[]': collection.id}) }}"
+            <a data-turbo="false" href="{{ path('app_search', {'collection_ids[]': collection.id, 'brand_ids': [selectedBrand.id]}) }}"
                class="block p-6 bg-white rounded-lg shadow-sm hover:shadow-lg">
                 <h3 class="font-semibold text-gray-800">{{ collection.name }}</h3>
                 <p class="text-sm text-gray-500">{{ collection.year }}</p>
