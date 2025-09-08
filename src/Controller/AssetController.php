@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\UX\Turbo\TurboBundle;
 
 final class AssetController extends AbstractController
 {
@@ -108,5 +109,14 @@ final class AssetController extends AbstractController
             $this->addFlash('error', 'There was an error processing the image: ' . $e->getMessage());
             return $this->redirectToRoute('app_asset', ['id' => $asset->getId()]);
         }
+    }
+
+    #[Route('/assets/{id}/quick-look', name: 'app_asset_quick_look', methods: ['GET'])]
+    #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
+    public function quickLook(Assets $assets, Request $request): Response
+    {
+        return $this->render('asset/_quick_look.html.twig', [
+            'asset' => $assets,
+        ]);
     }
 }
