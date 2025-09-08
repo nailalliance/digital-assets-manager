@@ -16,7 +16,7 @@
         <aside class="w-full md:w-1/4 lg:w-1/5">
             <h2 class="text-xl font-bold mb-4">Refine Results</h2>
 
-            <form name="filters" method="get" action="{{ path('app_search') }}" data-controller="filter-form" data-action="change->filter-form#submit">
+            <form data-turbo="false" name="filters" method="get" action="{{ path('app_search') }}" data-controller="filter-form" data-action="change->filter-form#submit">
                 <input type="hidden" name="q" value="{{ query }}">
 
                 {# Collections Filter #}
@@ -102,7 +102,7 @@
         <main class="w-full md:w-3/4 lg:w-4/5">
             {# Search Bar #}
              <div class="mb-6">
-                 <form action="{{ path('app_search') }}" method="get">
+                 <form data-turbo="false" action="{{ path('app_search') }}" method="get">
                      {% for collectionId in selectedCollectionIds %}
                          <input type="hidden" name="collection_ids[]" value="{{ collectionId }}">
                      {% endfor %}

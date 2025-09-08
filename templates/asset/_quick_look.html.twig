@@ -27,7 +27,7 @@
                class="inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
                 Download Original
             </a>
-            <form action="{{ path('download_list_add', {id: asset.id}) }}" method="post">
+            <form data-turbo="false" action="{{ path('download_list_add', {id: asset.id}) }}" method="post">
                 <button
                     class="w-full inline-flex items-center justify-center px-4 py-3 border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                     Add to Bag
@@ -36,7 +36,7 @@
         </div>
 
         <div class="mt-auto text-sm">
-            <a href="{{ path('app_asset', {id: asset.id}) }}" class="font-medium text-violet-600 hover:text-violet-800">
+            <a data-turbo="false" href="{{ path('app_asset', {id: asset.id}) }}" class="font-medium text-violet-600 hover:text-violet-800">
                 View Full Details &rarr;
             </a>
         </div>
