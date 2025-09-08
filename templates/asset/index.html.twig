@@ -14,7 +14,14 @@
                 {# This div now displays the thumbnail if it exists #}
                 <div class="w-full max-w-2xl aspect-square bg-gray-300 flex items-center justify-center rounded-lg">
                     {% if asset.thumbnailPath is not null and asset.thumbnailPath is not empty %}
-                        <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="Thumbnail for {{ asset.name }}" class="object-contain w-full h-full">
+                        {% if asset.mimeType starts with 'video/' %}
+                            <video controls class="w-full h-full object-contain" poster="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}">
+                                <source src="{{ path('asset_stream', {id: asset.id}) }}" type="{{ asset.mimeType }}" type="{{ asset.mimeType }}">
+                                Your browser does not support the video tag
+                            </video>
+                        {% else %}
+                            <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="Thumbnail for {{ asset.name }}" class="object-contain w-full h-full">
+                        {% endif %}
                     {% else %}
                         <svg class="w-24 h-24 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
                     {% endif %}

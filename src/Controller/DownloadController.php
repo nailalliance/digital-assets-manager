@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Assets\Assets;
 use App\Entity\Downloads\Logs as DownloadLogs;
 use App\Entity\User;
+use App\Security\Voter\AssetVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -18,8 +19,8 @@ class DownloadController extends AbstractController
     #[Route('/asset/{id}/download', name: 'asset_download')]
     #[IsGranted('ASSET_VIEW', subject: 'asset')]
     public function index(
-        Assets $asset,
-        Request $request,
+        Assets                 $asset,
+        Request                $request,
         EntityManagerInterface $entityManager
     ): BinaryFileResponse
     {
@@ -35,8 +36,7 @@ class DownloadController extends AbstractController
         $log = new DownloadLogs();
         $log->setAsset($asset)
             ->setUser($user)
-            ->setIpAddress($request->getClientIp())
-        ;
+            ->setIpAddress($request->getClientIp());
 
         $entityManager->persist($log);
         $entityManager->flush();
@@ -48,6 +48,19 @@ class DownloadController extends AbstractController
         $response->setContentDisposition(
             ResponseHeaderBag::DISPOSITION_ATTACHMENT,
             $filename
+        );
+
+        return $response;
+    }
+
+    #[Route('/asset/{id}/stream', name: 'asset_stream')]
+    #[IsGranted(AssetVoter::VIEW, subject: 'asset')]
+    public function streamVideo(Assets $asset): BinaryFileResponse
+    {
+        $response = new BinaryFileResponse($asset->getFilePath());
+        $response->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_INLINE,
+            $asset->getName()
         );
 
         return $response;
