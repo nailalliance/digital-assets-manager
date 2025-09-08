@@ -94,7 +94,8 @@
         "post-update-cmd": [
             "@auto-scripts"
         ],
-        "meilisearch-import": "php -d memory_limit=-1 bin/console meilisearch:import"
+        "meilisearch-import": "php -d memory_limit=-1 bin/console meilisearch:import",
+        "docker-compose-up": "docker-compose --env-file .env.local up"
     },
     "conflict": {
         "symfony/symfony": "*"
