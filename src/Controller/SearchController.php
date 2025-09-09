@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\Brands;
 use App\Repository\Assets\AssetsRepository;
 use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\CategoriesRepository;
@@ -87,7 +88,6 @@ class SearchController extends AbstractController
         $activeCategories = [];
         $activeCollections = [];
 
-
         foreach (iterator_to_array($allPossibleAssets) as $asset) {
             foreach ($asset->getBrand() as $brand) {
                 $activeBrands[$brand->getId()] = $brand;
@@ -101,6 +101,7 @@ class SearchController extends AbstractController
         }
 
         $brandFilters = ['parents' => [], 'children' => []];
+        /** @var Brands $brand */
         foreach ($activeBrands as $brand) {
             if ($brand->getBrands() === null) {
                 $brandFilters['parents'][$brand->getId()] = $brand;
