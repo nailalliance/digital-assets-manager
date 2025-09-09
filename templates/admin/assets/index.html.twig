@@ -99,7 +99,6 @@
 
         {# Pagination Controls #}
         <div class="p-4 border-t border-gray-200 flex justify-between items-center">
-            {{ dump(previous, next) }}
             <div>
                 {% if previous >= 0 %}
                     <a href="{{ path('admin_assets_index', app.request.query.all|merge({offset: previous})) }}" class="text-sm font-medium text-gray-600 hover:text-violet-600">&laquo; Previous</a>
