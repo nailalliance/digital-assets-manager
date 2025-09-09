@@ -90,6 +90,9 @@ class AssetType extends AbstractType
                     return sprintf('(%s) %s', $brand->getBrands()->getName(), $brand->getName());
                 },
                 'choice_attr' => function (Brands $brand) {
+                    if ($brand->getBrands()->getBrands()) {
+                        return ['data-parent-id' => $brand->getBrands()->getBrands()->getId()];
+                    }
                     return ['data-parent-id' => $brand->getBrands()->getId()];
                 },
                 'multiple' => true,
