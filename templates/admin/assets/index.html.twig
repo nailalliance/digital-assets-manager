@@ -32,7 +32,9 @@
                 <select name="collection" data-action="change->filter-form#submit" class="border-gray-300 rounded-md shadow-sm">
                     <option value="0">All Collections</option>
                     {% for collection in collections %}
-                        <option value="{{ collection.id }}" {{ currentFilters.collection|default('') == collection.id ? 'selected' }}>{{ collection.name }}</option>
+                        <option value="{{ collection.id }}" {{ currentFilters.collection|default('') == collection.id ? 'selected' }}>
+                            ({{ collection.year }}) {{ collection.name }}
+                        </option>
                     {% endfor %}
                 </select>
                 <select name="status" data-action="change->filter-form#submit" class="border-gray-300 rounded-md shadow-sm">

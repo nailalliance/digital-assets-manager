@@ -61,6 +61,11 @@ class AssetsAdminController extends AbstractController
 
         $totalAssets = count($paginator);
 
+        $collections = $collectionsRepository->findBy([], [
+            'year' => 'DESC',
+            'name' => 'ASC',
+        ])
+
         return $this->render('admin/assets/index.html.twig', [
             'offset' => $offset,
             'assets' => iterator_to_array($paginator),
@@ -69,7 +74,7 @@ class AssetsAdminController extends AbstractController
             'total' => $totalAssets,
             'brands' => $brandsRepository->findBy([], ['name' => 'ASC']),
             'categories' => $categoriesRepository->findBy([], ['name' => 'ASC']),
-            'collections' => $collectionsRepository->findBy([], ['name' => 'ASC']),
+            'collections' => $collections,
             'statuses' => AssetStatusEnum::cases(),
             'currentFilters' => $request->query->all(),
         ]);
