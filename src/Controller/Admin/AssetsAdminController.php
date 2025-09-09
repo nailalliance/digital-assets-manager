@@ -64,7 +64,7 @@ class AssetsAdminController extends AbstractController
         $collections = $collectionsRepository->findBy([], [
             'year' => 'DESC',
             'name' => 'ASC',
-        ])
+        ]);
 
         return $this->render('admin/assets/index.html.twig', [
             'offset' => $offset,
