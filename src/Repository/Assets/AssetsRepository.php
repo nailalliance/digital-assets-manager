@@ -3,6 +3,7 @@
 namespace App\Repository\Assets;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
@@ -15,6 +16,8 @@ use Symfony\Bundle\SecurityBundle\Security;
  */
 class AssetsRepository extends ServiceEntityRepository
 {
+    public const ADMIN_PAGINATOR_PER_PAGE = 100;
+
     public function __construct(
         ManagerRegistry $registry,
         private Security $security
@@ -178,6 +181,60 @@ class AssetsRepository extends ServiceEntityRepository
         ];
 
         return $map[$group] ?? [];
+    }
+
+    public function findForAdminList(
+        int $offset,
+        ?string $searchQuery,
+        ?int $brandId,
+        ?int $categoryId,
+        ?int $collectionId,
+        ?AssetStatusEnum $status
+    ): Paginator
+    {
+        $qb = $this->createQueryBuilder('a')
+            ->leftJoin('a.itemCodes', 'ic')
+            ->orderBy('a.createdAt', 'DESC')
+            ->setMaxResults(self::ADMIN_PAGINATOR_PER_PAGE)
+            ->setFirstResult($offset);
+
+        if ($searchQuery)
+        {
+            $qb->andWhere($qb->expr()->orX(
+                $qb->expr()->like('a.name', ':query'),
+                $qb->expr()->like('id.code', ':query')
+            ))
+            ->setParameter('query', '%' . $searchQuery . '%');
+        }
+
+        if ($brandId)
+        {
+            $qb->leftJoin('a.brand', 'b')
+                ->andWhere('b.id = :brandId')
+                ->setParameter('brandId', $brandId);
+        }
+
+        if ($categoryId)
+        {
+            $qb->leftJoin('a.categories', 'c')
+                ->andWhere('c.id = :categoryId')
+                ->setParameter('categoryId', $categoryId);
+        }
+
+        if ($collectionId)
+        {
+            $qb->leftJoin('a.collections', 'coll')
+                ->andWhere('coll.id = :collectionId')
+                ->setParameter('collectionId', $collectionId);
+        }
+
+        if ($status)
+        {
+            $qb->andWhere('a.status = :status')
+                ->setParameter('status', $status);
+        }
+
+        return new Paginator($qb->getQuery(), false);
     }
 
     //    /**

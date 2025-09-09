@@ -44,16 +44,17 @@
 
                     <a href="{{ path('app_download_lists') }}" class="text-gray-600 hover:text-violet-600">Premade Lists</a>
 
-                    {% if is_granted('ROLE_FTP_DESIGNER') %}
-                        <div class="border-l border-gray-300 h-6"></div>
-                    {% endif %}
-
                     {# Role-specific links #}
                     {% if is_granted('ROLE_FTP_DESIGNER') %}
+                        <div class="border-l border-gray-300 h-6"></div>
+
                         {# <a href="{{ path('app_boards_index') }}" class="text-gray-600 hover:text-violet-600">Boards</a> #}
                         <a href="{{ url('admin_direct_share_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Direct Share</a>
                     {% endif %}
                     {% if is_granted('ROLE_FTP_ADMIN') %}
+                        <div class="border-l border-gray-300 h-6"></div>
+
+                        <a href="{{ url('admin_assets_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Admin Assets</a>
                         <a href="{{ url('app_asset_upload') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Upload File</a>
                         <a href="{{ url('admin_brands_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Brands</a>
                         <a href="{{ url('admin_categories_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Categories</a>
