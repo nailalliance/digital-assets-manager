@@ -11,6 +11,13 @@
         </a>
     </div>
 
+    {% for message in app.flashes('success') %}
+        <div class="mb-6 p-4 bg-green-100 border-l-4 border-green-500 text-green-700">
+            <p class="font-bold">Success</p>
+            <p>{{ message }}</p>
+        </div>
+    {% endfor %}
+
     <div class="bg-white rounded-lg shadow-xl p-6">
         <form action="{{ path('admin_assets_index') }}" class="mb-6" method="get" data-controller="filter-form">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">

@@ -103,8 +103,9 @@ class AssetEditController extends AbstractController
             $entityManager->persist($asset);
             $entityManager->flush();
 
-            $this->addFlash('success', 'Asset updated successfully.');
-            return $this->redirectToRoute('admin_asset_edit', ['id' => $asset->getId()]);
+            $this->addFlash('success', 'Asset "' . $asset->getName() . '" ('.$asset->getId(). ') updated successfully.');
+            // return $this->redirectToRoute('admin_asset_edit', ['id' => $asset->getId()]);
+            return $this->redirectToRoute('admin_assets_index');
         }
 
         $parentBrands = $brandsRepository->findBy(['brands' => null]);
