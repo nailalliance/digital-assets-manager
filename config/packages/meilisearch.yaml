@@ -14,12 +14,12 @@ meilisearch:
 
             settings:
                 searchableAttributes:
-                    - 'itemCodes'
-                    - 'brand'
-                    - 'categories'
-                    - 'collections'
+                    - 'itemCodesForSearch'
+                    - 'tagsForSearch'
+                    - 'brandForSearch'
                     - 'name'
-                    - 'tags'
+                    - 'categoriesForSearch'
+                    - 'collectionsForSearch'
                     - 'description'
                 rankingRules:
                     - 'words'

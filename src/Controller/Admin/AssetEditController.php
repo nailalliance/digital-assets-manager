@@ -42,6 +42,12 @@ class AssetEditController extends AbstractController
         }
         $form->get('itemCodes')->setData(implode(', ', $existingCodes));
 
+        $existingTags = [];
+        foreach ($asset->getTags() as $tags) {
+            $existingTags[] = $tags->getName();
+        }
+        $form->get('tags')->setData(implode(', ', $existingTags));
+
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {

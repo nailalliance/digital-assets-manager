@@ -127,7 +127,7 @@
                             {# This container will hold the visual tags #}
                             <div data-tag-input-target="container" class="flex flex-wrap items-center mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-50">
                                 {# The actual input field is rendered here #}
-                                {{ form_widget(editForm.itemCodes, {'attr': {(asset.parent ? 'disabled': ''): ''}}) }}
+                                {{ form_widget(editForm.itemCodes, {'attr': {(asset.parent ? 'disabled': 'enabled'): ''}}) }}
                             </div>
 
                             {{ form_help(editForm.itemCodes) }}
@@ -144,7 +144,7 @@
                             {# This container will hold the visual tags #}
                             <div data-tag-input-target="container" class="flex flex-wrap items-center mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-50">
                                 {# The actual input field is rendered here #}
-                                {{ form_widget(editForm.tags, {'attr': {(asset.parent ? 'disabled': ''): ''}}) }}
+                                {{ form_widget(editForm.tags, {'attr': {(asset.parent ? 'disabled': 'enabled'): ''}}) }}
                             </div>
 
                             {{ form_help(editForm.tags) }}
