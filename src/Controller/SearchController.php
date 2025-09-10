@@ -46,21 +46,90 @@ class SearchController extends AbstractController
         $offset = ($page - 1) * $limit;
 
         $assetIdsFromSearch = null;
+        $assets = [];
 
         if (!empty($query)) {
             $searchResult = $searchService->search($query, 1000, 0);
-            $assetIdsFromSearch = $searchResult['ids'];
-            $totalAssets = $searchResult['total'];
+            // $assetIdsFromSearch = $searchResult['ids'];
+            // $totalAssets = $searchResult['total'];
 
             $allPossibleAssets = $searchResult['hits'];
 
-            if (empty($assetIdsFromSearch)) {
-                $assets = [];
-                $totalAssets = 0;
-            }
+            $assets = array_filter(
+                $allPossibleAssets,
+                function (Assets $asset) use (
+                    $selectedBrandIds,
+                    $selectedCategoryIds,
+                    $selectedCollectionIds,
+                    $brandsRepository,
+                )
+                {
+                    $universe = 0;
+                    $votes = 0;
+                    $assetBrandHierarchyList = [];
+                    if (!empty($selectedBrandIds) > 0) {
+                        $universe += 1;
+
+                        // get hierarchy
+                        $brands = $asset->getBrand();
+                        foreach ($brands as $brand) {
+                            $assetBrandHierarchyList[] = $brand->getId();
+                            if ($brand->getBrands() != null) {
+                                $parent = $brand->getBrands();
+                                $assetBrandHierarchyList[] = $parent->getId();
+                                if ($parent->getBrands() != null) {
+                                    $grandparent = $parent->getBrands();
+                                    $assetBrandHierarchyList[] = $grandparent->getId();
+                                }
+                            }
+                        }
+                    }
+
+                    if (!empty($selectedCategoryIds) > 0) {
+                        $universe += 1;
+                    }
+                    if (!empty($selectedCollectionIds) > 0) {
+                        $universe += 1;
+                    }
+
+                    if (
+                        array_intersect(
+                            // $asset->getBrand()->map(fn($brand) => $brand->getId())->toArray()
+                            $assetBrandHierarchyList,
+                            $selectedBrandIds
+                        )
+                    )
+                    {
+                        $votes += 1;
+                    }
+
+                    if (array_intersect(
+                        $asset->getCategories()->map(fn($category) => $category->getId())->toArray(),
+                        $selectedCategoryIds
+                    ))
+                    {
+                        $votes += 1;
+                    }
+
+                    if (array_intersect(
+                        $asset->getCollections()->map(fn($collection) => $collection->getId())->toArray(),
+                        $selectedCollectionIds
+                    ))
+                    {
+                        $votes += 1;
+                    }
+
+                    return $universe === $votes;
+                }
+            );
+
+            $totalAssets = count($assets);
+            $assets = array_slice($assets, $offset, $limit, false);
+
+
         }
 
-        if (!isset($assets)) {
+        if (empty($query)) {
             $paginator = $assetsRepository->findByFilters(
                 $selectedCategoryIds,
                 $selectedCollectionIds,
@@ -68,19 +137,19 @@ class SearchController extends AbstractController
                 $selectedFileTypeGroup,
                 $limit,
                 $offset,
-                $assetIdsFromSearch
+                null
             );
             $assets = iterator_to_array($paginator);
             $totalAssets = count($paginator);
 
             if (!isset($allPossibleAssets)) {
-                $allPossibleAssets = $assetsRepository->findByFilters(
+                $allPossibleAssets = iterator_to_array($assetsRepository->findByFilters(
                     $selectedCategoryIds,
                     $selectedCollectionIds,
                     $selectedBrandIds,
                     $selectedFileTypeGroup,
                     1000, 0, null
-                );
+                ));
             }
         }
 
@@ -88,7 +157,7 @@ class SearchController extends AbstractController
         $activeCategories = [];
         $activeCollections = [];
 
-        foreach (iterator_to_array($allPossibleAssets) as $asset) {
+        foreach ($allPossibleAssets as $asset) {
             foreach ($asset->getBrand() as $brand) {
                 $activeBrands[$brand->getId()] = $brand;
             }
@@ -140,6 +209,7 @@ class SearchController extends AbstractController
             'brandFilters' => $brandFilters,
             'activeCategories' => $activeCategories,
             'activeCollections' => $activeCollections,
+
             'selectedBrandIds' => $selectedBrandIds,
             'selectedCategoryIds' => $selectedCategoryIds,
             'selectedCollectionIds' => $selectedCollectionIds,
