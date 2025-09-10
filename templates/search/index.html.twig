@@ -30,12 +30,15 @@
                             <div class="text-left mt-2 text-xs text-gray-500">
                                 {% set year = -1 %}
                                 {% for collection in activeCollections|sort((a, b) => b.year <=> a.year) %}
-                                    - ({{ collection.year }}) {{ collection.name }}<br>
+                                    {% if collection.id in selectedCollectionIds %}
+                                        - ({{ collection.year }}) {{ collection.name }}<br>
+                                    {% endif %}
                                 {% endfor %}
-                                <div class="text-center">
+                                <div class="text-right">
                                     <a href="{{ path('app_search', app.request.query.all|merge({'collection_ids': null})) }}"
-                                      data-turbo="false" class="mt-2 text-xs text-gray-500 hover:text-violet-600">Clear
-                                        Collections Filter</a>
+                                      data-turbo="false" class="mt-2 text-xs text-gray-500 hover:text-violet-600">
+                                        Clear Collections Filter
+                                    </a>
                                 </div>
                             </div>
                         {% endif %}
@@ -65,12 +68,15 @@
                         {% if selectedCategoryIds %}
                             <div class="text-left mt-2 text-xs text-gray-500">
                                 {% for category in activeCategories|sort((a, b) => a.name <=> b.name) %}
-                                    - {{ category.name }}<br>
+                                    {% if category.id in selectedCategoryIds %}
+                                        - {{ category.name }}<br>
+                                    {% endif %}
                                 {% endfor %}
-                                <div class="text-center">
+                                <div class="text-right">
                                     <a href="{{ path('app_search', app.request.query.all|merge({'category_ids': null})) }}"
-                                      data-turbo="false" class="mt-2 text-xs text-gray-500 hover:text-violet-600">Clear
-                                        Categories Filter</a>
+                                      data-turbo="false" class="mt-2 text-xs text-gray-500 hover:text-violet-600">
+                                        Clear Categories Filter
+                                    </a>
                                 </div>
                             </div>
                         {% endif %}
@@ -92,26 +98,16 @@
                             <span>Brands</span>
                             <svg class="h-5 w-5 transform transition-transform" data-accordion-target="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </h3>
-                        {% if selectedBrandIds %}
+                        {% if selectedBrandBreadcrombs | length > 0 %}
                             <div class="text-left mt-2 text-xs text-gray-500">
-                                {% if brandFilters.children is defined %}
-                                    {% for children in brandFilters.children %}
-                                        {% for child in children %}
-                                            -
-                                            {% if child.brands.brands is not null %}
-                                                {{ child.brands.brands.name }} /
-                                            {% endif %}
-                                            {% if child.brands is not null %}
-                                                {{ child.brands.name }} /
-                                            {% endif %}
-                                            {{ child.name }}<br>
-                                        {% endfor %}
-                                    {% endfor %}
-                                {% endif %}
-                                <div class="text-center">
+                                {% for brandBreadcromb in selectedBrandBreadcrombs %}
+                                    - {{ brandBreadcromb }}<br>
+                                {% endfor %}
+                                <div class="text-right">
                                     <a href="{{ path('app_search', app.request.query.all|merge({'brand_ids': null})) }}"
-                                      data-turbo="false" class="mt-2 text-xs text-gray-500 hover:text-violet-600">Clear
-                                        Brands Filter</a>
+                                      data-turbo="false" class="mt-2 text-xs text-gray-500 hover:text-violet-600">
+                                        Clear Brands Filter
+                                    </a>
                                 </div>
                             </div>
                         {% endif %}

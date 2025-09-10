@@ -112,6 +112,28 @@ class SearchController extends AbstractController
             }
         }
 
+        $selectedBrandBreadcrombs = [];
+
+        foreach ($brandFilters['children'] as $children)
+        {
+            /** @var Brands $child */
+            foreach ($children as $child) {
+                if (!in_array($child->getId(), $selectedBrandIds)) {
+                    continue;
+                }
+
+                $childName = "";
+                if ($child->getBrands()?->getBrands()) {
+                    $childName .= $child->getBrands()->getBrands()->getName() . " / ";
+                }
+                if ($child->getBrands()) {
+                    $childName .= $child->getBrands()->getName() . " / ";
+                }
+                $childName .= $child->getName();
+                $selectedBrandBreadcrombs[] = $childName;
+            }
+        }
+
         return $this->render('search/index.html.twig', [
             'assets' => $assets,
             'query' => $query,
@@ -122,6 +144,7 @@ class SearchController extends AbstractController
             'selectedCategoryIds' => $selectedCategoryIds,
             'selectedCollectionIds' => $selectedCollectionIds,
             'selectedFileTypeGroup' => $selectedFileTypeGroup,
+            'selectedBrandBreadcrombs' => $selectedBrandBreadcrombs,
             'paginator' => [
                 'currentPage' => $page,
                 'limit' => $limit,
