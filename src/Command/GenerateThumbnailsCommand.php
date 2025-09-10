@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Repository\Assets\AssetsRepository;
 use App\Service\ImageProcessorService;
+use Doctrine\Common\Collections\Criteria;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -36,6 +37,7 @@ class GenerateThumbnailsCommand extends Command
             ->addOption('assetId', 'a', InputOption::VALUE_OPTIONAL, 'A comma-separated list of specific asset IDs to process.')
             ->addOption('offset', 'o', InputOption::VALUE_OPTIONAL, 'The starting offset for fetching assets.', 0)
             ->addOption('limit', 'l', InputOption::VALUE_OPTIONAL, 'The number of assets to process.', 100)
+            ->addOption('startingId', null, InputOption::VALUE_OPTIONAL, 'The starting asset ID to process.', 0)
         ;
     }
 
@@ -46,6 +48,7 @@ class GenerateThumbnailsCommand extends Command
         $assetIds = $input->getOption('assetId') ? explode(',', $input->getOption('assetId')) : null;
         $offset = (int) $input->getOption('offset');
         $limit = (int) $input->getOption('limit');
+        $startingId = (int) $input->getOption('startingId');
 
         if (!class_exists('Imagick')) {
             $io->error('The Imagick PHP extension is required to run this command.');
@@ -55,13 +58,23 @@ class GenerateThumbnailsCommand extends Command
         if ($assetIds) {
             $assets = $this->assetsRepository->findBy(['id' => $assetIds]);
         } else {
-            $assets = $this->assetsRepository->findBy(
-                // ['mime_type' => ['image/jpeg', 'image/png', 'application/pdf']], // PDF Is not rendering correctly
-                ['mime_type' => ['image/jpeg', 'image/png']],
-                ['id' => 'ASC'],
-                $limit,
-                $offset
-            );
+            $criteria = Criteria::create();
+            $criteria->where(Criteria::expr()->in('mime_type', ['image/jpeg', 'image/png']));
+            if ($startingId)
+            {
+                $criteria->andWhere(Criteria::expr()->gte('id', $startingId));
+            }
+            $criteria->setMaxResults($limit);
+            $criteria->setFirstResult($offset);
+            $criteria->orderBy(['id' => 'ASC']);
+            $assets = $this->assetsRepository->matching($criteria);
+            // $assets = $this->assetsRepository->findBy(
+            //     // ['mime_type' => ['image/jpeg', 'image/png', 'application/pdf']], // PDF Is not rendering correctly
+            //     ['mime_type' => ['image/jpeg', 'image/png']],
+            //     ['id' => 'ASC'],
+            //     $limit,
+            //     $offset
+            // );
         }
 
         if (empty($assets)) {
