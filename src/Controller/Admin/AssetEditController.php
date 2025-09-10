@@ -4,9 +4,11 @@ namespace App\Controller\Admin;
 
 use App\Entity\Assets\Assets;
 use App\Entity\Assets\ItemCodes;
+use App\Entity\Assets\Tags;
 use App\Form\AssetType;
 use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\ItemCodesRepository;
+use App\Repository\Assets\TagsRepository;
 use App\Service\ImageProcessorService;
 use App\Service\UniqueFilePathGenerator;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,6 +29,7 @@ class AssetEditController extends AbstractController
         EntityManagerInterface $entityManager,
         BrandsRepository $brandsRepository,
         ItemCodesRepository $itemCodesRepository,
+        TagsRepository $tagsRepository,
         ImageProcessorService $imageProcessor,
         Filesystem $filesystem
     ): Response
@@ -97,6 +100,22 @@ class AssetEditController extends AbstractController
                         $entityManager->persist($itemCode);
                     }
                     $asset->addItemCode($itemCode);
+                }
+            }
+
+            $tagsString = $form->get('tags')->getData();
+            $asset->getTags()->clear();
+            if (!empty($tagsString)) {
+                $tags = array_map('trim', explode(',', $tagsString));
+                $uniqueTags = array_unique(array_filter($tags));
+                foreach ($uniqueTags as $tag) {
+                    $itemTag = $tagsRepository->findOneBy(['name' => $tag]);
+                    if (!$itemTag) {
+                        $itemTag = new Tags();
+                        $itemTag->setName($tag);
+                        $entityManager->persist($itemTag);
+                    }
+                    $asset->addTag($itemTag);
                 }
             }
 

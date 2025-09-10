@@ -118,11 +118,22 @@ class AssetType extends AbstractType
                     return sprintf('(%s) %s', $collection->getYear(), $collection->getName());
                 },
             ])
-            ->add('tags', EntityType::class, [
-                'class' => Tags::class,
-                'choice_label' => 'name',
-                'multiple' => true,
+            // ->add('tags', EntityType::class, [
+            //     'class' => Tags::class,
+            //     'choice_label' => 'name',
+            //     'multiple' => true,
+            //     'required' => false,
+            // ])
+            ->add('tags', TextType::class, [
                 'required' => false,
+                'mapped' => false,
+                'label' => 'Tags',
+                'help' => 'Separate multiple Tags with a comma',
+                'attr' => [
+                    // 'data-controller' => 'tag-input',
+                    'data-action' => 'keyup->tag-input#handleInput',
+                    'data-tag-input-target' => 'input',
+                ]
             ])
             ->add('similarAssets', EntityType::class, [
                 'class' => Assets::class,
