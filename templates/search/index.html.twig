@@ -259,7 +259,7 @@
                 {% if assets is not empty %}
                     {% for asset in assets %}
                         <div class="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col" data-asset-id="{{ asset.id }}">
-                            <a href="{{ path('app_asset', {id: asset.id}) }}" class="block relative">
+                            <a data-turbo="false" href="{{ path('app_asset', {id: asset.id}) }}" class="block relative">
                                 <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
                                     {% if asset.thumbnailPath is not null and asset.thumbnailPath is not empty %}
                                         <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-full h-full object-cover">
