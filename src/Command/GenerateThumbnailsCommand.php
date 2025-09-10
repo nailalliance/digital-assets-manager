@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Repository\Assets\AssetsRepository;
 use App\Service\ImageProcessorService;
 use Doctrine\Common\Collections\Criteria;
+use Doctrine\Common\Collections\Order;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -66,7 +67,7 @@ class GenerateThumbnailsCommand extends Command
             }
             $criteria->setMaxResults($limit);
             $criteria->setFirstResult($offset);
-            $criteria->orderBy(['id' => 'ASC']);
+            $criteria->orderBy(['id' => Order::Ascending]);
             $assets = $this->assetsRepository->matching($criteria);
             // $assets = $this->assetsRepository->findBy(
             //     // ['mime_type' => ['image/jpeg', 'image/png', 'application/pdf']], // PDF Is not rendering correctly
