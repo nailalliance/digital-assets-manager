@@ -64,6 +64,12 @@ class User implements UserInterface
     #[ORM\ManyToMany(targetEntity: Brands::class, inversedBy: 'restrictedUsers')]
     private Collection $restrictedBrands;
 
+    /**
+     * @var Collection<int, ApiToken>
+     */
+    #[ORM\OneToMany(targetEntity: ApiToken::class, mappedBy: 'owner')]
+    private Collection $apiTokens;
+
     public function __construct()
     {
         $this->groups = new ArrayCollection();
@@ -71,6 +77,7 @@ class User implements UserInterface
         $this->ownedBoards = new ArrayCollection();
         $this->boardCollaborations = new ArrayCollection();
         $this->restrictedBrands = new ArrayCollection();
+        $this->apiTokens = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -282,6 +289,36 @@ class User implements UserInterface
     public function removeRestrictedBrand(Brands $restrictedBrand): static
     {
         $this->restrictedBrands->removeElement($restrictedBrand);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, ApiToken>
+     */
+    public function getApiTokens(): Collection
+    {
+        return $this->apiTokens;
+    }
+
+    public function addApiToken(ApiToken $apiToken): static
+    {
+        if (!$this->apiTokens->contains($apiToken)) {
+            $this->apiTokens->add($apiToken);
+            $apiToken->setOwner($this);
+        }
+
+        return $this;
+    }
+
+    public function removeApiToken(ApiToken $apiToken): static
+    {
+        if ($this->apiTokens->removeElement($apiToken)) {
+            // set the owning side to null (unless already changed)
+            if ($apiToken->getOwner() === $this) {
+                $apiToken->setOwner(null);
+            }
+        }
 
         return $this;
     }
