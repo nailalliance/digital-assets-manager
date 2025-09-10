@@ -18,7 +18,7 @@ class CollectionsController extends AbstractController
     public function index(CollectionsRepository $collectionsRepository): Response
     {
         return $this->render('admin/collections/index.html.twig', [
-            'collections' => $collectionsRepository->findAll(),
+            'collections' => $collectionsRepository->findBy([], ['year' => 'DESC', 'id' => 'ASC']),
         ]);
     }
 
