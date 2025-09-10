@@ -77,7 +77,7 @@ class AssetImporterService
                 }
 
                 $collectionName = $data['collection'] ?? null;
-                $collectionYear = $data['collection_year'] ?? null;
+                $collectionYear = $data['collection_year'] ?? 0;
 
                 // If year is null but collection name is not, try to extract it
                 if (empty($collectionYear) && !empty($collectionName)) {
