@@ -201,9 +201,11 @@ class AssetsRepository extends ServiceEntityRepository
         if ($searchQuery)
         {
             $qb->andWhere($qb->expr()->orX(
+                $qb->expr()->eq('a.id', ':id'),
                 $qb->expr()->like('a.name', ':query'),
-                $qb->expr()->like('id.code', ':query')
+                $qb->expr()->like('ic.code', ':query')
             ))
+            ->setParameter('id', intval($searchQuery))
             ->setParameter('query', '%' . $searchQuery . '%');
         }
 
