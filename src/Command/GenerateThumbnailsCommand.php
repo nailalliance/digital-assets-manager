@@ -51,10 +51,10 @@ class GenerateThumbnailsCommand extends Command
         $limit = (int) $input->getOption('limit');
         $startingId = (int) $input->getOption('startingId');
 
-        if (!class_exists('Imagick')) {
-            $io->error('The Imagick PHP extension is required to run this command.');
-            return Command::FAILURE;
-        }
+        // if (!class_exists('Imagick')) {
+        //     $io->error('The Imagick PHP extension is required to run this command.');
+        //     return Command::FAILURE;
+        // }
 
         if ($assetIds) {
             $assets = $this->assetsRepository->findBy(['id' => $assetIds]);
@@ -77,6 +77,8 @@ class GenerateThumbnailsCommand extends Command
             //     $offset
             // );
         }
+
+        $assets = iterator_to_array($assets);
 
         if (empty($assets)) {
             $io->info('No assets found to process.');
