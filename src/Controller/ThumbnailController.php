@@ -45,14 +45,13 @@ class ThumbnailController extends AbstractController
         return $response;
     }
 
-    #[Route('/thumbnail/{imageToken}/file/{filename}.{extension}', name: 'asset_thumbnail_adobe')]
+    #[Route('/thumbnail/{imageToken}/file/{filename}/image.jpg', name: 'asset_thumbnail_adobe')]
     public function thumbnailForUser(
         ApiTokenRepository $tokenRepository,
         UserRoleChecker $userRoleChecker,
         ImageProcessorService $imageProcessor,
         string $imageToken,
-        string $filename,
-        string $extension
+        string $filename
     ): Response
     {
         $apiToken = $tokenRepository->findOneBy(['imageToken' => $imageToken]);
@@ -79,6 +78,8 @@ class ThumbnailController extends AbstractController
             $secondLetter,
             $filename
         );
+
+        $extension = 'jpg';
 
         // 2. Check if the reconstructed file path exists
         if (!file_exists($fullPath)) {
