@@ -83,6 +83,7 @@ class ThumbnailController extends AbstractController
 
         // 3. Serve the file
         $response = new BinaryFileResponse($fullPath);
+        $response->headers->set('Content-Type', gettype($fullPath));
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
 
         return $response;
