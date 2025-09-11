@@ -50,7 +50,6 @@ class SearchService
             }
         }
 
-
         // 1. Get the raw search results from Meilisearch
         $searchResults = $this->meilisearch->search(
             $this->entityManager,

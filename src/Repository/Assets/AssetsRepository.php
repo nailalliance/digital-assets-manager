@@ -239,6 +239,25 @@ class AssetsRepository extends ServiceEntityRepository
         return new Paginator($qb->getQuery(), false);
     }
 
+    /**
+     * @return Assets[] Returns an array of Assets objects
+     */
+    public function searchByName(?string $searchTerm): array
+    {
+        $queryBuilder = $this->createQueryBuilder('a');
+
+        if ($searchTerm) {
+            $queryBuilder->andWhere('a.name LIKE :searchTerm')
+                ->setParameter('searchTerm', '%' . $searchTerm . '%');
+        }
+
+        return $queryBuilder
+            ->orderBy('a.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult()
+            ;
+    }
+
     //    /**
     //     * @return Assets[] Returns an array of Assets objects
     //     */
