@@ -36,8 +36,6 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
         $authorizationHeader = $request->headers->get('Authorization');
         $apiToken = str_replace('Bearer ', '', $authorizationHeader);
 
-        dd($apiToken);
-
         if (empty($apiToken)) {
             throw new CustomUserMessageAuthenticationException('Missing authorization header');
         }
