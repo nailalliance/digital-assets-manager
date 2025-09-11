@@ -6,9 +6,11 @@ use App\Entity\ApiToken;
 use App\Entity\Assets\Assets;
 use App\Repository\ApiTokenRepository;
 use App\Repository\UserRepository;
+use App\Service\ImageProcessorService;
 use App\Service\UserRoleChecker;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -43,13 +45,15 @@ class ThumbnailController extends AbstractController
         return $response;
     }
 
-    #[Route('/thumbnail/{imageToken}/file/{filename}', name: 'asset_thumbnail_adobe')]
+    #[Route('/thumbnail/{imageToken}/file/{filename}.{extension}', name: 'asset_thumbnail_adobe')]
     public function thumbnailForUser(
         ApiTokenRepository $tokenRepository,
         UserRoleChecker $userRoleChecker,
+        ImageProcessorService $imageProcessor,
         string $imageToken,
-        string $filename
-    ): BinaryFileResponse
+        string $filename,
+        string $extension
+    ): Response
     {
         $apiToken = $tokenRepository->findOneBy(['imageToken' => $imageToken]);
 
@@ -81,10 +85,21 @@ class ThumbnailController extends AbstractController
             throw $this->createNotFoundException('Thumbnail not found.');
         }
 
+        $imageBinary = $imageProcessor->exportFile($fullPath, 300, 300, 10, $extension);
+
+        if (!$imageBinary)
+        {
+            throw $this->createNotFoundException('Could not process image.');
+        }
+
         // 3. Serve the file
-        $response = new BinaryFileResponse($fullPath);
-        $response->headers->set('Content-Type', gettype($fullPath));
-        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
+        $response = new Response($imageBinary);
+        $disposition = $response->headers->makeDisposition(
+            ResponseHeaderBag::DISPOSITION_INLINE,
+            $filename . '.' . $extension
+        );
+        $response->headers->set('Content-Disposition', $disposition);
+        $response->headers->set('Content-Type', 'image/'.$extension);
 
         return $response;
     }
