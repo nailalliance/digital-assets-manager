@@ -57,7 +57,14 @@ class AssetsController extends AbstractController
                 )
             );
             $asset->setFilePath(
-                $this->generateUrl('asset_stream', ['id' => $asset->getId()], UrlGeneratorInterface::ABSOLUTE_URL)
+                $this->generateUrl(
+                    'asset_stream_adobe',
+                    [
+                        'imageToken' => $user->getApiTokens()[0]->getImageToken(),
+                        'filename' => basename($asset->getFilePath())
+                    ],
+                    UrlGeneratorInterface::ABSOLUTE_URL
+                )
             );
             return $asset;
         }, $assets);
