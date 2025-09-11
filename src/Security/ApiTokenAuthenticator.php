@@ -40,7 +40,7 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
             throw new CustomUserMessageAuthenticationException('Missing authorization header');
         }
 
-        $tokenEntity = $this->apiTokenRepository->findOneBy(['token' => $apiToken]);
+        $tokenEntity = $this->apiTokenRepository->findOneBy(['token' => hash('sha256', $apiToken)]);
 
         if (!$tokenEntity) {
             throw new CustomUserMessageAuthenticationException('Invalid API token');
