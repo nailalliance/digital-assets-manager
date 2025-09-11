@@ -3,6 +3,7 @@
 namespace App\Controller\Api\AdobePlugin;
 
 use App\Entity\Assets\Assets;
+use App\Entity\User;
 use App\Repository\Assets\AssetsRepository;
 
 use App\Service\SearchService;
@@ -41,9 +42,19 @@ class AssetsController extends AbstractController
 
         $assets = array_slice($assets, $page * $limit, $limit);
 
-        $assets = array_map(function (Assets $asset) {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $assets = array_map(function (Assets $asset) use ($user) {
             $asset->setThumbnailPath(
-                $this->generateUrl('asset_thumbnail', ['filename' => basename($asset->getThumbnailPath())], UrlGeneratorInterface::ABSOLUTE_URL)
+                $this->generateUrl(
+                    'asset_thumbnail_adobe',
+                    [
+                        'imageToken' => $user->getApiTokens()[0]->getImageToken(),
+                        'filename' => basename($asset->getThumbnailPath())
+                    ],
+                    UrlGeneratorInterface::ABSOLUTE_URL
+                )
             );
             $asset->setFilePath(
                 $this->generateUrl('asset_stream', ['id' => $asset->getId()], UrlGeneratorInterface::ABSOLUTE_URL)

@@ -21,8 +21,11 @@ class ApiToken
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, unique: true)]
     private ?string $token = null;
+
+    #[ORM\Column(length: 255, unique: true)]
+    private ?string $imageToken = null;
 
     public function __construct(User $user)
     {
@@ -75,6 +78,17 @@ class ApiToken
     {
         $this->token = $token;
 
+        return $this;
+    }
+
+    public function getImageToken(): ?string
+    {
+        return $this->imageToken;
+    }
+
+    public function setImageToken(?string $imageToken): ApiToken
+    {
+        $this->imageToken = $imageToken;
         return $this;
     }
 }
