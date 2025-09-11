@@ -25,7 +25,7 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
      */
     public function supports(Request $request): ?bool
     {
-        return str_starts_with($request->getPathInfo(), '/api/'); //  && $request->headers->has('Authorization');
+        return str_starts_with($request->getPathInfo(), '/api/') && $request->headers->has('X-AUTH-TOKEN');
         // var_dump($request->headers);
         // die();
         // return $request->headers->has('Authorization');
@@ -36,8 +36,10 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
      */
     public function authenticate(Request $request): Passport
     {
-        $authorizationHeader = $request->headers->get('Authorization');
-        $apiToken = str_replace('Bearer ', '', $authorizationHeader);
+        // $authorizationHeader = $request->headers->get('Authorization');
+        // $apiToken = str_replace('Bearer ', '', $authorizationHeader);
+        $authorizationHeader = $request->headers->get('X-AUTH-TOKEN');
+        $apiToken = $authorizationHeader;
 
         if (empty($apiToken)) {
             throw new CustomUserMessageAuthenticationException('Missing authorization header');
