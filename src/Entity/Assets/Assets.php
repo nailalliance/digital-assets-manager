@@ -22,39 +22,49 @@ class Assets
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[SerializerGroups(['api_v1_asset', 'api_v2_asset'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[SerializerGroups(['api_v1_asset', 'api_v2_asset'])]
     private ?string $name = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[SerializerGroups(['api_v1_asset'])]
     private ?string $description = null;
 
     #[ORM\Column(length: 255)]
     private ?string $filePath = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[SerializerGroups(['api_v2_asset'])]
     private ?string $thumbnailPath = null;
 
     #[ORM\Column(length: 255)]
+    #[SerializerGroups(['api_v1_asset', 'api_v2_asset'])]
     private ?string $mime_type = null;
 
     #[ORM\Column(type: Types::BIGINT)]
+    #[SerializerGroups(['api_v1_asset'])]
     private ?int $fileSize = null;
 
     #[ORM\Column(enumType: ColorSpaceEnum::class, options: ['default' => ColorSpaceEnum::RGB])]
+    #[SerializerGroups(['api_v1_asset'])]
     private ?ColorSpaceEnum $colorSpace = ColorSpaceEnum::RGB;
 
     #[ORM\Column(enumType: AssetStatusEnum::class, options: ['default' => AssetStatusEnum::ACTIVE])]
     private ?AssetStatusEnum $status = AssetStatusEnum::INACTIVE;
 
     #[ORM\Column(nullable: true)]
+    #[SerializerGroups(['api_v1_asset'])]
     private ?\DateTimeImmutable $embargoDate = null;
 
     #[ORM\Column(nullable: true)]
+    #[SerializerGroups(['api_v1_asset'])]
     private ?\DateTimeImmutable $expirationDate = null;
 
     #[ORM\Column]
+    #[SerializerGroups(['api_v1_asset'])]
     private ?\DateTimeImmutable $createdAt = null;
 
     /**

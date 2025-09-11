@@ -7,6 +7,7 @@ use App\Repository\Assets\CategoriesRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Groups as SerializerGroups;
 
 #[ORM\Entity(repositoryClass: CategoriesRepository::class)]
 class Categories
@@ -14,9 +15,11 @@ class Categories
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[SerializerGroups('api_v2_taxonomy')]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[SerializerGroups('api_v2_taxonomy')]
     private ?string $name = null;
 
     #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'parent')]
