@@ -26,6 +26,8 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
     public function supports(Request $request): ?bool
     {
         // return str_starts_with($request->getPathInfo(), '/api/'); //  && $request->headers->has('Authorization');
+        var_dump($request->headers);
+        die();
         return $request->headers->has('Authorization');
     }
 
