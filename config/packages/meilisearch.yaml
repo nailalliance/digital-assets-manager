@@ -33,3 +33,4 @@ meilisearch:
                     - 'brand'
                     - 'categories'
                     - 'collections'
+                    - 'status'

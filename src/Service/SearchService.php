@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Meilisearch\Bundle\SearchService as MiliSearchService;
@@ -34,6 +35,7 @@ class SearchService
         $searchParams = [
             'limit' => $limit,
             'offset' => $offset,
+            'filter' => 'status=' . AssetStatusEnum::ACTIVE->value,
         ];
 
         /** @var User $user */
