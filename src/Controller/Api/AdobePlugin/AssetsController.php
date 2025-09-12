@@ -52,7 +52,6 @@ class AssetsController extends AbstractController
                     [
                         'imageToken' => $user->getApiTokens()[0]->getImageToken(),
                         'filename' => basename($asset->getThumbnailPath()),
-                        'extension' => 'jpg',
                     ],
                     UrlGeneratorInterface::ABSOLUTE_URL
                 )

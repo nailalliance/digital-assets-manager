@@ -79,12 +79,12 @@ class ThumbnailController extends AbstractController
             $filename
         );
 
-        $extension = 'jpg';
-
         // 2. Check if the reconstructed file path exists
         if (!file_exists($fullPath)) {
             throw $this->createNotFoundException('Thumbnail not found.');
         }
+
+        $extension = 'jpg';
 
         $imageBinary = $imageProcessor->exportFile($fullPath, 300, 300, 10, $extension);
 
