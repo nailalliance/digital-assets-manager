@@ -2,6 +2,8 @@
 
 namespace App\Controller\Api\AdobePlugin;
 
+use App\Entity\ApiToken;
+use App\Entity\ApiTokenFor;
 use App\Entity\Assets\Assets;
 use App\Entity\User;
 use App\Repository\Assets\AssetsRepository;
@@ -45,12 +47,15 @@ class AssetsController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
 
-        $assets = array_map(function (Assets $asset) use ($user) {
+        $adobeApiToken = $user->getApiTokens()->findFirst(fn($_, ApiToken $apiToken) => $apiToken->getService() === ApiTokenFor::ADOBE)
+            ?->getImageToken();
+
+        $assets = array_map(function (Assets $asset) use ($adobeApiToken) {
             $asset->setThumbnailPath(
                 $this->generateUrl(
                     'asset_thumbnail_adobe',
                     [
-                        'imageToken' => $user->getApiTokens()[0]->getImageToken(),
+                        'imageToken' => $adobeApiToken,
                         'filename' => basename($asset->getThumbnailPath()),
                     ],
                     UrlGeneratorInterface::ABSOLUTE_URL
@@ -60,7 +65,7 @@ class AssetsController extends AbstractController
                 $this->generateUrl(
                     'asset_stream_adobe',
                     [
-                        'imageToken' => $user->getApiTokens()[0]->getImageToken(),
+                        'imageToken' => $adobeApiToken,
                         'filename' => basename($asset->getFilePath())
                     ],
                     UrlGeneratorInterface::ABSOLUTE_URL
