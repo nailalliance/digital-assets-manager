@@ -93,13 +93,25 @@ class AssetsRepository extends ServiceEntityRepository
         }
 
         if (!empty($categoryIds)) {
-            $qb->innerJoin('a.categories', 'c')->andWhere('c.id IN (:categoryIds)')->setParameter('categoryIds', $categoryIds);
+            $qb->innerJoin('a.categories', 'c')
+                ->andWhere('c.status = :categoryStatus')
+                ->andWhere('c.id IN (:categoryIds)')
+                ->setParameter('categoryIds', $categoryIds)
+                ->setParameter('categoryStatus', true);
         }
         if (!empty($collectionIds)) {
-            $qb->innerJoin('a.collections', 'coll')->andWhere('coll.id IN (:collectionIds)')->setParameter('collectionIds', $collectionIds);
+            $qb->innerJoin('a.collections', 'coll')
+                ->andWhere('coll.status = :collectionStatus')
+                ->andWhere('coll.id IN (:collectionIds)')
+                ->setParameter('collectionIds', $collectionIds)
+                ->setParameter('collectionStatus', true);
         }
         if (!empty($brandIds)) {
-            $qb->innerJoin('a.brand', 'b')->andWhere('(b.id IN (:brandIds) OR b.brands IN (:brandIds))')->setParameter('brandIds', $brandIds);
+            $qb->innerJoin('a.brand', 'b')
+                ->andWhere('b.status = :brandStatus')
+                ->andWhere('(b.id IN (:brandIds) OR b.brands IN (:brandIds))')
+                ->setParameter('brandIds', $brandIds)
+                ->setParameter('brandStatus', true);
         }
 
         $qb = $this->applyBrandRestrictions($qb);
@@ -130,8 +142,10 @@ class AssetsRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('a')
             ->innerJoin('a.brand', 'b')
             ->where('b.id IN (:brandIds)')
+            ->andWhere('b.status = :brandStatus')
             ->andWhere('a.status = :status')
             ->setParameter('brandIds', $brandIds)
+            ->setParameter('brandStatus', true)
             ->setParameter('status', 'active')
             ->orderBy('a.createdAt', 'DESC')
             ->setMaxResults($limit)

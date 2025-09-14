@@ -4,6 +4,7 @@ namespace App\Form;
 
 use App\Entity\Assets\Collections;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -14,6 +15,12 @@ class CollectionsType extends AbstractType
         $builder
             ->add('name')
             ->add('year')
+            ->add('status', ChoiceType::class, [
+                'choices' => [
+                    'Active' => true,
+                    'Inactive' => false,
+                ]
+            ])
         ;
     }
 

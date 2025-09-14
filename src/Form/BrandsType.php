@@ -8,6 +8,7 @@ use App\Entity\Restrictions\Groups;
 use App\Repository\Assets\BrandsRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -45,6 +46,12 @@ class BrandsType extends AbstractType
                 'multiple' => true,
                 'expanded' => true,
                 'required' => false,
+            ])
+            ->add('status', ChoiceType::class, [
+                'choices' => [
+                    'Active' => true,
+                    'Inactive' => false,
+                ]
             ])
         ;
     }

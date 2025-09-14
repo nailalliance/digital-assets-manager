@@ -30,6 +30,9 @@ class Collections
     #[ORM\ManyToMany(targetEntity: Assets::class, mappedBy: 'collections')]
     private Collection $assets;
 
+    #[ORM\Column(options: ['default' => true])]
+    private ?bool $status = true;
+
     public function __construct()
     {
         $this->assets = new ArrayCollection();
@@ -87,6 +90,23 @@ class Collections
         if ($this->assets->removeElement($asset)) {
             $asset->removeCollection($this);
         }
+
+        return $this;
+    }
+
+    public function isStatus(): ?bool
+    {
+        return $this->status;
+    }
+
+    public function getStatus(): ?bool
+    {
+        return $this->status;
+    }
+
+    public function setStatus(bool $status): static
+    {
+        $this->status = $status;
 
         return $this;
     }

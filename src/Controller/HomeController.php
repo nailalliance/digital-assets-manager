@@ -29,7 +29,10 @@ final class HomeController extends AbstractController
         Security $security,
     ): Response {
         // Always fetch the top-level brands for the navigation buttons
-        $parentBrands = $brandsRepository->findBy(['brands' => null]);
+        $parentBrands = $brandsRepository->findBy([
+            'brands' => null,
+            'status' => true,
+        ]);
 
         /** @var User $user */
         $user = $this->getUser();
@@ -61,8 +64,12 @@ final class HomeController extends AbstractController
             $this->denyAccessUnlessGranted(BrandVoter::VIEW, $brand);
             // Create an array of the parent brand and all its children
             $brandFamilyIds = [$brand->getId()];
+            /** @var Brands $child */
             foreach ($brand->getParent() as $child) {
-                $brandFamilyIds[] = $child->getId();
+                if ($child->isStatus())
+                {
+                    $brandFamilyIds[] = $child->getId();
+                }
             }
 
             $recentAssets = $assetsRepository->findRecentByBrandFamily($brandFamilyIds, 12);
@@ -94,7 +101,10 @@ final class HomeController extends AbstractController
     ): JsonResponse {
         // Fetch all child brand IDs, including the parent's ID
         /** @var Brands[] $children */
-        $children = $brandsRepository->findBy(['brands' => $brand->getId()]);
+        $children = $brandsRepository->findBy([
+            'brands' => $brand->getId(),
+            'status' => true,
+        ]);
 
         // $brandIds = $children->map(fn($child) => $child->getId())->toArray();
         $brandIds = array_map(fn($child) => $child->getId(), $children);

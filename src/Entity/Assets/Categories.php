@@ -43,6 +43,9 @@ class Categories
     #[ORM\ManyToMany(targetEntity: Groups::class, mappedBy: 'categories')]
     private Collection $restrictedGroups;
 
+    #[ORM\Column(options: ['default' => true])]
+    private ?bool $status = true;
+
     public function __construct()
     {
         $this->parent = new ArrayCollection();
@@ -159,6 +162,23 @@ class Categories
         if ($this->restrictedGroups->removeElement($restrictedGroup)) {
             $restrictedGroup->removeCategory($this);
         }
+
+        return $this;
+    }
+
+    public function isStatus(): ?bool
+    {
+        return $this->status;
+    }
+
+    public function getStatus(): ?bool
+    {
+        return $this->status;
+    }
+
+    public function setStatus(bool $status): static
+    {
+        $this->status = $status;
 
         return $this;
     }

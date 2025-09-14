@@ -5,6 +5,7 @@ namespace App\Form;
 use App\Entity\Assets\Categories;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -20,6 +21,12 @@ class CategoriesType extends AbstractType
                 'required' => false,
                 'placeholder' => 'Select a parent category (optional)',
                 'label' => 'Parent Category'
+            ])
+            ->add('status', ChoiceType::class, [
+                'choices' => [
+                    'Active' => true,
+                    'Inactive' => false,
+                ]
             ])
         ;
     }

@@ -50,6 +50,9 @@ class Brands
     #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'restrictedBrands')]
     private Collection $restrictedUsers;
 
+    #[ORM\Column(options: ['default' => true])]
+    private ?bool $status = true;
+
     public function __construct()
     {
         $this->parent = new ArrayCollection();
@@ -194,6 +197,23 @@ class Brands
         if ($this->restrictedUsers->removeElement($restrictedUser)) {
             $restrictedUser->removeRestrictedBrand($this);
         }
+
+        return $this;
+    }
+
+    public function isStatus(): ?bool
+    {
+        return $this->status;
+    }
+
+    public function getStatus(): ?bool
+    {
+        return $this->status;
+    }
+
+    public function setStatus(bool $status): static
+    {
+        $this->status = $status;
 
         return $this;
     }
