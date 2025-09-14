@@ -9,6 +9,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\PreUpdateEventArgs;
 use Doctrine\ORM\Events;
 
+/**
+ * Syncs Asset parent and children's data after parent asset updates
+ */
 #[AsEntityListener(event: Events::preUpdate, method: 'preUpdate', entity: Assets::class)]
 #[AsEntityListener(event: Events::postUpdate, method: 'postUpdate', entity: Assets::class)]
 class AssetSyncListener
