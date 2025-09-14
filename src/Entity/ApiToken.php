@@ -27,6 +27,9 @@ class ApiToken
     #[ORM\Column(length: 255, unique: true)]
     private ?string $imageToken = null;
 
+    #[ORM\Column(enumType: ApiTokenFor::class, options: ['default' => 'adobe'], index: 'service')]
+    private ?ApiTokenFor $service = null;
+
     public function __construct(User $user)
     {
         $this->owner = $user;
@@ -89,6 +92,18 @@ class ApiToken
     public function setImageToken(?string $imageToken): ApiToken
     {
         $this->imageToken = $imageToken;
+        return $this;
+    }
+
+    public function getService(): ?ApiTokenFor
+    {
+        return $this->service;
+    }
+
+    public function setService(ApiTokenFor $service): static
+    {
+        $this->service = $service;
+
         return $this;
     }
 }
