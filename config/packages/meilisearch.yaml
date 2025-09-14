@@ -16,10 +16,10 @@ meilisearch:
                 searchableAttributes:
                     - 'itemCodesForSearch'
                     - 'tagsForSearch'
-                    - 'brandForSearch'
+                    - 'brandForSearch.name'
                     - 'name'
-                    - 'categoriesForSearch'
-                    - 'collectionsForSearch'
+                    - 'categoriesForSearch.name'
+                    - 'collectionsForSearch.name'
                     - 'description'
                 rankingRules:
                     - 'words'
@@ -35,3 +35,6 @@ meilisearch:
                     - 'collections'
                     - 'status'
                     - 'embargodate'
+                    - 'brandForSearch.status'
+                    - 'categoriesForSearch.status'
+                    - 'collectionsForSearch.status'

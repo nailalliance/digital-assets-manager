@@ -19,7 +19,7 @@ class Categories
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[SerializerGroups('api_v2_taxonomy')]
+    #[SerializerGroups('api_v2_taxonomy', 'searchable')]
     private ?string $name = null;
 
     #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'parent')]
@@ -44,6 +44,7 @@ class Categories
     private Collection $restrictedGroups;
 
     #[ORM\Column(options: ['default' => true])]
+    #[SerializerGroups('searchable')]
     private ?bool $status = true;
 
     public function __construct()

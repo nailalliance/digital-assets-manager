@@ -534,19 +534,34 @@ class Assets
     #[SerializerGroups(['searchable'])]
     public function getBrandForSearch(): array
     {
-        return $this->brand->map(fn(Brands $brand) => $brand->getName())->toArray();
+        return $this->brand->map(function(Brands $brand) {
+            return [
+                'name' => $brand->getName(),
+                'status' => $brand->getStatus(),
+            ];
+        })->toArray();
     }
 
     #[SerializerGroups(['searchable'])]
     public function getCategoriesForSearch(): array
     {
-        return $this->categories->map(fn(Categories $cat) => $cat->getName())->toArray();
+        return $this->categories->map(function(Categories $cat) {
+            return [
+                'name' => $cat->getName(),
+                'status' => $cat->getStatus(),
+            ];
+        })->toArray();
     }
 
     #[SerializerGroups(['searchable'])]
     public function getCollectionsForSearch(): array
     {
-        return $this->collections->map(fn(Collections $col) => $col->getName())->toArray();
+        return $this->collections->map(function(Collections $col) {
+            return [
+                'name' => $col->getName(),
+                'status' => $col->getStatus(),
+            ];
+        })->toArray();
     }
 
     #[SerializerGroups(['searchable'])]

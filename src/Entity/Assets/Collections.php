@@ -18,7 +18,7 @@ class Collections
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[SerializerGroups('api_v2_taxonomy')]
+    #[SerializerGroups('api_v2_taxonomy', 'searchable')]
     private ?string $name = null;
 
     #[ORM\Column]
@@ -31,6 +31,7 @@ class Collections
     private Collection $assets;
 
     #[ORM\Column(options: ['default' => true])]
+    #[SerializerGroups('searchable')]
     private ?bool $status = true;
 
     public function __construct()

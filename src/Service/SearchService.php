@@ -32,10 +32,13 @@ class SearchService
             return ['ids' => [], 'hits' => [], 'total' => 0];
         }
 
+        $filters = [
+            'status=' . AssetStatusEnum::ACTIVE->value,
+        ];
+
         $searchParams = [
             'limit' => $limit,
             'offset' => $offset,
-            'filter' => 'status=' . AssetStatusEnum::ACTIVE->value,
         ];
 
         /** @var User $user */
@@ -45,14 +48,25 @@ class SearchService
         {
             $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
 
-            $searchParams['filter'] = 'embargodate >= ' . time();
+            $filters[] = 'embargodate >= ' . time();
 
             if (empty($allowedBrandIds)) {
-                $searchParams['filter'] = 'parent_brand_ids = 0';
+                $filters[] = 'parent_brand_ids = 0';
             } else {
-                $searchParams['filter'] = 'parent_brand_ids IN [' . implode(',', $allowedBrandIds) . ']';
+                $filters[] = 'parent_brand_ids IN [' . implode(',', $allowedBrandIds) . ']';
             }
         }
+
+        // Brands
+        $filters[] = "brandForSearch.status = true";
+
+        // Categories
+        $filters[] = "categoriesForSearch.status = true";
+
+        // Collections
+        $filters[] = "collectionsForSearch.status = true";
+
+        $searchParams['filter'] = join(' AND ' , $filters);
 
         // 1. Get the raw search results from Meilisearch
         $searchResults = $this->meilisearch->search(

@@ -37,3 +37,7 @@ services:
             -   method: setSecurity
                 arguments:
                     - '@security.helper'
+
+    # App\EventListener\MeilisearchAssetsAttributesSyncListener:
+    #     tags:
+    #         - { name: doctrine.event_subscriber, connection: default }
