@@ -2,6 +2,8 @@
 
 {% block title %}My Profile | {{ parent() }}{% endblock %}
 
+{# {% form_theme form 'tailwind_form_theme.html.twig' %}#}
+
 {% block body %}
     <h1 class="text-3xl font-bold mb-8">My Profile</h1>
 
@@ -21,11 +23,18 @@
             </div>
         {% endfor %}
 
-        <form action="{{ path('app_profile_api_token_create') }}" method="post">
-            <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                Generate Adobe Token
-            </button>
-        </form>
+        {# {{ form_start(form) }}#}
+        {#     {{ form_widget(form) }}#}
+        {#     <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">#}
+        {#          {{ button_label | default('Generate Token ') }}#}
+        {#     </button>#}
+        {# {{ form_end(form) }}#}
+
+         <form action="{{ path('app_profile_api_token_create') }}" method="post">
+              <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                  Generate Adobe Token
+              </button>
+         </form>
 
         <h3 class="text-lg font-semibold mt-8 mb-2">Your Tokens</h3>
         <ul class="divide-y divide-gray-200">

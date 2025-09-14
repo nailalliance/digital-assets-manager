@@ -4,8 +4,10 @@ namespace App\Entity;
 
 use App\Repository\ApiTokenRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 #[ORM\Entity(repositoryClass: ApiTokenRepository::class)]
+#[ORM\UniqueConstraint(name: "owner_service", columns: ["owner_id", "service"])]
 #[ORM\HasLifecycleCallbacks]
 class ApiToken
 {
@@ -30,7 +32,7 @@ class ApiToken
     #[ORM\Column(enumType: ApiTokenFor::class, options: ['default' => 'adobe'], index: 'service')]
     private ?ApiTokenFor $service = null;
 
-    public function __construct(User $user)
+    public function __construct(?User $user)
     {
         $this->owner = $user;
     }
