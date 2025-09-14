@@ -34,3 +34,4 @@ meilisearch:
                     - 'categories'
                     - 'collections'
                     - 'status'
+                    - 'embargodate'
