@@ -536,6 +536,7 @@ class Assets
     {
         return $this->brand->map(function(Brands $brand) {
             return [
+                'id' => $brand->getId(),
                 'name' => $brand->getName(),
                 'status' => $brand->getStatus(),
             ];
@@ -547,6 +548,7 @@ class Assets
     {
         return $this->categories->map(function(Categories $cat) {
             return [
+                'id' => $cat->getId(),
                 'name' => $cat->getName(),
                 'status' => $cat->getStatus(),
             ];
@@ -558,6 +560,7 @@ class Assets
     {
         return $this->collections->map(function(Collections $col) {
             return [
+                'id' => $col->getId(),
                 'name' => $col->getName(),
                 'status' => $col->getStatus(),
             ];

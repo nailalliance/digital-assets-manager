@@ -26,7 +26,14 @@ class SearchService
      * @param int $offset
      * @return array{ids: int[], hits:Assets[], total: int}
      */
-    public function search(string $query, int $limit, int $offset): array
+    public function search(
+        string $query,
+        int $limit,
+        int $offset,
+        ?array $brandIds = null,
+        ?array $categoryIds = null,
+        ?array $collectionIds = null,
+    ): array
     {
         if (empty($query)) {
             return ['ids' => [], 'hits' => [], 'total' => 0];
@@ -65,6 +72,18 @@ class SearchService
 
         // Collections
         $filters[] = "collectionsForSearch.status = true";
+
+        if (!empty($brandIds)) {
+            $filters[] = "brandForSearch.id IN [" . implode(',', $brandIds) . ']';
+        }
+
+        if (!empty($categoryIds)) {
+            $filters[] = "categoriesForSearch.id IN [" . implode(',', $categoryIds) . ']';
+        }
+
+        if (!empty($collectionIds)) {
+            $filters[] = "collectionsForSearch.id IN [" . implode(',', $collectionIds) . ']';
+        }
 
         $searchParams['filter'] = join(' AND ' , $filters);
 

@@ -49,7 +49,13 @@ class SearchController extends AbstractController
         $assets = [];
 
         if (!empty($query)) {
-            $searchResult = $searchService->search($query, 1000, 0);
+            $searchResult = $searchService->search(
+                query: $query,
+                limit: 1000,
+                offset: 0,
+                categoryIds: $selectedCategoryIds,
+                collectionIds: $selectedCollectionIds
+            );
             // $assetIdsFromSearch = $searchResult['ids'];
             // $totalAssets = $searchResult['total'];
 
@@ -85,13 +91,6 @@ class SearchController extends AbstractController
                         }
                     }
 
-                    if (!empty($selectedCategoryIds) > 0) {
-                        $universe += 1;
-                    }
-                    if (!empty($selectedCollectionIds) > 0) {
-                        $universe += 1;
-                    }
-
                     if (
                         array_intersect(
                             // $asset->getBrand()->map(fn($brand) => $brand->getId())->toArray()
@@ -103,21 +102,29 @@ class SearchController extends AbstractController
                         $votes += 1;
                     }
 
-                    if (array_intersect(
-                        $asset->getCategories()->map(fn($category) => $category->getId())->toArray(),
-                        $selectedCategoryIds
-                    ))
-                    {
-                        $votes += 1;
-                    }
+                    // if (!empty($selectedCategoryIds) > 0) {
+                    //     $universe += 1;
+                    // }
+                    // if (!empty($selectedCollectionIds) > 0) {
+                    //     $universe += 1;
+                    // }
 
-                    if (array_intersect(
-                        $asset->getCollections()->map(fn($collection) => $collection->getId())->toArray(),
-                        $selectedCollectionIds
-                    ))
-                    {
-                        $votes += 1;
-                    }
+
+                    // if (array_intersect(
+                    //     $asset->getCategories()->map(fn($category) => $category->getId())->toArray(),
+                    //     $selectedCategoryIds
+                    // ))
+                    // {
+                    //     $votes += 1;
+                    // }
+                    //
+                    // if (array_intersect(
+                    //     $asset->getCollections()->map(fn($collection) => $collection->getId())->toArray(),
+                    //     $selectedCollectionIds
+                    // ))
+                    // {
+                    //     $votes += 1;
+                    // }
 
                     return $universe === $votes;
                 }

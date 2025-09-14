@@ -38,3 +38,6 @@ meilisearch:
                     - 'brandForSearch.status'
                     - 'categoriesForSearch.status'
                     - 'collectionsForSearch.status'
+                    - 'brandForSearch.id'
+                    - 'categoriesForSearch.id'
+                    - 'collectionsForSearch.id'
