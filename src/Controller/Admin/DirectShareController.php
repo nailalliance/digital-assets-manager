@@ -39,7 +39,8 @@ class DirectShareController extends AbstractController
 
         $server->event()->addListener('tus-server.upload.complete', [$this, 'onUploadComplete']);
 
-        return $server->serve()->send();
+        // return $server->serve()->send();
+        return $server->serve();
     }
 
     public function onUploadComplete(TusEvent $event): void
