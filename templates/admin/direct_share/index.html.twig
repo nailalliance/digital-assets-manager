@@ -6,7 +6,8 @@
     <div class="max-w-4xl mx-auto" data-controller="direct-share">
         <div class="bg-white rounded-lg shadow-xl p-8">
             <h1 class="text-3xl font-bold text-gray-900 mb-2">Direct Share</h1>
-            <p class="text-gray-600 mb-6">Upload one or more files to generate a temporary, shareable download link.</p>
+            {# <p class="text-gray-600 mb-6">Upload one or more files to generate a temporary, shareable download link.</p> #}
+            <p class="text-gray-600 mb-6">Upload one file to generate a temporary, shareable download link.</p>
 
             <form data-action="submit->direct-share#upload">
                 {# Dropzone Area #}
@@ -16,7 +17,8 @@
                     <div class="pointer-events-none">
                         <svg class="w-12 h-12 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V16a4 4 0 01-4 4H7z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v6m-3-3h6"></path></svg>
                         <p class="mt-4 text-lg text-gray-600">
-                            <span class="font-semibold text-violet-600">Click to upload</span> or drag and drop files
+                            <span class="font-semibold text-violet-600">Click to upload</span> or drag and drop file
+                            {# <span class="font-semibold text-violet-600">Click to upload</span> or drag and drop files #}
                         </p>
                         <p class="mt-1 text-sm text-gray-500" data-direct-share-target="fileList">No files selected</p>
                     </div>
