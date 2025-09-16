@@ -80,6 +80,7 @@ export default class extends Controller {
 
         const upload = new tus.Upload(file, {
             endpoint: endpoint,
+            chunkSize: 100*1024*1024, // 100 MB
             retryDelays: [0, 3000, 5000, 10000, 20000],
             metadata: {
                 filename: file.name,
