@@ -66,60 +66,82 @@ class PublicDownloadListController extends AbstractController
             $zipFileName = preg_replace('/[^a-zA-Z0-9\-\_]/', '', $downloadList->getName()) . '.zip';
         }
 
-        dd($temporaryFiles);
-
-        $response = new StreamedResponse(function () use ($zipFileName, $temporaryFiles, $request) {
+        if (!empty($temporaryFiles)) {
+            $filename = "";
             foreach ($temporaryFiles as $fileData) {
-                if (file_exists($fileData['path'])) {
-                    $file = $fileData['path'];
-                    $stream = fopen($file, 'rb');
+                $filename = $fileData['originalName'];
+                // TODO: For now, this will only download one file, so I will break here.
+                // In future, this needs to change.
+                break;
+            }
 
-                    while (!feof($stream)) {
-                        echo fread($stream, 8 * 1024);
-                        flush();
+            $response = new StreamedResponse(function () use (&$filename, $temporaryFiles) {
+                foreach ($temporaryFiles as $fileData) {
+                    if (file_exists($fileData['path'])) {
+                        $file = $fileData['path'];
+                        $filename = $fileData['originalName'];
+                        $stream = fopen($file, 'rb');
+
+                        while (!feof($stream)) {
+                            print(fread($stream, 8 * 1024));
+                            flush();
+                        }
+                        fclose($stream);
                     }
-                    fclose($stream);
+                    // TODO: For now, this will only download one file, so I will break here.
+                    // In future, this needs to change.
+                    break;
+                }
+            });
+
+            $response->headers->set('Content-Type', 'application/octet-stream');
+            $response->headers->set('Content-Disposition', 'attachment; filename="'.$filename.'"');
+
+            return $response;
+        }
+
+        $response = new StreamedResponse(function() use ($downloadList, $temporaryFiles, $zipFileName, $entityManager, $request, $oneTimeLink) {
+            $zip = new ZipStream(outputName: $zipFileName);
+
+            // Handle assets from a permanent DownloadList
+            if ($downloadList) {
+                foreach ($downloadList->getAssets() as $asset) {
+                    if (file_exists($asset->getFilePath())) {
+                        $log = new Logs();
+                        $log->setAsset($asset);
+                        $log->setIpAddress($request->getClientIp());
+                        $log->setOneTimeLink($oneTimeLink);
+                        $entityManager->persist($log);
+
+                        $zip->addFileFromPath(basename($asset->getFilePath()), $asset->getFilePath());
+                    }
                 }
             }
+            // // Handle files from a temporary Direct Share
+            // elseif (!empty($temporaryFiles)) {
+            //     foreach ($temporaryFiles as $fileData) {
+            //         if (file_exists($fileData['path'])) {
+            //             // $zip->addFileFromPath($fileData['originalName'], $fileData['path']);
+            //             $file = $fileData['path'];
+            //             $stream = fopen($file, 'rb');
+            //
+            //             while (!feof($stream)) {
+            //                 $zip->addFileFromStream(
+            //                     fileName: $fileData['originalName'],
+            //                     stream: $stream,
+            //                 );
+            //             }
+            //             fclose($stream);
+            //         }
+            //     }
+            // }
+
+            $entityManager->flush();
+
+            $zip->finish();
         });
 
-        $response->headers->set('Content-Type', 'application/zip');
-        $response->headers->set('Content-Disposition', 'attachment; filename="'.$zipFileName.'"');
-
         return $response;
-
-        // $response = new StreamedResponse(function() use ($downloadList, $temporaryFiles, $zipFileName, $entityManager, $request, $oneTimeLink) {
-        //     $zip = new ZipStream(outputName: $zipFileName);
-        //
-        //     // Handle assets from a permanent DownloadList
-        //     if ($downloadList) {
-        //         foreach ($downloadList->getAssets() as $asset) {
-        //             if (file_exists($asset->getFilePath())) {
-        //                 $log = new Logs();
-        //                 $log->setAsset($asset);
-        //                 $log->setIpAddress($request->getClientIp());
-        //                 $log->setOneTimeLink($oneTimeLink);
-        //                 $entityManager->persist($log);
-        //
-        //                 $zip->addFileFromPath(basename($asset->getFilePath()), $asset->getFilePath());
-        //             }
-        //         }
-        //     }
-        //     // Handle files from a temporary Direct Share
-        //     elseif (!empty($temporaryFiles)) {
-        //         foreach ($temporaryFiles as $fileData) {
-        //             if (file_exists($fileData['path'])) {
-        //                 $zip->addFileFromPath($fileData['originalName'], $fileData['path']);
-        //             }
-        //         }
-        //     }
-        //
-        //     $entityManager->flush();
-        //
-        //     $zip->finish();
-        // });
-        //
-        // return $response;
     }
 
     /**
