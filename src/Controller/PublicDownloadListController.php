@@ -66,6 +66,8 @@ class PublicDownloadListController extends AbstractController
             $zipFileName = preg_replace('/[^a-zA-Z0-9\-\_]/', '', $downloadList->getName()) . '.zip';
         }
 
+        dd($temporaryFiles);
+
         $response = new StreamedResponse(function () use ($zipFileName, $temporaryFiles, $request) {
             foreach ($temporaryFiles as $fileData) {
                 if (file_exists($fileData['path'])) {
@@ -73,8 +75,8 @@ class PublicDownloadListController extends AbstractController
                     $stream = fopen($file, 'rb');
 
                     while (!feof($stream)) {
-                        echo fread($stream, 1024 * 1024); // Read in 1MB chunks
-                        flush(); // Flush the output buffer
+                        echo fread($stream, 8 * 1024);
+                        flush();
                     }
                     fclose($stream);
                 }
