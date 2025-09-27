@@ -32,6 +32,7 @@ class ImportAssetsCommand extends Command
             ->addOption('filePathRoot', 'a', InputOption::VALUE_OPTIONAL, 'The root path to prepend to filePaths.')
             ->addOption('thumbnailPathRoot', 't', InputOption::VALUE_OPTIONAL, 'The root path to prepend to thumbnailPaths.')
             ->addOption('limit', null, InputOption::VALUE_OPTIONAL, 'Limit the number of items to import for testing.', 0)
+            ->addOption('offset', null, InputOption::VALUE_OPTIONAL, 'Start at row number.', 1)
         ;
     }
 
@@ -43,6 +44,7 @@ class ImportAssetsCommand extends Command
         $filePathRoot = $input->getOption('filePathRoot');
         $thumbnailPathRoot = $input->getOption('thumbnailPathRoot');
         $limit = (int) $input->getOption('limit');
+        $offset = (int) $input->getOption('offset');
 
         if (!file_exists($filePath)) {
             $io->error(sprintf('The file "%s" does not exist.', $filePath));
@@ -68,9 +70,9 @@ class ImportAssetsCommand extends Command
             $io->progressStart($progressTotal);
 
             if ($fileExtension === 'csv') {
-                $this->processCsvInChunks($filePath, $io, $filePathRoot, $thumbnailPathRoot, $limit);
+                $this->processCsvInChunks($filePath, $io, $filePathRoot, $thumbnailPathRoot, $limit, $offset);
             } elseif ($fileExtension === 'xml') {
-                $this->processXmlInChunks($filePath, $io, $filePathRoot, $thumbnailPathRoot, $limit);
+                $this->processXmlInChunks($filePath, $io, $filePathRoot, $thumbnailPathRoot, $limit, $offset);
             } else {
                 $io->error('Unsupported file type. Please provide a ".csv" or ".xml" file.');
                 return Command::FAILURE;
@@ -88,7 +90,7 @@ class ImportAssetsCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function processCsvInChunks(string $filePath, SymfonyStyle $io, ?string $filePathRoot, ?string $thumbnailPathRoot, int $limit): void
+    private function processCsvInChunks(string $filePath, SymfonyStyle $io, ?string $filePathRoot, ?string $thumbnailPathRoot, int $limit, int $offset): void
     {
         $handle = fopen($filePath, 'r');
         $header = fgetcsv($handle);
@@ -96,6 +98,11 @@ class ImportAssetsCommand extends Command
         $importedCount = 0;
 
         while (($row = fgetcsv($handle)) !== false) {
+            if ($offset > 1) {
+                $offset--;
+                continue;
+            }
+
             if ($limit > 0 && $importedCount >= $limit) {
                 break;
             }
@@ -128,7 +135,7 @@ class ImportAssetsCommand extends Command
         fclose($handle);
     }
 
-    private function processXmlInChunks(string $filePath, SymfonyStyle $io, ?string $filePathRoot, ?string $thumbnailPathRoot, int $limit): void
+    private function processXmlInChunks(string $filePath, SymfonyStyle $io, ?string $filePathRoot, ?string $thumbnailPathRoot, int $limit, int $offset): void
     {
         $reader = new \XMLReader();
         $reader->open($filePath);
@@ -138,6 +145,11 @@ class ImportAssetsCommand extends Command
         while ($reader->read() && $reader->name !== 'table');
 
         while ($reader->name === 'table') {
+            if ($offset > 1) {
+                $offset--;
+                continue;
+            }
+
             if ($limit > 0 && $importedCount >= $limit) {
                 break;
             }
