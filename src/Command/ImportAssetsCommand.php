@@ -147,6 +147,7 @@ class ImportAssetsCommand extends Command
         while ($reader->name === 'table') {
             if ($offset > 1) {
                 $offset--;
+                $reader->next('table');
                 continue;
             }
 
