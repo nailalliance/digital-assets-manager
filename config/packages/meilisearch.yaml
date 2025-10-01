@@ -14,8 +14,8 @@ meilisearch:
 
             settings:
                 searchableAttributes:
-                    - 'itemCodesForSearch'
                     - 'name'
+                    - 'itemCodesForSearch'
                     - 'tagsForSearch'
                     - 'brandForSearch.name'
                     - 'categoriesForSearch.name'
