@@ -22,12 +22,12 @@ meilisearch:
                     - 'collectionsForSearch.name'
                     - 'description'
                 rankingRules:
+                    - 'exactness'
                     - 'words'
                     - 'typo'
                     - 'proximity'
                     - 'attribute'
                     - 'sort'
-                    - 'exactness'
                 filterableAttributes:
                     - 'parent_brand_ids'
                     - 'brand'
