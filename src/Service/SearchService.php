@@ -8,6 +8,7 @@ use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Meilisearch\Bundle\SearchService as MiliSearchService;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Log\Logger;
 
 class SearchService
 {
@@ -71,7 +72,7 @@ class SearchService
         $filters[] = "categoriesForSearch.status = true";
 
         // Collections
-        $filters[] = "collectionsForSearch.status = true";
+        // $filters[] = "collectionsForSearch.status = true";
 
         if (!empty($brandIds)) {
             $filters[] = "brandForSearch.id IN [" . implode(',', $brandIds) . ']';
@@ -86,6 +87,8 @@ class SearchService
         }
 
         $searchParams['filter'] = join(' AND ' , $filters);
+
+        (new Logger())->info("filterValues: ".  print_r($searchParams, true));
 
         // 1. Get the raw search results from Meilisearch
         $searchResults = $this->meilisearch->search(
