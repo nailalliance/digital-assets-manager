@@ -12,7 +12,10 @@ meilisearch:
             serializer_groups:
                 - 'searchable'
 
+
             settings:
+                typoTolerance:
+                    enabled: false
                 searchableAttributes:
                     - 'name'
                     - 'itemCodesForSearch'
