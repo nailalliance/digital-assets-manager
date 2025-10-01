@@ -16,6 +16,8 @@
         "doctrine/doctrine-bundle": "^2.15",
         "doctrine/doctrine-migrations-bundle": "^3.4",
         "doctrine/orm": "^3.5",
+        "google-gemini-php/client": "^2.6",
+        "google/cloud-ai-platform": "^1.38",
         "maennchen/zipstream-php": "*",
         "meilisearch/search-bundle": "^0.15.8",
         "nelmio/cors-bundle": "^2.5",

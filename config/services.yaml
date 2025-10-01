@@ -6,6 +6,8 @@
 parameters:
     upload_dir: '%kernel.project_dir%/files'
     thumbnail_dir: '%kernel.project_dir%/files-thumbs'
+    ai_dir: '%kernel.project_dir%/files-ai'
+    cag_dir: '%kernel.project_dir%/docs/business'
     direct_uploads_dir: '%kernel.project_dir%/files-direct'
     srgb_profile_path: '%kernel.project_dir%/config/color-icc/rgb/AdobeRGB1998.icc'
     cmyk_profile_path: '%kernel.project_dir%/config/color-icc/cmyk/USWebCoatedSWOP.icc'
@@ -37,6 +39,17 @@ services:
             -   method: setSecurity
                 arguments:
                     - '@security.helper'
+
+    App\Controller\Chat\ChatController:
+        arguments:
+            $geminiApiKey: '%env(GEMINI_API_KEY)%'
+            $gcpProjectId: '%env(GOOGLE_PROJECT_ID)%'
+            $gcpLocation: '%env(GOOGLE_LOCATION)%'
+
+    App\Command\CacheBusinessInfoCommand:
+        arguments:
+            $geminiApiKey: '%env(GEMINI_API_KEY)%'
+            $cagDir: '%cag_dir%'
 
     # App\EventListener\MeilisearchAssetsAttributesSyncListener:
     #     tags:

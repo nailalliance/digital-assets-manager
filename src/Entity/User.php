@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Entity\Assets\Brands;
 use App\Entity\Boards\Board;
 use App\Entity\Boards\BoardCollaborator;
+use App\Entity\Chat\Chat;
 use App\Entity\Downloads\Lists;
 use App\Entity\Restrictions\Groups;
 use App\Repository\UserRepository;
@@ -70,6 +71,12 @@ class User implements UserInterface
     #[ORM\OneToMany(targetEntity: ApiToken::class, mappedBy: 'owner')]
     private Collection $apiTokens;
 
+    /**
+     * @var Collection<int, Chat>
+     */
+    #[ORM\OneToMany(targetEntity: Chat::class, mappedBy: 'user')]
+    private Collection $chats;
+
     public function __construct()
     {
         $this->groups = new ArrayCollection();
@@ -78,6 +85,7 @@ class User implements UserInterface
         $this->boardCollaborations = new ArrayCollection();
         $this->restrictedBrands = new ArrayCollection();
         $this->apiTokens = new ArrayCollection();
+        $this->chats = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -317,6 +325,36 @@ class User implements UserInterface
             // set the owning side to null (unless already changed)
             if ($apiToken->getOwner() === $this) {
                 $apiToken->setOwner(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Chat>
+     */
+    public function getChats(): Collection
+    {
+        return $this->chats;
+    }
+
+    public function addChat(Chat $chat): static
+    {
+        if (!$this->chats->contains($chat)) {
+            $this->chats->add($chat);
+            $chat->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeChat(Chat $chat): static
+    {
+        if ($this->chats->removeElement($chat)) {
+            // set the owning side to null (unless already changed)
+            if ($chat->getUser() === $this) {
+                $chat->setUser(null);
             }
         }
 

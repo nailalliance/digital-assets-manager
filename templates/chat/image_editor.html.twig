@@ -1,0 +1,281 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Image Editor - {{ chat.name }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+    <style>
+        /* Basic styles for the modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 900px; border-radius: 8px; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        #dam-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 50vh; overflow-y: auto; }
+        #dam-results img { width: 100%; height: 100px; object-fit: cover; cursor: pointer; border-radius: 4px; border: 2px solid transparent; }
+        #dam-results img.selected { border-color: #3b82f6; }
+        #prompt-tray img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
+    </style>
+
+    <div class="flex flex-col md:flex-row h-[calc(100vh-100px)] max-w-[1000px] gap-4">
+
+        <div class="w-full md:w-2/3 lg:w-3/4 bg-gray-100 p-4 rounded-lg shadow-inner">
+            <h2 class="text-xl font-bold mb-4">Generated Images</h2>
+            <div id="image-gallery" class="h-[calc(100%-45px)] snap-y snap-mandatory overflow-y-auto flex flex-col gap-4 p-4">
+                {# Images from previous messages will be loaded here #}
+                {% for message in chat.message %}
+                    {% if message.imageUrl %}
+                        <div class="relative group" data-image-url="{{ message.imageUrl }}">
+                            <img src="{{ message.imageUrl }}" alt="Generated Image" class="w-full h-auto object-cover rounded-lg opacity-50">
+                            <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-4 opacity-0 max-h-80 top-auto bottom-0 p-2 group-hover:opacity-50 transition-opacity">
+                                <button class="use-image-btn text-white bg-blue-500 px-3 py-1 rounded text-sm">Use this Image</button>
+                                <a href="{{ message.imageUrl }}" download class="download-btn text-white bg-green-500 px-3 py-1 rounded text-sm">Download</a>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="w-full md:w-1/3 lg:w-1/4 bg-white p-4 rounded-lg shadow-lg flex flex-col">
+            <h1 class="text-2xl font-bold mb-4">{{ chat.name }}</h1>
+            <div id="chat-box" class="border p-4 flex-grow overflow-y-scroll mb-4">
+                {% for message in chat.message %}
+                    <div class="mb-2"><strong class="capitalize">You:</strong>
+                        <div class="text-gray-700">{{ message.question }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div id="prompt-tray" class="mb-2"></div>
+
+            <div class="relative">
+                <textarea id="chat-input" class="w-full border p-2 rounded-lg" placeholder="Describe the changes you want..."></textarea>
+                <div id="spinner" class="absolute right-2 top-2 h-6 w-6 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent hidden" role="status"></div>
+            </div>
+            <div class="flex mt-2 gap-2">
+                <button id="import-dam-btn" class="flex-grow bg-gray-500 text-white p-2 rounded-lg hover:bg-gray-600 text-sm">Import from DAM</button>
+                <button id="send-image" class="flex-grow bg-violet-600 text-white p-2 rounded-lg hover:bg-violet-700 text-sm">Generate Image</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dam-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 class="text-xl font-bold mb-4">Search & Import Asset</h2>
+            <input type="text" id="dam-search-input" class="w-full border p-2 rounded-lg mb-4" placeholder="Search for images...">
+            <div id="dam-results"></div>
+            <button id="import-selected-dam-btn" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg disabled:bg-gray-300" disabled>Import Selected Image</button>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            const state = {
+                currentlyEditingImage: null,
+                importedDamImage: null, // Holds the URL of the image imported from DAM
+                selectedDamImage: null  // Temporary holder for modal selection
+            };
+
+            // --- ELEMENTS ---
+            const gallery = document.getElementById('image-gallery');
+            const chatBox = document.getElementById('chat-box');
+            const chatInput = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-image');
+            const spinner = document.getElementById('spinner');
+
+            // DAM Modal Elements
+            const modal = document.getElementById('dam-modal');
+            const damSearchInput = document.getElementById('dam-search-input');
+            const damResults = document.getElementById('dam-results');
+            const importDamBtn = document.getElementById('import-dam-btn');
+            const importSelectedBtn = document.getElementById('import-selected-dam-btn');
+            const closeModalBtn = document.querySelector('.close');
+            const promptTray = document.getElementById('prompt-tray');
+
+            // --- HELPER FUNCTIONS ---
+            const scrollToBottom = (element) => {
+                element.scrollTop = element.scrollHeight;
+            };
+
+            const setLoading = (isLoading) => {
+                spinner.style.display = isLoading ? 'block' : 'none';
+                chatInput.disabled = isLoading;
+                sendBtn.disabled = isLoading;
+            };
+
+            const addChatMessage = (sender, message) => {
+                const msg = document.createElement('div');
+                msg.classList.add('mb-2');
+                msg.innerHTML = `<strong class="capitalize">${sender}:</strong> <div class="text-gray-700">${message}</div>`;
+                chatBox.appendChild(msg);
+                scrollToBottom(chatBox);
+            };
+
+            const addImageToGallery = (imageUrl) => {
+                const div = document.createElement('div');
+                div.className = 'relative group';
+                div.dataset.imageUrl = imageUrl;
+                div.innerHTML = `
+            <img src="${imageUrl}" alt="Generated Image" class="w-full h-auto object-cover rounded-lg">
+            <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-4 opacity-0 max-h-80 top-auto bottom-0 p-2 group-hover:opacity-50 transition-opacity">
+                <button class="use-image-btn text-white bg-blue-500 px-3 py-1 rounded text-sm">Use this Image</button>
+                <a href="${imageUrl}" download class="download-btn text-white bg-green-500 px-3 py-1 rounded text-sm">Download</a>
+            </div>
+        `;
+                gallery.appendChild(div);
+
+                // Make the newly added image the one we're editing
+                state.currentlyEditingImage = imageUrl;
+                updateGalleryHighlights();
+                scrollToBottom(gallery);
+            };
+
+            const updateGalleryHighlights = () => {
+                gallery.querySelectorAll('img').forEach(img => {
+                    const parent = img.closest('[data-image-url]');
+                    if (parent.dataset.imageUrl === state.currentlyEditingImage) {
+                        img.classList.add('ring-4', 'ring-blue-500', 'currently-selected-image');
+                        img.classList.remove('opacity-50');
+                    } else {
+                        img.classList.remove('ring-4', 'ring-blue-500', 'currently-selected-image');
+                        img.classList.add('opacity-50');
+                    }
+                });
+            };
+
+            const updatePromptTray = () => {
+                promptTray.innerHTML = '';
+                if (state.importedDamImage) {
+                    promptTray.innerHTML = `
+                <div class="relative inline-block">
+                    <img src="${state.importedDamImage}" alt="Imported DAM Image">
+                    <button id="remove-dam-image" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">&times;</button>
+                </div>`;
+                    document.getElementById('remove-dam-image').addEventListener('click', () => {
+                        state.importedDamImage = null;
+                        updatePromptTray();
+                    });
+                }
+            };
+
+            // --- API CALLS ---
+            const generateImage = async () => {
+                const prompt = chatInput.value;
+                if (!prompt) return;
+
+                addChatMessage('You', prompt);
+                chatInput.value = '';
+                setLoading(true);
+
+                const payload = {
+                    prompt: prompt,
+                    currentlyEditingImage: state.currentlyEditingImage,
+                    importedDamImage: state.importedDamImage
+                };
+
+                // Clear the imported DAM image from state after sending
+                state.importedDamImage = null;
+                updatePromptTray();
+
+                try {
+                    const response = await fetch('/chat/{{ chat.id }}/image', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    if (data.feedback) {
+                        addChatMessage('System', data.feedback);
+                    }
+
+                    if (data.imageUrl && data.imageUrl.length > 0) {
+                        data.imageUrl.forEach(url => {
+                            addImageToGallery(url);
+                        });
+                    }
+
+                } catch (error) {
+                    addChatMessage('Error', error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const performDamSearch = async () => {
+                const query = damSearchInput.value;
+                if (query.length < 2) return;
+
+                // Note: You need to create this API endpoint. I'll add it in the controller.
+                const response = await fetch(`/chat/api/dam/search?q=${encodeURIComponent(query)}&brandId={{ chat.brand.id }}`);
+                const results = await response.json();
+                damResults.innerHTML = '';
+                state.selectedDamImage = null;
+                importSelectedBtn.disabled = true;
+
+                results.forEach(asset => {
+                    const img = document.createElement('img');
+                    img.src = asset.thumbnailUrl;
+                    img.title = asset.title;
+                    img.dataset.originalUrl = asset.originalUrl;
+                    img.addEventListener('click', () => {
+                        // Deselect others
+                        damResults.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
+                        // Select this one
+                        img.classList.add('selected');
+                        state.selectedDamImage = asset.originalUrl;
+                        importSelectedBtn.disabled = false;
+                    });
+                    damResults.appendChild(img);
+                });
+            };
+
+            // --- EVENT LISTENERS ---
+            sendBtn.addEventListener('click', generateImage);
+            importDamBtn.addEventListener('click', () => modal.style.display = 'block');
+            closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
+            window.addEventListener('click', (event) => {
+                if (event.target == modal) modal.style.display = 'none';
+            });
+
+            let debounceTimer;
+            damSearchInput.addEventListener('keyup', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(performDamSearch, 300);
+            });
+
+            importSelectedBtn.addEventListener('click', () => {
+                if (state.selectedDamImage) {
+                    state.importedDamImage = state.selectedDamImage;
+                    updatePromptTray();
+                    modal.style.display = 'none';
+                }
+            });
+
+            gallery.addEventListener('click', (e) => {
+                if (e.target.classList.contains('use-image-btn')) {
+                    const imageUrl = e.target.closest('[data-image-url]').dataset.imageUrl;
+                    state.currentlyEditingImage = imageUrl;
+                    addChatMessage('System', `Set image ${imageUrl.split('/').pop()} as the current editing base.`);
+                    updateGalleryHighlights();
+                }
+            });
+
+            // --- INITIALIZATION ---
+            // Set the last image in the gallery as the initial editing image
+            const lastImageDiv = gallery.querySelector('[data-image-url]:last-child');
+            if (lastImageDiv) {
+                state.currentlyEditingImage = lastImageDiv.dataset.imageUrl;
+            }
+            updateGalleryHighlights();
+            scrollToBottom(gallery);
+            scrollToBottom(chatBox);
+        });
+    </script>
+{% endblock %}

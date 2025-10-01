@@ -1,0 +1,86 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}AI Chat - {{ chat.name }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+    <div class="container mx-auto mt-10">
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h1 class="text-2xl font-bold mb-4" contenteditable="true">{{ chat.name }}</h1>
+            <div id="chat-box" class="border p-4 h-96 overflow-y-scroll mb-4">
+                {% for message in chat.message %}
+                    <div><strong>You:</strong> {{ message.question }}</div>
+                    {% if message.answer != 'Blocked by guardrail' %}
+                        <div><strong>SYSTEM:</strong> {{ message.answer }}</div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <div class="flex">
+                <input type="text" id="chat-input" class="flex-grow border p-2 rounded-l-lg" placeholder="Text a message...">
+                <button id="send-text" class="bg-blue-500 text-white p-2">Send Text</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatBox = document.getElementById('chat-box');
+            const chatInput = document.getElementById('chat-input');
+            const sendTextBtn = document.getElementById('send-text');
+            // const sendImageBtn = document.getElementById('send-image');
+
+            const addMessage = (sender, message) => {
+                const messageElement = document.createElement('div');
+                messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+                chatBox.appendChild(messageElement);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            };
+
+            const generateText = async () => {
+                const prompt = chatInput.value;
+                addMessage('You', prompt);
+                chatInput.value = '';
+
+                const response = await fetch('/chat/{{ chat.id }}/text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const data = await response.json();
+                addMessage('SYSTEM', data.text || data.error);
+            };
+
+            {#const generateImage = async () => {#}
+            {#    const prompt = chatInput.value;#}
+            {#    addMessage('You', `Generating image for: ${prompt}`);#}
+            {#    chatInput.value = '';#}
+
+            {#    const response = await fetch('/chat/{{ chat.id }}/image', {#}
+            {#        method: 'POST',#}
+            {#        headers: { 'Content-Type': 'application/json' },#}
+            {#        body: JSON.stringify({ prompt: prompt })#}
+            {#    });#}
+
+            {#    const data = await response.json();#}
+
+            {#    if (data.feedback) {#}
+            {#        addMessage('System', data.feedback);#}
+            {#    }#}
+
+            {#    if (data.imageUrl) {#}
+            {#        addMessage('SYSTEM', `<img src="${data.imageUrl}" alt="Generated Image" class="w-[100%]">`);#}
+            {#    } else {#}
+            {#        addMessage('SYSTEM', data.error);#}
+            {#    }#}
+            {#};#}
+
+            sendTextBtn.addEventListener('click', generateText);
+            // sendImageBtn.addEventListener('click', generateImage);
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    generateText();
+                }
+            });
+        });
+    </script>
+{% endblock %}
