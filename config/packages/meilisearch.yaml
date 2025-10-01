@@ -24,10 +24,10 @@ meilisearch:
                 rankingRules:
                     - 'exactness'
                     - 'words'
-                    - 'typo'
                     - 'proximity'
                     - 'attribute'
                     - 'sort'
+                    - 'typo'
                 filterableAttributes:
                     - 'parent_brand_ids'
                     - 'brand'
