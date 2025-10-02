@@ -12,22 +12,25 @@ meilisearch:
             serializer_groups:
                 - 'searchable'
 
+
             settings:
+                typoTolerance:
+                    enabled: false
                 searchableAttributes:
+                    - 'name'
                     - 'itemCodesForSearch'
                     - 'tagsForSearch'
                     - 'brandForSearch.name'
-                    - 'name'
                     - 'categoriesForSearch.name'
                     - 'collectionsForSearch.name'
                     - 'description'
                 rankingRules:
+                    - 'exactness'
                     - 'words'
-                    - 'typo'
                     - 'proximity'
                     - 'attribute'
                     - 'sort'
-                    - 'exactness'
+                    - 'typo'
                 filterableAttributes:
                     - 'parent_brand_ids'
                     - 'brand'
