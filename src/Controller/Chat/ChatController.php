@@ -24,6 +24,7 @@ use Gemini\Enums\Role;
 use Gemini\Resources\GenerativeModel;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -53,13 +54,15 @@ class ChatController extends AbstractController
 
     private GenerativeModel $imageGenerativeModel;
 
+    private GenerativeModel $videoGenerativeModel;
+
     private GenerativeModel $textGenerativeModel;
 
     public function __construct(
         private EntityManagerInterface $entityManager,
         private SearchService          $searchService,
         private ImageProcessorService  $imageProcessor,
-        string                         $geminiApiKey,
+        private string                 $geminiApiKey,
         private string                 $gcpProjectId,
         private string                 $gcpLocation,
         string                         $cagDir,
@@ -110,6 +113,16 @@ class ChatController extends AbstractController
             // ->withSafetySetting($safetySettingDangerousContent)
             // ->withSafetySetting($safetySettingHateSpeech)
             ->withGenerationConfig($imageGenerationConfig);
+
+        $videoGenerationConfig = new GenerationConfig(
+            maxOutputTokens: 2048, // Videos may require more tokens
+            temperature: 0.9,
+            // responseModalities: [ResponseModality::MODALITY_UNSPECIFIED] // Specify VIDEO modality
+        );
+
+        $this->videoGenerativeModel = $this->geminiClient
+            ->generativeModel(model: 'veo-3.0-fast-generate-001')
+            ->withGenerationConfig($videoGenerationConfig);
 
         $this->textGenerativeModel = $this->geminiClient
             ->generativeModel(model: 'gemini-2.0-flash')
@@ -245,6 +258,131 @@ class ChatController extends AbstractController
 
         } catch (\Exception $e) {
             return $this->json(['error' => 'Image Error: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/{id}/video', name: 'app_chat_video_gemini', methods: ['POST'])]
+    public function generateVideo(Request $request, Chat $chat, MessageRepository $messageRepository): JsonResponse
+    {
+        $payload = $request->toArray();
+        $promptText = $payload['prompt'];
+        $user = $this->getUser();
+        $feedbackMessage = "";
+        // $modelId = 'veo-3.0-fast-generate-001';
+        // $modelId = 'veo-2.0-generate-001';
+        $modelId = 'veo-3.0-generate-001';
+
+        $instances = [
+            'prompt' => $this->applyModelAgnosticPrefix($promptText),
+        ];
+
+
+        $baseImageToEdit = $payload['currentlyEditingImage'] ?? null;
+        if ($baseImageToEdit) {
+            $blob = $this->createBlobFromLocalUrl($baseImageToEdit);
+            if ($blob) {
+                $instances['image'] = [
+                    'bytesBase64Encoded' => $blob->data, //"blob->data",
+                    'mimeType' => $blob->mimeType->value,
+                ];
+                $feedbackMessage .= "Editing specified image. ";
+            }
+        }
+
+        $importedDamImageId = $payload['importedDamImageId'] ?? null;
+        if ($importedDamImageId) {
+            $asset = $this->entityManager->getRepository(Assets::class)->find($importedDamImageId);
+            if (!empty($asset)) {
+                $blob = $this->createBlobFromLocalUrl($asset->getFilePath());
+                if ($blob) {
+                    $instances['image'] = [
+                        'bytesBase64Encoded' => $blob->data, //"blob->data",
+                        'mimeType' => $blob->mimeType->value,
+                    ];
+                    $feedbackMessage .= "Including imported DAM image. ";
+                }
+            }
+        }
+
+        $jsonBody = [
+            'instances' => [$instances],
+            'parameters' => [
+                'aspectRatio' => '16:9',
+                'sampleCount' => 1,
+                'durationSeconds' => 8,
+                // 'personGeneration' => 'ALLOW_ADULT',
+                // 'personGeneration' => 'ALLOW_ALL',
+            ],
+        ];
+
+        try {
+            // $startUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$modelId}:predictLongRunning?key={$this->geminiApiKey}";
+            $startUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$modelId}:predictLongRunning";
+
+            $client = HttpClient::create();
+
+            $startResponse = $client->request('POST', $startUrl, [
+                'json' => $jsonBody,
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'x-goog-api-key' => $this->geminiApiKey,
+                ],
+            ]);
+
+            // dd($startResponse->getContent(false));
+
+            $operationName = $startResponse->toArray()['name'];
+
+            $logger = new Logger();
+
+            $logger->info("GENAI OPERATION NAME " . $operationName);
+
+            if (!$operationName) {
+                throw new \Exception("Failed to start video generation operation.");
+            }
+
+            // $checkUrl = "https://generativelanguage.googleapis.com/v1beta/{$operationName}?key={$this->geminiApiKey}";
+            $checkUrl = "https://generativelanguage.googleapis.com/v1beta/{$operationName}";
+            $maxAttempts = 30;
+            $videoUri = null;
+
+            $logger->info($checkUrl);
+
+            for ($i = 1; $i <= $maxAttempts; $i++) {
+                sleep(10);
+                $checkResponse = $client->request('GET', $checkUrl, [
+                    'headers' => [
+                        'x-goog-api-key' => $this->geminiApiKey,
+                    ],
+                ]);
+                $status = $checkResponse->toArray();
+
+                if (!empty($status["done"]) && $status["done"] === true) {
+                    $videoUri = $status['response']['generateVideoResponse']['generatedSamples'][0]['video']['uri'] ?? null;
+                    break;
+                }
+            }
+
+            if (is_null($videoUri)) {
+                throw new \Exception("Video generation timed out or failed to complete.");
+            }
+
+            $downloadResponse = $client->request('GET', "{$videoUri}", [
+                'headers' => [
+                    'x-goog-api-key' => $this->geminiApiKey,
+                ],
+            ]);
+            $videoContent = $downloadResponse->getContent();
+
+            $videoName = $this->saveVideoFromBytes($videoContent);
+            $videoUrl = $this->generateUrl('asset_ai_image', ['filename' => $videoName]);
+
+            $this->logChat($user, $chat, $promptText, null, null, $videoUrl);
+
+            return $this->json(['videoUrls' => [$videoUrl], 'feedback' => $feedbackMessage]);
+
+        } catch (\Exception $e) {
+            throw new \Exception("Video Generation Exception: " . $e->getMessage());
         }
     }
 
@@ -392,14 +530,33 @@ class ChatController extends AbstractController
         return $imageName;
     }
 
-    private function logChat(UserInterface $user, Chat $chat, string $question, ?string $answer = null, ?string $imageUrl = null): void
+    private function saveVideoFromBytes(string $videoBytes): string
+    {
+        $aiDir = $this->getParameter('ai_dir');
+        $fileSystem = new Filesystem();
+        $videoName = uniqid() . '.mp4';
+
+        $firstLetter = strtolower(mb_substr($videoName, 0, 1));
+        $secondLetter = strtolower(mb_substr($videoName, 1, 1));
+        $finalDir = sprintf('%s/%s/%s', $aiDir, $firstLetter, $secondLetter);
+        $fileSystem->mkdir($finalDir);
+
+        $videoPath = UniqueFilePathGenerator::get($finalDir, $videoName);
+        $fileSystem->dumpFile($videoPath, $videoBytes);
+
+        return $videoName;
+    }
+
+
+    private function logChat(UserInterface $user, Chat $chat, string $question, ?string $answer = null, ?string $imageUrl = null, ?string $videoUrl = null): void
     {
         $message = new Message();
         $message
             ->setChat($chat)
             ->setQuestion($question)
             ->setAnswer($answer)
-            ->setImageUrl($imageUrl);
+            ->setImageUrl($imageUrl)
+            ->setVideoUrl($videoUrl);
 
         $this->entityManager->persist($message);
         $this->entityManager->flush();
@@ -422,10 +579,16 @@ class ChatController extends AbstractController
             $filePath = $aiDirPath;
         }
 
-        $mimeType = match (mime_content_type($filePath)) {
-            'image/png' => MimeType::IMAGE_PNG,
-            default => MimeType::IMAGE_JPEG,
+        $mimeTypeStr = mime_content_type($filePath);
+        $mimeType = match (true) {
+            str_starts_with($mimeTypeStr, 'image/png') => MimeType::IMAGE_PNG,
+            str_starts_with($mimeTypeStr, 'image/jpeg') => MimeType::IMAGE_JPEG,
+            str_starts_with($mimeTypeStr, 'video/mp4') => MimeType::VIDEO_MP4,
+            // Add other video types as needed
+            default => MimeType::IMAGE_JPEG, // Default fallback
         };
+
+        (new Logger())->info("BLOB SIZE: " . filesize($filePath));
 
         return new Blob(
             mimeType: $mimeType,

@@ -73,6 +73,10 @@ class ChatsController extends AbstractController
         $entityManager->persist($chat);
         $entityManager->flush();
 
+        if ($type === ChatTypeEnum::IMAGE) {
+            return $this->redirectToRoute('app_chat_editor', ['id' => $chat->getId()], Response::HTTP_SEE_OTHER);
+        }
+
         return $this->redirectToRoute('app_chat', ['id' => $chat->getId()], Response::HTTP_SEE_OTHER);
     }
 

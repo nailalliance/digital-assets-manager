@@ -12,6 +12,12 @@
         #dam-results img { width: 100%; height: 100px; object-fit: cover; cursor: pointer; border-radius: 4px; border: 2px solid transparent; }
         #dam-results img.selected { border-color: #3b82f6; }
         #prompt-tray img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
+        #image-gallery video, #image-gallery img {
+            width: 100%;
+            height: auto;
+            object-cover: cover;
+            border-radius: 0.5rem; /* rounded-lg */
+        }
     </style>
 
     <div class="flex flex-col md:flex-row h-[calc(100vh-100px)] max-w-[1000px] gap-4">
@@ -21,12 +27,20 @@
             <div id="image-gallery" class="h-[calc(100%-45px)] snap-y snap-mandatory overflow-y-auto flex flex-col gap-4 p-4">
                 {# Images from previous messages will be loaded here #}
                 {% for message in chat.message %}
-                    {% if message.imageUrl %}
-                        <div class="relative group" data-image-url="{{ message.imageUrl }}">
-                            <img src="{{ message.imageUrl }}" alt="Generated Image" class="w-full h-auto object-cover rounded-lg opacity-50">
+                    {% if message.imageUrl or message.videoUrl %}
+                        {% set mediaUrl = message.imageUrl ?? message.videoUrl %}
+                        {% set isVideo = message.videoUrl is not null %}
+                        <div class="relative group" data-image-url="{{ mediaUrl }}">
+                            {% if isVideo %}
+                                <video controls src="{{ mediaUrl }}"></video>
+                            {% else %}
+                                <img src="{{ message.imageUrl }}" alt="Generated Image" class="w-full h-auto object-cover rounded-lg opacity-50">
+                            {% endif %}
                             <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-4 opacity-0 max-h-80 top-auto bottom-0 p-2 group-hover:opacity-50 transition-opacity">
-                                <button class="use-image-btn text-white bg-blue-500 px-3 py-1 rounded text-sm">Use this Image</button>
-                                <a href="{{ message.imageUrl }}" download class="download-btn text-white bg-green-500 px-3 py-1 rounded text-sm">Download</a>
+                                {% if not isVideo %}
+                                    <button class="use-image-btn text-white bg-blue-500 px-3 py-1 rounded text-sm">Use this Image</button>
+                                {% endif %}
+                                <a href="{{ mediaUrl }}" download class="download-btn text-white bg-green-500 px-3 py-1 rounded text-sm">Download</a>
                             </div>
                         </div>
                     {% endif %}
@@ -53,6 +67,7 @@
             <div class="flex mt-2 gap-2">
                 <button id="import-dam-btn" class="flex-grow bg-gray-500 text-white p-2 rounded-lg hover:bg-gray-600 text-sm">Import from DAM</button>
                 <button id="send-image" class="flex-grow bg-violet-600 text-white p-2 rounded-lg hover:bg-violet-700 text-sm">Generate Image</button>
+                <button id="send-video" class="flex-grow bg-rose-600 text-white p-2 rounded-lg hover:bg-rose-700 text-sm">Generate Video</button>
             </div>
         </div>
     </div>
@@ -85,6 +100,7 @@
             const chatInput = document.getElementById('chat-input');
             const sendBtn = document.getElementById('send-image');
             const spinner = document.getElementById('spinner');
+            const sendVideoBtn = document.getElementById('send-video');
 
             // DAM Modal Elements
             const modal = document.getElementById('dam-modal');
@@ -114,22 +130,37 @@
                 scrollToBottom(chatBox);
             };
 
-            const addImageToGallery = (imageUrl) => {
+            const addMediaToGallery = (mediaUrl, isVideo = false) => {
                 const div = document.createElement('div');
                 div.className = 'relative group';
-                div.dataset.imageUrl = imageUrl;
+                div.dataset.imageUrl = mediaUrl;
+                div.dataset.isVideo = isVideo;
+
+                const mediaTag = isVideo
+                    ? `<video controls src=${mediaUrl}></video>`
+                    : `<img src="${mediaUrl}" alt="Generated Image" class="w-full h-auto object-cover rounded-lg">`;
+
+                const useButton = isVideo
+                    ? ''
+                    : `<button class="use-image-btn text-white bg-blue-500 px-3 py-1 rounded text-sm">Use this Image</button>`;
+
+
+
                 div.innerHTML = `
-            <img src="${imageUrl}" alt="Generated Image" class="w-full h-auto object-cover rounded-lg">
-            <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-4 opacity-0 max-h-80 top-auto bottom-0 p-2 group-hover:opacity-50 transition-opacity">
-                <button class="use-image-btn text-white bg-blue-500 px-3 py-1 rounded text-sm">Use this Image</button>
-                <a href="${imageUrl}" download class="download-btn text-white bg-green-500 px-3 py-1 rounded text-sm">Download</a>
-            </div>
-        `;
+                    ${mediaTag}
+                    <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-4 opacity-0 max-h-80 top-auto bottom-0 p-2 group-hover:opacity-50 transition-opacity">
+                        ${useButton}
+                        <a href="${mediaUrl}" download class="download-btn text-white bg-green-500 px-3 py-1 rounded text-sm">Download</a>
+                    </div>
+                `;
                 gallery.appendChild(div);
 
-                // Make the newly added image the one we're editing
-                state.currentlyEditingImage = imageUrl;
-                updateGalleryHighlights();
+                if (!isVideo) {
+                    // Make the newly added image the one we're editing
+                    state.currentlyEditingImage = mediaUrl;
+                    updateGalleryHighlights();
+                }
+
                 scrollToBottom(gallery);
             };
 
@@ -163,6 +194,43 @@
             };
 
             // --- API CALLS ---
+            const generateVideo = async () => {
+                const prompt = chatInput.value;
+                if (!prompt) return;
+                addChatMessage('You', `(Video Request) ${prompt}`);
+                chatInput.value = '';
+                setLoading(true);
+
+                const payload = {
+                    prompt: prompt,
+                    currentlyEditingImage: state.currentlyEditingImage, // Send base image
+                    importedDamImageId: state.importedDamImageId
+                };
+
+                // Clear DAM state
+                state.importedDamImage = null;
+                state.importedDamImageId = null;
+                updatePromptTray();
+
+                try {
+                    const response = await fetch('/chat/{{ chat.id }}/video', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json();
+                    if (data.error) throw new Error(data.error);
+                    if (data.feedback) addChatMessage('System', data.feedback);
+
+                    if (data.videoUrls && data.videoUrls.length > 0) {
+                        data.videoUrls.forEach(url => addMediaToGallery(url, true));
+                    }
+                } catch (error) {
+                    addChatMessage('Error', error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
             const generateImage = async () => {
                 const prompt = chatInput.value;
                 if (!prompt) return;
@@ -202,7 +270,7 @@
 
                     if (data.imageUrl && data.imageUrl.length > 0) {
                         data.imageUrl.forEach(url => {
-                            addImageToGallery(url);
+                            addMediaToGallery(url);
                         });
                     }
 
@@ -245,6 +313,7 @@
 
             // --- EVENT LISTENERS ---
             sendBtn.addEventListener('click', generateImage);
+            sendVideoBtn.addEventListener('click', generateVideo);
             importDamBtn.addEventListener('click', () => modal.style.display = 'block');
             closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
             window.addEventListener('click', (event) => {

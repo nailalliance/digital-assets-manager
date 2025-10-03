@@ -24,6 +24,9 @@ class Message
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $imageUrl = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $videoUrl = null;
+
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $answer = null;
 
@@ -62,6 +65,19 @@ class Message
 
         return $this;
     }
+
+    public function getVideoUrl(): ?string
+    {
+        return $this->videoUrl;
+    }
+
+    public function setVideoUrl(?string $videoUrl): Message
+    {
+        $this->videoUrl = $videoUrl;
+        return $this;
+    }
+
+
 
     public function getAnswer(): ?string
     {
