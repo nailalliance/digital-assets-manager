@@ -74,7 +74,9 @@
             const state = {
                 currentlyEditingImage: null,
                 importedDamImage: null, // Holds the URL of the image imported from DAM
-                selectedDamImage: null  // Temporary holder for modal selection
+                importedDamImageId: null, // Holds the id of the image imported from DAM
+                selectedDamImage: null,  // Temporary holder for modal selection
+                selectedDamImageId: null, // Holds the id of the image selected from DAM
             };
 
             // --- ELEMENTS ---
@@ -154,6 +156,7 @@
                 </div>`;
                     document.getElementById('remove-dam-image').addEventListener('click', () => {
                         state.importedDamImage = null;
+                        state.importedDamImageId = null;
                         updatePromptTray();
                     });
                 }
@@ -171,11 +174,13 @@
                 const payload = {
                     prompt: prompt,
                     currentlyEditingImage: state.currentlyEditingImage,
-                    importedDamImage: state.importedDamImage
+                    importedDamImage: state.importedDamImage,
+                    importedDamImageId: state.importedDamImageId,
                 };
 
                 // Clear the imported DAM image from state after sending
                 state.importedDamImage = null;
+                state.importedDamImageId = null;
                 updatePromptTray();
 
                 try {
@@ -217,19 +222,21 @@
                 const results = await response.json();
                 damResults.innerHTML = '';
                 state.selectedDamImage = null;
+                state.selectedDamImageId = null;
                 importSelectedBtn.disabled = true;
 
                 results.forEach(asset => {
                     const img = document.createElement('img');
                     img.src = asset.thumbnailUrl;
                     img.title = asset.title;
-                    img.dataset.originalUrl = asset.originalUrl;
+                    img.dataset.id = asset.id;
                     img.addEventListener('click', () => {
                         // Deselect others
                         damResults.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
                         // Select this one
                         img.classList.add('selected');
-                        state.selectedDamImage = asset.originalUrl;
+                        state.selectedDamImage = asset.thumbnailUrl;
+                        state.selectedDamImageId = asset.id;
                         importSelectedBtn.disabled = false;
                     });
                     damResults.appendChild(img);
@@ -253,6 +260,7 @@
             importSelectedBtn.addEventListener('click', () => {
                 if (state.selectedDamImage) {
                     state.importedDamImage = state.selectedDamImage;
+                    state.importedDamImageId = state.selectedDamImageId;
                     updatePromptTray();
                     modal.style.display = 'none';
                 }

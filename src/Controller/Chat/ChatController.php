@@ -32,6 +32,7 @@ use Symfony\Component\HttpKernel\Log\Logger;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
 use function basename;
+use function dump;
 use function file_get_contents;
 use function in_array;
 use function is_array;
@@ -208,10 +209,13 @@ class ChatController extends AbstractController
             $feedbackMessage .= "Editing specified image. ";
         }
 
-        $importedDamImage = $payload['importedDamImage'] ?? null;
-        if ($importedDamImage) {
-            $promptParts[] = $this->createBlobFromLocalUrl($importedDamImage);
-            $feedbackMessage .= "Including imported DAM image. ";
+        $importedDamImageId = $payload['importedDamImageId'] ?? null;
+        if ($importedDamImageId) {
+            $asset = $this->entityManager->getRepository(Assets::class)->find($importedDamImageId);
+            if (!empty($asset)) {
+                $promptParts[] = $this->createBlobFromLocalUrl($asset->getFilePath());
+                $feedbackMessage .= "Including imported DAM image. ";
+            }
         }
 
         try {
@@ -268,7 +272,7 @@ class ChatController extends AbstractController
                     'id' => $asset->getId(),
                     'title' => $asset->getName(),
                     'thumbnailUrl' => $this->generateUrl('asset_thumbnail', ['filename' => basename($asset->getThumbnailPath())]),
-                    'originalUrl' => $this->generateUrl('asset_stream', ['id' => $asset->getId()]),
+                    // 'originalUrl' => $this->generateUrl('asset_stream', ['id' => $asset->getId()]),
                 ];
             }
         }
