@@ -61,6 +61,7 @@ class ChatController extends AbstractController
         string                         $geminiApiKey,
         private string                 $gcpProjectId,
         private string                 $gcpLocation,
+        string                         $cagDir,
     )
     {
         $this->geminiClient = Gemini::client($geminiApiKey);
@@ -94,19 +95,39 @@ class ChatController extends AbstractController
             responseModalities: [ResponseModality::TEXT],
         );
 
+        $cache_ = file_get_contents($cagDir . "/" . "entity.json");
+        // $cache_ = json_decode($cache_, true);
+        $cachedContent = $this->geminiClient->cachedContents()->create(
+            model: "gemini-2.0-flash",
+            ttl: "300s",
+            displayName: "entity",
+            parts: Content::parse(part: $cache_, role: Role::USER),
+        );
+
         $this->imageGenerativeModel = $this->geminiClient
-            ->generativeModel(model: 'gemini-2.5-flash-image-preview')
+            ->generativeModel(model: 'gemini-2.5-flash-image')
             // ->withSafetySetting($safetySettingDangerousContent)
             // ->withSafetySetting($safetySettingHateSpeech)
             ->withGenerationConfig($imageGenerationConfig);
 
         $this->textGenerativeModel = $this->geminiClient
             ->generativeModel(model: 'gemini-2.0-flash')
+            ->withCachedContent($cachedContent->cachedContent->name)
             // ->withSafetySetting($safetySettingDangerousContent)
             // ->withSafetySetting($safetySettingHateSpeech)
             ->withGenerationConfig($textGenerationConfig);
 
-        $this->geminiPro = $this->geminiClient->generativeModel('gemini-2.5-pro');
+        $cachedContent = $this->geminiClient->cachedContents()->create(
+            model: "gemini-2.5-pro",
+            ttl: "300s",
+            displayName: "entity",
+            parts: Content::parse(part: $cache_, role: Role::USER),
+        );
+
+        $this->geminiPro = $this->geminiClient
+            ->generativeModel('gemini-2.5-pro')
+            ->withCachedContent($cachedContent->cachedContent->name)
+        ;
     }
 
     #[Route('/{id}', name: 'app_chat', methods: ['GET'])]
@@ -121,11 +142,11 @@ class ChatController extends AbstractController
         $prompt = $request->toArray()['prompt'];
         $user = $this->getUser();
 
-        if (!$this->isPromptBusinessRelated($prompt)) {
-            $errorMessage = "Text generation is limited to topics related to our business";
-            $this->logChat($user, $chat, $prompt, 'Blocked by guardrail');
-            return $this->json(['error' => $errorMessage], Response::HTTP_BAD_REQUEST);
-        }
+        // if (!$this->isPromptBusinessRelated($prompt)) {
+        //     $errorMessage = "Text generation is limited to topics related to our business";
+        //     $this->logChat($user, $chat, $prompt, 'Blocked by guardrail');
+        //     return $this->json(['error' => $errorMessage], Response::HTTP_BAD_REQUEST);
+        // }
 
         $chatHistory = [];
 
@@ -148,7 +169,6 @@ class ChatController extends AbstractController
             (new Logger())->info("cachedContent: " . print_r($cachedContent, true));
 
             $result = $this->textGenerativeModel
-                ->withCachedContent($cachedContent->cachedContent->name)
                 ->startChat(history: $chatHistory)
                 ->sendMessage($finalPrompt);
                 // ->generateContent($finalPrompt);
@@ -288,7 +308,7 @@ class ChatController extends AbstractController
         $imageUrls = [];
         $feedback = null;
 
-        $extractionPrompt = "You are an intelligent assistant for a beauty company.
+        $extractionPrompt = "SYSTEM INSTRUCTION: You are an intelligent assistant for a beauty company.
         Your task is to identify specific, named products, items, or color names from a
         user's prompt.
         List the identified items separated by a pipe character (|). Do not add any other text.
@@ -296,7 +316,7 @@ class ChatController extends AbstractController
         should respond with '18G Pro light|Hot Rod Red'.
         If no specific items are found, respond with the word 'NONE'.
 
-        User Prompt: \"{$prompt}\"
+        USER PROMPT: \"{$prompt}\"
         ";
 
         try {

@@ -45,11 +45,16 @@ services:
             $geminiApiKey: '%env(GEMINI_API_KEY)%'
             $gcpProjectId: '%env(GOOGLE_PROJECT_ID)%'
             $gcpLocation: '%env(GOOGLE_LOCATION)%'
+            $cagDir: '%cag_dir%'
 
     App\Command\CacheBusinessInfoCommand:
         arguments:
             $geminiApiKey: '%env(GEMINI_API_KEY)%'
             $cagDir: '%cag_dir%'
+
+    App\Command\ClientModelsListCommand:
+        arguments:
+            $geminiApiKey: '%env(GEMINI_API_KEY)%'
 
     # App\EventListener\MeilisearchAssetsAttributesSyncListener:
     #     tags:
