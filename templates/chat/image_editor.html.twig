@@ -2,6 +2,11 @@
 
 {% block title %}Image Editor - {{ chat.name }} - {{ parent() }}{% endblock %}
 
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('image-editor') }}
+{% endblock %}
+
 {% block body %}
     <style>
         /* Basic styles for the modal */

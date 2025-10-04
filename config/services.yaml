@@ -56,6 +56,11 @@ services:
         arguments:
             $geminiApiKey: '%env(GEMINI_API_KEY)%'
 
+    App\Service\AI\Gemini\Model:
+        arguments:
+            $geminiApiKey: '%env(GEMINI_API_KEY)%'
+            $cagDir: '%cag_dir%'
+
     # App\EventListener\MeilisearchAssetsAttributesSyncListener:
     #     tags:
     #         - { name: doctrine.event_subscriber, connection: default }

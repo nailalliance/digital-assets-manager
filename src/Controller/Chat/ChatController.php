@@ -218,8 +218,11 @@ class ChatController extends AbstractController
 
         $baseImageToEdit = $payload['currentlyEditingImage'] ?? null;
         if ($baseImageToEdit) {
-            $promptParts[] = $this->createBlobFromLocalUrl($baseImageToEdit);
-            $feedbackMessage .= "Editing specified image. ";
+            $blob = $this->createBlobFromLocalUrl($baseImageToEdit);
+            if (str_starts_with($blob->mimeType->value, 'image')) {
+                $promptParts[] = $this->createBlobFromLocalUrl($baseImageToEdit);
+                $feedbackMessage .= "Editing specified image. ";
+            }
         }
 
         $importedDamImageId = $payload['importedDamImageId'] ?? null;
