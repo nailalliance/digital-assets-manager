@@ -3,14 +3,20 @@
 {% block title %}AI Chat - {{ chat.name }} - {{ parent() }}{% endblock %}
 
 {% block body %}
+    {% include 'chat/_warning.html.twig' %}
+
     <div class="container mx-auto mt-10">
         <div class="bg-white p-6 rounded-lg shadow-lg">
             <h1 class="text-2xl font-bold mb-4" contenteditable="true">{{ chat.name }}</h1>
             <div id="chat-box" class="border p-4 h-96 overflow-y-scroll mb-4">
                 {% for message in chat.message %}
-                    <div><strong>You:</strong> {{ message.question }}</div>
+                    <div><strong class="text-blue-600">You:</strong> {{ message.question }}</div>
                     {% if message.answer != 'Blocked by guardrail' %}
-                        <div><strong>SYSTEM:</strong> {{ message.answer }}</div>
+                        <div><strong class="text-blue-600">SYSTEM:</strong>
+                            {% apply markdown_to_html %}
+                                {{ message.answer }}
+                            {% endapply %}
+                        </div>
                     {% endif %}
                 {% endfor %}
             </div>
@@ -21,16 +27,20 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/showdown/dist/showdown.min.js"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const chatBox = document.getElementById('chat-box');
             const chatInput = document.getElementById('chat-input');
             const sendTextBtn = document.getElementById('send-text');
             // const sendImageBtn = document.getElementById('send-image');
+            const markdownConverter = new showdown.Converter();
 
             const addMessage = (sender, message) => {
                 const messageElement = document.createElement('div');
-                messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+                const htmlMessage = markdownConverter.makeHtml(message);
+                messageElement.innerHTML = `<strong class="text-blue-600">${sender}:</strong> ${htmlMessage}`;
                 chatBox.appendChild(messageElement);
                 chatBox.scrollTop = chatBox.scrollHeight;
             };

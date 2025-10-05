@@ -7,6 +7,8 @@ use App\Entity\Assets\Brands;
 use App\Entity\Chat\Chat;
 use App\Entity\Chat\ChatTypeEnum;
 use App\Entity\Chat\Message;
+use App\Entity\User;
+use App\Repository\Assets\BrandsRepository;
 use App\Repository\Chat\ChatRepository;
 use App\Service\ImageProcessorService;
 use App\Service\SearchService;
@@ -18,12 +20,15 @@ use Gemini\Enums\MimeType;
 use Gemini\Enums\ResponseModality;
 use Gemini\Resources\GenerativeModel;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
+use function array_filter;
+use function array_values;
 use function in_array;
 use function is_array;
 use function is_null;
@@ -34,9 +39,39 @@ use function strtolower;
 #[Route('/chats')]
 class ChatsController extends AbstractController
 {
+    #[Route('/', name: 'app_chats', methods: ['GET'])]
+    public function index(BrandsRepository $brandsRepository, Security $security): Response
+    {
+        $parentBrands = $brandsRepository->findBy([
+            'brands' => null,
+            'status' => true,
+        ]);
 
-    #[Route('/{brandId}', name: 'app_chats', methods: ['GET'])]
-    public function index(ChatRepository $chatRepository, int $brandId): Response
+        /** @var User $user */
+        $user = $this->getUser();
+
+        if ($user && !$security->isGranted('ROLE_FTP_DESIGNER'))
+        {
+            $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
+
+            if (!empty($allowedBrandIds)) {
+                $parentBrands = array_values(array_filter($parentBrands, function ($brand) use ($allowedBrandIds) {
+                    if (!in_array($brand->getId(), $allowedBrandIds))
+                    {
+                        return null;
+                    }
+                    return $brand;
+                }));
+            } else {
+                $parentBrands = [];
+            }
+        }
+
+        return $this->render('chat/index.html.twig', ["parentBrands" => $parentBrands]);
+    }
+
+    #[Route('/{brandId}', name: 'app_brand_chats', methods: ['GET'])]
+    public function brands(ChatRepository $chatRepository, int $brandId): Response
     {
 
         $user = $this->getUser();
@@ -52,7 +87,7 @@ class ChatsController extends AbstractController
             'brand' => $brand,
         ]);
 
-        return $this->render('chat/index.html.twig', ['chats' => $chats, 'brand' => $brand]);
+        return $this->render('chat/brands_index.html.twig', ['chats' => $chats, 'brand' => $brand]);
     }
 
     #[Route('/{id}/new/{type}', name: 'app_chat_new', methods: ['GET'])]

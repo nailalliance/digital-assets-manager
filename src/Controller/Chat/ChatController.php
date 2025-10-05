@@ -10,6 +10,7 @@ use App\Repository\Chat\MessageRepository;
 use App\Service\ImageProcessorService;
 use App\Service\SearchService;
 use App\Service\UniqueFilePathGenerator;
+use App\Service\Video\FFMPEG;
 use Doctrine\Common\Collections\Criteria;
 use Doctrine\Common\Collections\Order;
 use Doctrine\ORM\EntityManagerInterface;
@@ -41,6 +42,7 @@ use function is_null;
 use function mb_strtolower;
 use function mb_substr;
 use function mime_content_type;
+use function sleep;
 use function sprintf;
 use function strtolower;
 use function var_dump;
@@ -332,7 +334,9 @@ class ChatController extends AbstractController
                 ],
             ]);
 
-            // dd($startResponse->getContent(false));
+            if ($startResponse->getStatusCode() != 200) {
+                dd($startResponse->getContent(false));
+            }
 
             $operationName = $startResponse->toArray()['name'];
 
@@ -590,6 +594,12 @@ class ChatController extends AbstractController
             // Add other video types as needed
             default => MimeType::IMAGE_JPEG, // Default fallback
         };
+
+        if ($mimeTypeStr === 'video/mp4') {
+            $outputFile = $this->getParameter('ai_dir') . "/last-frame" . uniqid() . '.jpg';
+            $lastFrame = FFMPEG::getLastFrame($filePath, $outputFile);
+            return $this->createBlobFromLocalUrl($lastFrame);
+        }
 
         (new Logger())->info("BLOB SIZE: " . filesize($filePath));
 
