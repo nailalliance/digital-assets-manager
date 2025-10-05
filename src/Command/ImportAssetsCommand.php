@@ -11,6 +11,8 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Filesystem\Exception\IOException;
+use function mime_content_type;
+use function str_ends_with;
 
 #[AsCommand(
     name: 'app:import-assets',
@@ -168,6 +170,11 @@ class ImportAssetsCommand extends Command
             }
             if ($thumbnailPathRoot && !empty($assetData['thumbnailPath'])) {
                 $assetData['thumbnailPath'] = rtrim($thumbnailPathRoot, '/') . '/' . ltrim($assetData['thumbnailPath'], '/');
+            }
+
+            if (str_ends_with(mime_content_type($assetData['filePath']), 'tiff')) {
+                $reader->next('table');
+                continue;
             }
 
             $chunk[] = $assetData;
