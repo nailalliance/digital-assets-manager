@@ -83,7 +83,7 @@ class ChatsController extends AbstractController
         }
 
         $chats = $chatRepository->findBy([
-            'user' => $user,
+            // 'user' => $user,
             'brand' => $brand,
         ]);
 
