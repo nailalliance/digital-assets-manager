@@ -56,7 +56,7 @@ class SearchService
         {
             $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
 
-            $filters[] = 'embargodate >= ' . time();
+            // $filters[] = 'embargodate >= ' . time();
 
             if (empty($allowedBrandIds)) {
                 $filters[] = 'parent_brand_ids = 0';
