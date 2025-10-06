@@ -50,6 +50,7 @@ class GenerateThumbnailsCommand extends Command
         $offset = (int) $input->getOption('offset');
         $limit = (int) $input->getOption('limit');
         $startingId = (int) $input->getOption('startingId');
+        $lastId = $startingId;
 
         // if (!class_exists('Imagick')) {
         //     $io->error('The Imagick PHP extension is required to run this command.');
@@ -115,6 +116,7 @@ class GenerateThumbnailsCommand extends Command
                 $this->filesystem->dumpFile($thumbnailPath, $thumbnailBinary);
                 $asset->setThumbnailPath($thumbnailPath);
                 $this->entityManager->persist($asset);
+                $lastId = $asset->getId();
             } else {
                 $io->warning(sprintf('Could not create thumbnail for asset ID %d.', $asset->getId()));
             }
@@ -124,7 +126,7 @@ class GenerateThumbnailsCommand extends Command
 
         $this->entityManager->flush();
         $io->progressFinish();
-        $io->success('Thumbnail generation complete.');
+        $io->success('Thumbnail generation complete. Last id: ' . $lastId);
 
         return Command::SUCCESS;
     }
