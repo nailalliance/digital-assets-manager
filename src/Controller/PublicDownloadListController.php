@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use ZipStream\ZipStream;
+use function basename;
 
 class PublicDownloadListController extends AbstractController
 {
@@ -94,8 +95,11 @@ class PublicDownloadListController extends AbstractController
                 }
             });
 
-            $response->headers->set('Content-Type', 'application/octet-stream');
-            $response->headers->set('Content-Disposition', 'attachment; filename="'.$filename.'"');
+            $mimetype = mime_content_type($filename);
+
+            // $response->headers->set('Content-Type', 'application/octet-stream');
+            $response->headers->set('Content-Type', $mimetype);
+            $response->headers->set('Content-Disposition', 'attachment; filename="'.basename($filename).'"');
 
             return $response;
         }
