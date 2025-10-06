@@ -50,6 +50,7 @@
 
                         {# <a href="{{ path('app_boards_index') }}" class="text-gray-600 hover:text-violet-600">Boards</a> #}
                         <a href="{{ url('admin_direct_share_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">Direct Share</a>
+                        <a href="{{ url('app_chats') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">AI Chats</a>
                     {% endif %}
                     {% if is_granted('ROLE_FTP_ADMIN') %}
                         <div class="border-l border-gray-300 h-6"></div>
