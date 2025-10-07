@@ -7,7 +7,7 @@
         <div class="grid grid-flow-col auto-cols-[80%] sm:auto-cols-[45%] md:auto-cols-[30%] overflow-x-auto snap-x snap-mandatory gap-6 pb-4">
             {% for collection in collections %}
                 <div class="snap-start">
-                    <a href="{{ path('app_search', {'collection_id': collection.id}) }}" class="block p-6 bg-gray-50 rounded-lg hover:bg-gray-100 h-full">
+                    <a data-turbo="false" href="{{ path('app_search', {'collection_id': collection.id}) }}" class="block p-6 bg-gray-50 rounded-lg hover:bg-gray-100 h-full">
                         <h3 class="font-semibold text-gray-800">{{ collection.name }}</h3>
                         <p class="text-sm text-gray-500">{{ collection.year }}</p>
                     </a>

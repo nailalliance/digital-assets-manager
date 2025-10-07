@@ -3,7 +3,7 @@
     <div class="grid grid-flow-col auto-cols-[60%] sm:auto-cols-[40%] md:auto-cols-[30%] lg:auto-cols-[20%] overflow-x-auto snap-x snap-mandatory gap-6 pb-4">
         {% for asset in recentAssets %}
             <div class="snap-start">
-                <a href="{{ path('app_asset', {id: asset.id}) }}" class="block group">
+                <a data-turbo="false" href="{{ path('app_asset', {id: asset.id}) }}" class="block group">
                     <div class="aspect-square bg-white rounded-lg shadow-sm overflow-hidden">
                         {% if asset.thumbnailPath %}
                             <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-full h-full object-cover">
