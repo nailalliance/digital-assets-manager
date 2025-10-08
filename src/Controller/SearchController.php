@@ -166,7 +166,9 @@ class SearchController extends AbstractController
 
         foreach ($allPossibleAssets as $asset) {
             foreach ($asset->getBrand() as $brand) {
-                $activeBrands[$brand->getId()] = $brand;
+                if ($brand->isStatus()) {
+                    $activeBrands[$brand->getId()] = $brand;
+                }
             }
             foreach ($asset->getCategories() as $category) {
                 $activeCategories[$category->getId()] = $category;
