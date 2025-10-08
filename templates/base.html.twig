@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Nail Alliance Digital Assets Manager{% endblock %}</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    {# <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> #}
     {# This includes your compiled CSS file from Webpack Encore #}
     {% block stylesheets %}
-            {{ encore_entry_link_tags('app') }}
+        {{ encore_entry_link_tags('tailwinds') }}
         {{ encore_entry_link_tags('app') }}
     {% endblock %}
     <meta name="turbo-prefetch" content="false">

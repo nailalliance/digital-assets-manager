@@ -20,6 +20,7 @@ Encore
      * Each entry will result in one JavaScript file (e.g. app.js)
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
+    .addEntry('tailwinds', './assets/styles/tailwinds.css')
     .addEntry('app', './assets/app.js')
     .addEntry('image-editor', './assets/image-editor.js')
 
@@ -59,6 +60,8 @@ Encore
         config.useBuiltIns = 'usage';
         config.corejs = '3.38';
     })
+
+    .enablePostCssLoader()
 
     // enables Sass/SCSS support
     //.enableSassLoader()
