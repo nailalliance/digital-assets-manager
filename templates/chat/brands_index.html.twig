@@ -39,10 +39,10 @@
                     <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ chat.name }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
                         {% if chat.type.value == 'text' %}
-                            <a data-turbo="false" href="{{ path('app_chat', {'id': chat.id}) }}" class="text-indigo-600 hover:text-indigo-900">Chat</a>
+                            <a data-turbo="false" href="{{ path('app_chat', {'id': chat.id}) }}" class="text-cello-600 hover:text-cello-900">Chat</a>
                         {% endif %}
                         {% if chat.type.value == 'image' %}
-                            <a data-turbo="false" href="{{ path('app_chat_editor', {'id': chat.id}) }}" class="text-indigo-600 hover:text-indigo-900">Image Editor</a>
+                            <a data-turbo="false" href="{{ path('app_chat_editor', {'id': chat.id}) }}" class="text-cello-600 hover:text-cello-900">Image Editor</a>
                         {% endif %}
                     </td>
                 </tr>

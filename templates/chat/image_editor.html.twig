@@ -18,8 +18,8 @@
         #dam-results img.selected { border-color: #3b82f6; }
         #prompt-tray img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
         #image-gallery video, #image-gallery img {
-            width: 100%;
-            height: auto;
+            /*width: 100%;*/
+            /*height: auto;*/
             object-cover: cover;
             border-radius: 0.5rem; /* rounded-lg */
         }
@@ -27,7 +27,7 @@
 
     {% include 'chat/_warning.html.twig' %}
 
-    <div class="flex flex-col md:flex-row h-[calc(100vh-100px)] max-w-[1000px] gap-4">
+    <div class="flex flex-col md:flex-row h-[calc(100vh-100px)] gap-4">
 
         <div class="w-full md:w-2/3 lg:w-3/4 bg-gray-100 p-4 rounded-lg shadow-inner">
             <h2 class="text-xl font-bold mb-4">Generated Images</h2>
@@ -37,15 +37,15 @@
                     {% if message.imageUrl or message.videoUrl %}
                         {% set mediaUrl = message.imageUrl ?? message.videoUrl %}
                         {% set isVideo = message.videoUrl is not null %}
-                        <div class="relative group" data-image-url="{{ mediaUrl }}">
+                        <div class="relative group max-h-[100%]" data-image-url="{{ mediaUrl }}">
                             {% if isVideo %}
                                 <video controls src="{{ mediaUrl }}"></video>
                             {% else %}
-                                <img src="{{ message.imageUrl }}" alt="Generated Image" class="w-full h-auto object-cover rounded-lg opacity-50">
+                                <img src="{{ message.imageUrl }}" alt="Generated Image" class="w-auto h-auto max-h-[100%] rounded-lg opacity-50">
                             {% endif %}
                             <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-4 opacity-0 max-h-80 top-auto bottom-0 p-2 group-hover:opacity-50 transition-opacity">
                                 {% if not isVideo %}
-                                    <button class="use-image-btn text-white bg-blue-500 px-3 py-1 rounded text-sm">Use this Image</button>
+                                    <button class="use-image-btn text-white bg-cello-50 px-3 py-1 rounded text-sm">Use this Image</button>
                                 {% endif %}
                                 <a href="{{ mediaUrl }}" download class="download-btn text-white bg-green-500 px-3 py-1 rounded text-sm">Download</a>
                             </div>
@@ -73,8 +73,8 @@
             </div>
             <div class="flex mt-2 gap-2">
                 <button id="import-dam-btn" class="flex-grow bg-gray-500 text-white p-2 rounded-lg hover:bg-gray-600 text-sm">Import from DAM</button>
-                <button id="send-image" class="flex-grow bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 text-sm">Generate Image</button>
-                <button id="send-video" class="flex-grow bg-rose-600 text-white p-2 rounded-lg hover:bg-rose-700 text-sm">Generate Video</button>
+                <button id="send-image" class="flex-grow bg-cello-100 text-white p-2 rounded-lg hover:bg-cello text-sm">Generate Image</button>
+                <button id="send-video" class="flex-grow bg-amaranth-600 text-white p-2 rounded-lg hover:bg-amaranth-700 text-sm">Generate Video</button>
             </div>
         </div>
     </div>
@@ -139,13 +139,13 @@
 
             const addMediaToGallery = (mediaUrl, isVideo = false) => {
                 const div = document.createElement('div');
-                div.className = 'relative group';
+                div.classList.add('relative group', 'max-h-[100%]')
                 div.dataset.imageUrl = mediaUrl;
                 div.dataset.isVideo = isVideo;
 
                 const mediaTag = isVideo
                     ? `<video controls src=${mediaUrl}></video>`
-                    : `<img src="${mediaUrl}" alt="Generated Image" class="w-full h-auto object-cover rounded-lg">`;
+                    : `<img src="${mediaUrl}" alt="Generated Image" class="w-auto h-auto max-h-[100%] rounded-lg opacity-50">`;
 
                 const useButton = isVideo
                     ? ''
@@ -188,10 +188,10 @@
                 promptTray.innerHTML = '';
                 if (state.importedDamImage) {
                     promptTray.innerHTML = `
-                <div class="relative inline-block">
-                    <img src="${state.importedDamImage}" alt="Imported DAM Image">
-                    <button id="remove-dam-image" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">&times;</button>
-                </div>`;
+                        <div class="relative inline-block">
+                            <img src="${state.importedDamImage}" alt="Imported DAM Image">
+                            <button id="remove-dam-image" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">&times;</button>
+                        </div>`;
                     document.getElementById('remove-dam-image').addEventListener('click', () => {
                         state.importedDamImage = null;
                         state.importedDamImageId = null;
