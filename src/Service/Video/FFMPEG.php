@@ -43,7 +43,7 @@ class FFMPEG
         // -i: Specifies the input file.
         // -update 1: Tells ffmpeg to overwrite the output file if it exists.
         // -q:v 1: Sets the video quality (1 is the highest quality for JPEG).
-        $command = "ffmpeg -ss 00:00:03 -i " . escapeshellarg($uri) . " -update 1 -q:v 1 " . escapeshellarg($outputPath);
+        $command = "ffmpeg -ss 00:00:03 -i " . escapeshellarg($uri) . " -frames:v 1 -update 1 -q:v 1 " . escapeshellarg($outputPath);
 
         $output = "";
         $returnCode = 1;
