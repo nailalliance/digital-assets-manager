@@ -14,6 +14,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use function is_array;
 
 final class HomeController extends AbstractController
 {
@@ -78,7 +79,11 @@ final class HomeController extends AbstractController
             $childBrands = $brand->getParent(); // Get the children of the selected brand
         }
 
-        $childBrands = array_filter($childBrands, fn ($brand) => $brand->isStatus());
+        if (is_array($childBrands)) {
+            $childBrands = array_filter($childBrands, fn($brand) => $brand->isStatus());
+        } else {
+            $childBrands = $childBrands->filter(fn($brand) => $brand->isStatus());
+        }
 
         return $this->render('home/index.html.twig', [
             'parentBrands' => $parentBrands,
