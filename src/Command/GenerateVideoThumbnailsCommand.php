@@ -102,6 +102,8 @@ class GenerateVideoThumbnailsCommand extends Command
                 $io->warning(sprintf('Could not create thumbnail for asset ID %d.', $asset->getId()));
             }
 
+            $this->filesystem->remove($frame);
+
             $io->progressAdvance();
         }
 
