@@ -78,7 +78,7 @@ final class HomeController extends AbstractController
             $childBrands = $brand->getParent(); // Get the children of the selected brand
         }
 
-        $childBrands = $childBrands->filter(fn ($brand) => $brand->isStatus());
+        $childBrands = array_filter($childBrands, fn ($brand) => $brand->isStatus());
 
         return $this->render('home/index.html.twig', [
             'parentBrands' => $parentBrands,
