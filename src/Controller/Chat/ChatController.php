@@ -173,12 +173,23 @@ class ChatController extends AbstractController
 
         try {
             $finalPrompt = $this->applyModelAgnosticPrefix($prompt);
-            $cache_ = file_get_contents($this->getParameter('cag_dir') . "/" . "entity.json");
+            $seeds = [
+                1 => "gelish.json",
+                2 => "gelish.json",
+                3 => "morgan-taylor.json",
+                4 => "entity.json",
+                5 => "artistic.json",
+                6 => "rcm.json",
+            ];
+
+            $seed = $seeds[$chat->getBrand()->getId()];
+
+            $cache_ = file_get_contents($this->getParameter('cag_dir') . "/" . $seed);
             // $cache_ = json_decode($cache_, true);
             $cachedContent = $this->geminiClient->cachedContents()->create(
                 model: "gemini-2.0-flash",
                 ttl: "3600s",
-                displayName: "entity",
+                displayName: $chat->getBrand()->getName(),
                 parts: Content::parse(part: $cache_, role: Role::USER),
             );
 
