@@ -55,8 +55,9 @@ class FFMPEG
             return $outputPath;
             // echo "Last frame extracted successfully to: " . $outputPath;
         } else {
-            $errorMessage = "Error extracting last frame. Return code: " . $returnCode . "\n";
-            $errorMessage .= "Output: " . implode("\n", $output);
+            $errorMessage = "Error extracting first frame. Return code: " . $returnCode . " -> ";
+            $errorMessage .= "Output: " . implode("\n", $output) . " -> ";
+            $errorMessage .= "Command: " . $command;
             throw new Exception($errorMessage);
         }
     }
