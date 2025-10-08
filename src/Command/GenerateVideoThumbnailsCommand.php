@@ -68,9 +68,14 @@ class GenerateVideoThumbnailsCommand extends Command
         $io->progressStart(count($assets));
 
         foreach ($assets as $asset) {
+            $io->title($asset->getId() . ' - ' . $asset->getName());
             $sourcePath = $asset->getFilePath();
 
-            $frame = FFMPEG::getFirstFrame($sourcePath, __DIR__ . DIRECTORY_SEPARATOR . basename($sourcePath) . ".jpg");
+            try {
+                $frame = FFMPEG::getFirstFrame($sourcePath, __DIR__ . DIRECTORY_SEPARATOR . basename($sourcePath) . ".jpg");
+            } catch (\Exception $e) {
+                $io->error($e->getMessage());
+            }
 
             if (!$this->filesystem->exists($frame)) {
                 $io->warning(sprintf('Source file not found for asset ID %d. Skipping.', $asset->getId()));
