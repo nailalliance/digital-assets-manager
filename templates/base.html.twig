@@ -33,8 +33,8 @@
             </div>
             {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
                 <div class="hidden md:flex items-stretch space-x-6 text-center">
-                    <a href="{{ path('home') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600 flex-column items-center">Browse</a>
-                    <a href="{{ path('download_list_index') }}" data-turbo="false" class="relative text-gray-600 hover:text-violet-600">
+                    <a href="{{ path('home') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600 flex-column items-center">Browse</a>
+                    <a href="{{ path('download_list_index') }}" data-turbo="false" class="relative text-gray-600 hover:text-blue-600">
                         Download Bag
                         {% set count = download_list_count() %}
                         {% if count > 0 %}
@@ -42,46 +42,46 @@
                         {% endif %}
                     </a>
 
-                    <a href="{{ path('app_download_lists') }}" class="text-gray-600 hover:text-violet-600">Premade Lists</a>
+                    <a href="{{ path('app_download_lists') }}" class="text-gray-600 hover:text-blue-600">Premade Lists</a>
 
                     {# Role-specific links #}
                     {% if is_granted('ROLE_FTP_DESIGNER') %}
                         <div class="border-l border-gray-300 h-6"></div>
 
-                        {# <a href="{{ path('app_boards_index') }}" class="text-gray-600 hover:text-violet-600">Boards</a> #}
-                        <a href="{{ url('admin_direct_share_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">
+                        {# <a href="{{ path('app_boards_index') }}" class="text-gray-600 hover:text-blue-600">Boards</a> #}
+                        <a href="{{ url('admin_direct_share_index') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Designer</span><br>
                             Direct Share
                         </a>
-                        <a href="{{ url('app_chats') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">
+                        <a href="{{ url('app_chats') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Designer</span><br>
-                            AI Chats
+                            AI Gen
                         </a>
                     {% endif %}
                     {% if is_granted('ROLE_FTP_ADMIN') %}
                         <div class="border-l border-gray-300 h-6"></div>
 
-                        <a href="{{ url('admin_assets_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">
+                        <a href="{{ url('admin_assets_index') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Admin</span><br>
                             Assets
                         </a>
-                        <a href="{{ url('app_asset_upload') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">
+                        <a href="{{ url('app_asset_upload') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Admin</span><br>
                             Upload File
                         </a>
-                        <a href="{{ url('admin_brands_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">
+                        <a href="{{ url('admin_brands_index') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Admin</span><br>
                             Brands
                         </a>
-                        <a href="{{ url('admin_categories_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">
+                        <a href="{{ url('admin_categories_index') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Admin</span><br>
                             Categories
                         </a>
-                        <a href="{{ url('admin_collections_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">
+                        <a href="{{ url('admin_collections_index') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Admin</span><br>
                             Collections
                         </a>
-                        <a href="{{ url('admin_user_index') }}" data-turbo="false" class="text-gray-600 hover:text-violet-600">
+                        <a href="{{ url('admin_user_index') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Admin</span><br>
                             Users
                         </a>

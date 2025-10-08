@@ -101,15 +101,6 @@ class ChatController extends AbstractController
             responseModalities: [ResponseModality::TEXT],
         );
 
-        $cache_ = file_get_contents($cagDir . "/" . "entity.json");
-        // $cache_ = json_decode($cache_, true);
-        $cachedContent = $this->geminiClient->cachedContents()->create(
-            model: "gemini-2.0-flash",
-            ttl: "300s",
-            displayName: "entity",
-            parts: Content::parse(part: $cache_, role: Role::USER),
-        );
-
         $this->imageGenerativeModel = $this->geminiClient
             ->generativeModel(model: 'gemini-2.5-flash-image')
             // ->withSafetySetting($safetySettingDangerousContent)
@@ -128,21 +119,14 @@ class ChatController extends AbstractController
 
         $this->textGenerativeModel = $this->geminiClient
             ->generativeModel(model: 'gemini-2.0-flash')
-            ->withCachedContent($cachedContent->cachedContent->name)
+            // ->withCachedContent($cachedContent->cachedContent->name)
             // ->withSafetySetting($safetySettingDangerousContent)
             // ->withSafetySetting($safetySettingHateSpeech)
             ->withGenerationConfig($textGenerationConfig);
 
-        $cachedContent = $this->geminiClient->cachedContents()->create(
-            model: "gemini-2.5-pro",
-            ttl: "300s",
-            displayName: "entity",
-            parts: Content::parse(part: $cache_, role: Role::USER),
-        );
-
         $this->geminiPro = $this->geminiClient
             ->generativeModel('gemini-2.5-pro')
-            ->withCachedContent($cachedContent->cachedContent->name)
+            // ->withCachedContent($cachedContent->cachedContent->name)
         ;
     }
 
@@ -158,7 +142,7 @@ class ChatController extends AbstractController
         $prompt = $request->toArray()['prompt'];
         $user = $this->getUser();
 
-        // if (!$this->isPromptBusinessRelated($prompt)) {
+        // if (!$this->isPromptBusinessRelated($chat->getBrand()->getId(), $chat->getBrand()->getName(), $prompt)) {
         //     $errorMessage = "Text generation is limited to topics related to our business";
         //     $this->logChat($user, $chat, $prompt, 'Blocked by guardrail');
         //     return $this->json(['error' => $errorMessage], Response::HTTP_BAD_REQUEST);
@@ -173,29 +157,13 @@ class ChatController extends AbstractController
 
         try {
             $finalPrompt = $this->applyModelAgnosticPrefix($prompt);
-            $seeds = [
-                1 => "gelish.json",
-                2 => "gelish.json",
-                3 => "morgan-taylor.json",
-                4 => "entity.json",
-                5 => "artistic.json",
-                6 => "rcm.json",
-            ];
 
-            $seed = $seeds[$chat->getBrand()->getId()];
+            $cachedContent = $this->getCachedContent($chat->getBrand()->getId(), $chat->getBrand()->getName());
 
-            $cache_ = file_get_contents($this->getParameter('cag_dir') . "/" . $seed);
-            // $cache_ = json_decode($cache_, true);
-            $cachedContent = $this->geminiClient->cachedContents()->create(
-                model: "gemini-2.0-flash",
-                ttl: "3600s",
-                displayName: $chat->getBrand()->getName(),
-                parts: Content::parse(part: $cache_, role: Role::USER),
-            );
-
-            (new Logger())->info("cachedContent: " . print_r($cachedContent, true));
+            // (new Logger())->info("cachedContent: " . print_r($cachedContent, true));
 
             $result = $this->textGenerativeModel
+                ->withCachedContent($cachedContent)
                 ->startChat(history: $chatHistory)
                 ->sendMessage($finalPrompt);
                 // ->generateContent($finalPrompt);
@@ -442,9 +410,10 @@ class ChatController extends AbstractController
         return $prefix . $prompt;
     }
 
-    private function isPromptBusinessRelated(string $prompt): bool
+    private function isPromptBusinessRelated(int $brandId, string $brandName, string $prompt): bool
     {
         $modereationPrompt = "You are a content moderator for a nail care and beauty company.
+        Use the cached content to determine your answer to this question.
         Does the following user prompt relate to nails, manicures, peducures, cosmetics,
         beauty products, or a salon environment?
         Answer with only a single word: 'yes' or 'no'.
@@ -452,8 +421,11 @@ class ChatController extends AbstractController
         Prompt: \"{$prompt}\"
         ";
 
+        $cachedContent = $this->getCachedContent($brandId, $brandName);
+
         try {
             $result = $this->geminiPro
+                ->withCachedContent($cachedContent)
                 ->generateContent($modereationPrompt);
             $decision = mb_strtolower(mb_trim($result->text()));
 
@@ -463,7 +435,7 @@ class ChatController extends AbstractController
         }
     }
 
-    private function findAssetsResponse(int $brandId, string $prompt): array
+    private function findAssetsResponse(int $brandId, string $brandName, string $prompt): array
     {
         $imageUrls = [];
         $feedback = null;
@@ -479,8 +451,12 @@ class ChatController extends AbstractController
         USER PROMPT: \"{$prompt}\"
         ";
 
+        $cachedContent = $this->getCachedContent($brandId, $brandName);
+
         try {
-            $result = $this->geminiPro->generateContent($extractionPrompt);
+            $result = $this->geminiPro
+                ->withCachedContent($cachedContent)
+                ->generateContent($extractionPrompt);
             $extractedText = mb_trim($result->text());
 
             if (mb_strtoupper($extractedText) !== 'NONE' && !empty($extractedText)) {
@@ -618,5 +594,30 @@ class ChatController extends AbstractController
             mimeType: $mimeType,
             data: base64_encode(file_get_contents($filePath)),
         );
+    }
+
+    private function getCachedContent(int $brandId, string $cacheName): string
+    {
+        $seeds = [
+            1 => "gelish.json",
+            2 => "gelish.json",
+            3 => "morgan-taylor.json",
+            4 => "entity.json",
+            5 => "artistic.json",
+            6 => "rcm.json",
+        ];
+
+        $seed = $seeds[$brandId];
+
+        $cache_ = file_get_contents($this->getParameter('cag_dir') . "/" . $seed);
+        // $cache_ = json_decode($cache_, true);
+        $cachedContent = $this->geminiClient->cachedContents()->create(
+            model: "gemini-2.0-flash",
+            ttl: "300s",
+            displayName: $cacheName,
+            parts: Content::parse(part: $cache_, role: Role::USER),
+        );
+
+        return $cachedContent->cachedContent->name;
     }
 }
