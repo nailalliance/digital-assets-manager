@@ -5,13 +5,15 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-6 p-2 rounded-lg bg-gray-50">
         {% for collection in collections %}
             {% if year != collection.year %}
-                <h3 class="col-start-1 col-end-[-1]">{{ collection.year }}</h3>
+                <h3 class="col-start-1 col-end-[-1]">{{ collection.year > 0 ? collection.year : '--' }}</h3>
                 {% set year = collection.year %}
             {% endif %}
             <a data-turbo="false" href="{{ path('app_search', {'collection_ids[]': collection.id, 'brand_ids': [selectedBrand.id]}) }}"
                class="block p-6 bg-white rounded-lg shadow-sm hover:shadow-lg">
                 <h3 class="font-semibold text-gray-800">{{ collection.name }}</h3>
-                <p class="text-sm text-gray-500">{{ collection.year }}</p>
+                {% if collection.year > 0 %}
+                    <p class="text-sm text-gray-500">{{ collection.year }}</p>
+                {% endif %}
             </a>
         {% endfor %}
     </div>

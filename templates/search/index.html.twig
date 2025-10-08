@@ -31,7 +31,7 @@
                                 {% set year = -1 %}
                                 {% for collection in activeCollections|sort((a, b) => b.year <=> a.year) %}
                                     {% if collection.id in selectedCollectionIds %}
-                                        - ({{ collection.year }}) {{ collection.name }}<br>
+                                        - {{ collection.year > 0 ? "("~collection.year~")" : "" }} {{ collection.name }}<br>
                                     {% endif %}
                                 {% endfor %}
                                 <div class="text-right">
@@ -46,7 +46,7 @@
                             {% set year = -1 %}
                             {% for collection in activeCollections|sort((a, b) => b.year <=> a.year) %}
                                 {% if year != collection.year %}
-                                    <h4 class="font-bold pt-2">{{ collection.year }}</h4>
+                                    <h4 class="font-bold pt-2">{{ collection.year > 0 ? collection.year : '--' }}</h4>
                                     {% set year = collection.year %}
                                 {% endif %}
                                 <label class="flex items-center">
@@ -284,7 +284,7 @@
                                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ category.name }}</span>
                                         {% endfor %}
                                         {% for collection in asset.collections %}
-                                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ collection.name }} ({{ collection.year }})</span>
+                                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ collection.name }} {{ collection.year > 0 ? "("~collection.year~")" : '' }}</span>
                                         {% endfor %}
                                     </div>
                                 </div>
