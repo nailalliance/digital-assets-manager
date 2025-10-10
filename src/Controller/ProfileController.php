@@ -19,18 +19,38 @@ class ProfileController extends AbstractController
     #[Route('/profile', name: 'app_profile')]
     public function index(): Response
     {
-        return $this->render('profile/index.html.twig');
+        $apiTokens = [
+            ApiTokenFor::ADOBE->value,
+        ];
+
+        if ($this->isGranted('ROLE_ADMIN')) {
+            $apiTokens[] = ApiTokenFor::ADMIN->value;
+        }
+
+        return $this->render('profile/index.html.twig', [
+            'apiTokens' => $apiTokens,
+        ]);
     }
 
-    #[Route('/profile/api-tokens', name: 'app_profile_api_token_create', methods: ['POST'])]
-    public function createApiToken(EntityManagerInterface $entityManager): Response
+    #[Route('/profile/api-tokens/{tokenFor}', name: 'app_profile_api_token_create', methods: ['POST'])]
+    public function createApiToken(EntityManagerInterface $entityManager, string $tokenFor): Response
     {
         /** @var User $user */
         $user = $this->getUser();
 
+        try {
+            $apiTokenFor = ApiTokenFor::from($tokenFor);
+        } catch (\Exception $e) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if (!$this->isGranted('ROLE_ADMIN') && $apiTokenFor == ApiTokenFor::ADMIN) {
+            throw $this->createAccessDeniedException();
+        }
+
         $token = $entityManager->getRepository(ApiToken::class)->findOneBy([
             'owner' => $user,
-            'service' => ApiTokenFor::ADOBE->value
+            'service' => $apiTokenFor->value,
         ]);
 
         if (empty($token)) {
@@ -43,7 +63,7 @@ class ProfileController extends AbstractController
         $imageTokenString = bin2hex(random_bytes(16));
         $token->setImageToken($imageTokenString);
 
-        $token->setService(ApiTokenFor::ADOBE);
+        $token->setService($apiTokenFor);
 
         $entityManager->persist($token);
         $entityManager->flush();

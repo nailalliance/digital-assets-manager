@@ -30,11 +30,16 @@
         {#     </button>#}
         {# {{ form_end(form) }}#}
 
-         <form action="{{ path('app_profile_api_token_create') }}" method="post">
-              <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                  Generate Adobe Token
-              </button>
-         </form>
+        <div class="flex flex-col gap-2">
+            {% for apiToken in apiTokens %}
+                 <form action="{{ path('app_profile_api_token_create', {tokenFor: apiToken}) }}" method="post">
+                      <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                          Generate {{ apiToken | capitalize }} Token
+                      </button>
+                 </form>
+            {% endfor %}
+        </div>
+
 
         <h3 class="text-lg font-semibold mt-8 mb-2">Your Tokens</h3>
         <ul class="divide-y divide-gray-200">
