@@ -38,6 +38,9 @@ security:
             - ROLE_FTP_ADMIN
         ROLE_FTP_ADMIN:
             - ROLE_FTP_DESIGNER
+            - ROLE_FTP_CONTRIBUTOR
+        ROLE_FTP_CONTRIBUTOR:
+            - ROLE_BOARD_ADMIN
         ROLE_FTP_DESIGNER:
             - ROLE_BOARD_ADMIN
         ROLE_BOARD_ADMIN:
