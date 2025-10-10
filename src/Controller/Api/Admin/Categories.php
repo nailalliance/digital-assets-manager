@@ -14,8 +14,18 @@ class Categories extends AbstractController
     #[Route('/api/admin/categories', name: 'api_admin_categories_index', methods: ['GET'])]
     public function getCategories(CategoriesRepository $categoriesRepository): JsonResponse
     {
-        $categores = $categoriesRepository->findBy([], ['name' => 'ASC']);
+        $categoresEntities = $categoriesRepository->findBy([], ['name' => 'ASC']);
 
-        return $this->json($categores);
+        $categories = [];
+
+        foreach ($categoresEntities as $categoresEntity) {
+            $categories[] = [
+                'id' => $categoresEntity->getId(),
+                'name' => $categoresEntity->getName(),
+                'status' => $categoresEntity->getStatus(),
+            ];
+        }
+
+        return $this->json($categories);
     }
 }
