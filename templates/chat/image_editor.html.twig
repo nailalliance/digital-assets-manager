@@ -234,6 +234,7 @@
                         data.videoUrls.forEach(url => addMediaToGallery(url, true));
                     }
                 } catch (error) {
+                    console.error(error)
                     addChatMessage('Error', error.message);
                 } finally {
                     setLoading(false);
@@ -283,6 +284,7 @@
                     }
 
                 } catch (error) {
+                    console.error(error)
                     addChatMessage('Error', error.message);
                 } finally {
                     setLoading(false);
