@@ -5,7 +5,8 @@
 {# The title will dynamically show the asset's name #}
 {% block title %}{{ asset.name }} | {{ parent() }}{% endblock %}
 
-{#{% block javascripts %}#}
+{% block javascripts %}
+    {{ parent() }}
 {#    {% if asset.mimeType == 'application/pdf' %}#}
 {#    <script src="{{ asset('js/pdf.mjs') }}" type="module"></script>#}
 {#    <script type="module">#}
@@ -38,7 +39,7 @@
 {#        });#}
 {#    </script>#}
 {#    {% endif %}#}
-{#{% endblock %}#}
+{% endblock %}
 
 {% block body %}
     <div class="bg-white rounded-lg shadow-xl overflow-hidden">
