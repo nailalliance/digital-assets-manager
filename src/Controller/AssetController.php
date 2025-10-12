@@ -119,4 +119,10 @@ final class AssetController extends AbstractController
             'asset' => $assets,
         ]);
     }
+
+    #[Route('/assets/{id}/pdf', name: 'asset_pdf_preview', methods: ['GET'])]
+    public function pdfPreview(Assets $asset): Response
+    {
+        return $this->render('asset/_pdf.html.twig', ['asset' => $asset]);
+    }
 }
