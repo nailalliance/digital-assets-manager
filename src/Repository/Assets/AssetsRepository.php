@@ -5,6 +5,7 @@ namespace App\Repository\Assets;
 use App\Entity\Assets\Assets;
 use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\User;
+use App\Service\MimeTypesGroups;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -74,7 +75,7 @@ class AssetsRepository extends ServiceEntityRepository
             ->setParameter('now', new \DateTimeImmutable());
 
         if ($fileTypeGroup) {
-            $mimeTypes = $this->getMimeTypesForGroup($fileTypeGroup);
+            $mimeTypes = MimeTypesGroups::getMimeTypes($fileTypeGroup);
             if (!empty($mimeTypes)) {
                 $qb->andWhere('a.mime_type IN (:mimeTypes)')
                     ->setParameter('mimeTypes', $mimeTypes);
@@ -177,24 +178,6 @@ class AssetsRepository extends ServiceEntityRepository
             ->setParameter('ids', $ids)
             ->getQuery()
             ->getResult();
-    }
-
-    /**
-     * Maps a simple group name to an array of MIME types.
-     */
-    private function getMimeTypesForGroup(string $group): array
-    {
-        $map = [
-            'images' => ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/tiff', 'image/svg+xml', 'image/x-eps'],
-            'videos' => ['video/mp4', 'video/quicktime', 'video/x-msvideo'],
-            'audio' => ['audio/mpeg', 'audio/wav', 'audio/aiff'],
-            'documents' => ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-            '3d' => ['model/gltf-binary', 'model/obj'],
-            'code' => ['text/html', 'text/css', 'application/javascript'],
-            'zip' => ['application/zip'],
-        ];
-
-        return $map[$group] ?? [];
     }
 
     public function findForAdminList(

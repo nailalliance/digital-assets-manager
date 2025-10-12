@@ -8,6 +8,7 @@ use App\Repository\Assets\AssetsRepository;
 use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\CategoriesRepository;
 use App\Repository\Assets\CollectionsRepository;
+use App\Service\MimeTypesGroups;
 use App\Service\SearchService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -49,12 +50,17 @@ class SearchController extends AbstractController
         $assets = [];
 
         if (!empty($query)) {
+            $mimeTypes = null;
+            if ($selectedFileTypeGroup) {
+                $mimeTypes = MimeTypesGroups::getMimeTypes($selectedFileTypeGroup);
+            }
             $searchResult = $searchService->search(
                 query: $query,
                 limit: 1000,
                 offset: 0,
                 categoryIds: $selectedCategoryIds,
-                collectionIds: $selectedCollectionIds
+                collectionIds: $selectedCollectionIds,
+                mimeTypes: $mimeTypes,
             );
             // $assetIdsFromSearch = $searchResult['ids'];
             // $totalAssets = $searchResult['total'];

@@ -34,6 +34,7 @@ class SearchService
         ?array $brandIds = null,
         ?array $categoryIds = null,
         ?array $collectionIds = null,
+        ?array $mimeTypes = null,
     ): array
     {
         if (empty($query)) {
@@ -84,6 +85,10 @@ class SearchService
 
         if (!empty($collectionIds)) {
             $filters[] = "collectionsForSearch.id IN [" . implode(',', $collectionIds) . ']';
+        }
+
+        if (!empty($mimeTypes)) {
+            $filters[] = 'mimeType IN ["' . implode('","', $mimeTypes) . '"]';
         }
 
         $searchParams['filter'] = join(' AND ' , $filters);

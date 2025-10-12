@@ -44,3 +44,4 @@ meilisearch:
                     - 'brandForSearch.id'
                     - 'categoriesForSearch.id'
                     - 'collectionsForSearch.id'
+                    - 'mimeType'
