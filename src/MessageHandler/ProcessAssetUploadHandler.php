@@ -53,7 +53,7 @@ final class ProcessAssetUploadHandler
             $mimeType = $fileMetaData['metadata']['filetype'];
 
             $colorSpace = ColorSpaceEnum::RGB;
-            if (class_exists('Imagick')) {
+            if (class_exists('Imagick') && in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
                 try {
                     $image = new \Imagick($filePath);
                     if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
