@@ -10,11 +10,11 @@ use App\Repository\Assets\AssetsRepository;
 use App\Service\ImageProcessorService;
 use App\Service\UniqueFilePathGenerator;
 use Doctrine\ORM\EntityManagerInterface;
-use Monolog\Logger;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpKernel\Log\Logger;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -79,9 +79,9 @@ final class ProcessAssetUploadHandler
             }
 
             $colorSpace = ColorSpaceEnum::RGB;
-            (new Logger())->info(__LINE__ . ": " . $mimeType . " " . $safeFilename);
+            (new Logger())->error(__LINE__ . ": " . $mimeType . " " . $safeFilename);
             if (class_exists('Imagick') && in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
-                (new Logger())->info(__LINE__ . ": " . $mimeType . " " . $safeFilename);
+                (new Logger())->error(__LINE__ . ": " . $mimeType . " " . $safeFilename);
                 try {
                     $image = new \Imagick($filePath);
                     if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
@@ -92,7 +92,7 @@ final class ProcessAssetUploadHandler
             }
 
             if (in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
-                (new Logger())->info(__LINE__ . ": " . $mimeType . " " . $safeFilename);
+                (new Logger())->error(__LINE__ . ": " . $mimeType . " " . $safeFilename);
                 $thumbnailBinary = $this->imageProcessorService->makeThumbnail($finalFilePath, 700, 700);
 
                 if ($thumbnailBinary) {
