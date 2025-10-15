@@ -9,6 +9,7 @@ use App\Message\ProcessAssetUpload;
 use App\Repository\Assets\AssetsRepository;
 use App\Service\ImageProcessorService;
 use App\Service\UniqueFilePathGenerator;
+use App\Service\Video\FFMPEG;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
@@ -18,6 +19,11 @@ use Symfony\Component\HttpKernel\Log\Logger;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use function basename;
+use function is_null;
+use function mb_substr;
+use function sprintf;
+use const DIRECTORY_SEPARATOR;
 
 #[AsMessageHandler]
 final class ProcessAssetUploadHandler
@@ -89,21 +95,39 @@ final class ProcessAssetUploadHandler
                 }
             }
 
-            if (in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
-                $thumbnailBinary = $this->imageProcessorService->makeThumbnail($finalFilePath, 700, 700);
+            $thumbnailBinary = null;
+            $targetWidth = 700;
+            $targetHeight = 700;
 
-                if ($thumbnailBinary) {
-                    $thumbnailDir = $this->params->get('thumbnail_dir');
-                    $safeFilename = basename($finalFilePath);
-                    $firstLetter = strtolower(mb_substr($safeFilename, 0, 1));
-                    $secondLetter = strtolower(mb_substr($safeFilename, 1, 1));
-                    $finalDir = sprintf('%s/%s/%s', $thumbnailDir, $firstLetter, $secondLetter);
-                    $this->filesystem->mkdir($finalDir);
-                    $thumbnailPath = $finalDir . '/' . pathinfo($safeFilename, PATHINFO_FILENAME) . '.webp';
+            if (mb_substr($mimeType, 0, 6) === 'video/') {
+                $frame = null;
+                try {
+                    $frame = FFMPEG::getFirstFrame($finalFilePath, sys_get_temp_dir() . DIRECTORY_SEPARATOR . basename($finalFilePath) . ".jpg");
+                } catch (\Exception $e) {
 
-                    $this->filesystem->dumpFile($thumbnailPath, $thumbnailBinary);
-                    $asset->setThumbnailPath($thumbnailPath);
                 }
+
+                if (!is_null($frame) && $this->filesystem->exists($frame)) {
+                    $thumbnailBinary = $this->imageProcessorService->makeThumbnail($frame, $targetWidth, $targetHeight);
+                    $this->filesystem->remove($frame);
+                }
+            }
+
+            if (in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
+                $thumbnailBinary = $this->imageProcessorService->makeThumbnail($finalFilePath, $targetWidth, $targetHeight);
+            }
+
+            if (!is_null($thumbnailBinary)) {
+                $thumbnailDir = $this->params->get('thumbnail_dir');
+                $safeFilename = basename($finalFilePath);
+                $firstLetter = strtolower(mb_substr($safeFilename, 0, 1));
+                $secondLetter = strtolower(mb_substr($safeFilename, 1, 1));
+                $finalDir = sprintf('%s/%s/%s', $thumbnailDir, $firstLetter, $secondLetter);
+                $this->filesystem->mkdir($finalDir);
+                $thumbnailPath = $finalDir . '/' . pathinfo($safeFilename, PATHINFO_FILENAME) . '.webp';
+
+                $this->filesystem->dumpFile($thumbnailPath, $thumbnailBinary);
+                $asset->setThumbnailPath($thumbnailPath);
             }
 
             $asset->setFilePath($finalFilePath);
