@@ -10,6 +10,7 @@ use App\Repository\Assets\AssetsRepository;
 use App\Service\ImageProcessorService;
 use App\Service\UniqueFilePathGenerator;
 use Doctrine\ORM\EntityManagerInterface;
+use Monolog\Logger;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Exception\IOException;
@@ -52,17 +53,6 @@ final class ProcessAssetUploadHandler
             $fileSize = $fileMetaData['size'];
             $mimeType = $fileMetaData['metadata']['filetype'];
 
-            $colorSpace = ColorSpaceEnum::RGB;
-            if (class_exists('Imagick') && in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
-                try {
-                    $image = new \Imagick($filePath);
-                    if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
-                        $colorSpace = ColorSpaceEnum::CMYK;
-                    }
-                } catch (\ImagickException $e) {
-                }
-            }
-
             $safeFilename = str_replace(' ', '-', $originalFilename);
             $safeFilename = preg_replace('/[^A-Za-z0-9\-\_\.]/', '', $safeFilename);
 
@@ -88,7 +78,21 @@ final class ProcessAssetUploadHandler
                 $asset->setName($originalFilename);
             }
 
+            $colorSpace = ColorSpaceEnum::RGB;
+            (new Logger())->info(__LINE__ . ": " . $mimeType . " " . $safeFilename);
+            if (class_exists('Imagick') && in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
+                (new Logger())->info(__LINE__ . ": " . $mimeType . " " . $safeFilename);
+                try {
+                    $image = new \Imagick($filePath);
+                    if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
+                        $colorSpace = ColorSpaceEnum::CMYK;
+                    }
+                } catch (\ImagickException $e) {
+                }
+            }
+
             if (in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
+                (new Logger())->info(__LINE__ . ": " . $mimeType . " " . $safeFilename);
                 $thumbnailBinary = $this->imageProcessorService->makeThumbnail($finalFilePath, 700, 700);
 
                 if ($thumbnailBinary) {
