@@ -79,9 +79,7 @@ final class ProcessAssetUploadHandler
             }
 
             $colorSpace = ColorSpaceEnum::RGB;
-            (new Logger())->error(__LINE__ . ": " . $mimeType . " " . $safeFilename);
             if (class_exists('Imagick') && in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
-                (new Logger())->error(__LINE__ . ": " . $mimeType . " " . $safeFilename);
                 try {
                     $image = new \Imagick($filePath);
                     if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
@@ -92,7 +90,6 @@ final class ProcessAssetUploadHandler
             }
 
             if (in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'], true)) {
-                (new Logger())->error(__LINE__ . ": " . $mimeType . " " . $safeFilename);
                 $thumbnailBinary = $this->imageProcessorService->makeThumbnail($finalFilePath, 700, 700);
 
                 if ($thumbnailBinary) {
