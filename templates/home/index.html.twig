@@ -47,6 +47,13 @@
             </section>
         {% endif %}
 
+        {# Sub-brands of the selected parent #}
+        {% if childBrands is not empty %}
+            <section class="mb-12">
+                {% include 'home/_brands_grid.html.twig' with {brands: childBrands} %}
+            </section>
+        {% endif %}
+
         {# Categories for the selected brand #}
         {% if categories is not empty %}
             <section class="mb-12">
@@ -62,11 +69,11 @@
         {% endif %}
 
         {# Sub-brands of the selected parent #}
-        {% if childBrands is not empty %}
-            <section class="mb-12">
-                {% include 'home/_brands_grid.html.twig' with {brands: childBrands} %}
-            </section>
-        {% endif %}
+        {# {% if childBrands is not empty %}#}
+        {#     <section class="mb-12">#}
+        {#         {% include 'home/_brands_grid.html.twig' with {brands: childBrands} %}#}
+        {#     </section>#}
+        {# {% endif %}#}
 
     {% else %}
         <div class="text-center py-12 text-gray-500">
