@@ -196,44 +196,54 @@ class ChatController extends AbstractController
         $promptText = $payload['prompt'];
         $user = $this->getUser();
         $feedbackMessage = "";
+        $modelId = 'gemini-2.5-flash-image';
 
         $finalPromptText = $this->applyModelAgnosticPrefix($promptText);
 
-        $promptParts = [
-            "user_prompt" => [
-                "text" => $finalPromptText,
-            ]
-        ];
-
         $cachedContent = $this->getCachedContent($chat->getBrand()->getId(), $chat->getBrand()->getName());
 
-        $chatHistory = [];
+        $promptParts = [
+            "cachedContent" => $cachedContent,
+            "contents" => [],
+        ];
 
         foreach ($chat->getMessage() as $message) {
             if (!empty($message->getQuestion())) {
-                $chatHistory[] = [
-                    "role" => Role::USER,
-                    "content" => $message->getQuestion(),
+                $promptParts["contents"][] = [
+                    "role" => Role::USER->value,
+                    "parts" => [
+                        ["text" => $message->getQuestion()]
+                    ],
                 ];
             }
             if (!empty($message->getAnswer())) {
-                $chatHistory[] = [
-                    "role" => Role::MODEL,
-                    "content" => $message->getAnswer(),
+                $promptParts["contents"][] = [
+                    "role" => Role::MODEL->value,
+                    "parts" => [
+                        ["text" => $message->getAnswer()]
+                    ],
                 ];
             }
         }
-
-        $promptParts["user_prompt"]["chat_history"] = $chatHistory;
 
 
         $baseImageToEdit = $payload['currentlyEditingImage'] ?? null;
         if ($baseImageToEdit) {
             $blob = $this->createBlobFromLocalUrl($baseImageToEdit);
             if (str_starts_with($blob->mimeType->value, 'image')) {
-                $promptParts["image_to_edit"] = [
-                    "description" => "The primary image to be modified",
-                    "data" => $this->createBlobFromLocalUrl($baseImageToEdit),
+                $promptParts["contents"][] = [
+                    "role" => Role::USER->value,
+                    "parts" => [
+                        [
+                            "text" => "This is the primary image to be modified",
+                        ],
+                        [
+                            "inlineData" => [
+                                "mimeType" => $blob->mimeType->value,
+                                "data" => $blob->data,
+                            ],
+                        ],
+                    ],
                 ];
                 $feedbackMessage .= "Editing specified image. ";
             }
@@ -243,20 +253,51 @@ class ChatController extends AbstractController
         if ($importedDamImageId) {
             $asset = $this->entityManager->getRepository(Assets::class)->find($importedDamImageId);
             if (!empty($asset)) {
-                $promptParts["supporting_images"] = [
-                    [
-                        "description" => "Attached image to use as described by user prompt",
-                        "data" => $this->createBlobFromLocalUrl($asset->getFilePath()),
-                    ]
+                $blob = $this->createBlobFromLocalUrl($asset->getFilePath());
+                $promptParts["contents"][] = [
+                    "role" => Role::USER->value,
+                    "parts" => [
+                        [
+                            "text" => "This is a supporting image to use based on the user prompt.",
+                        ],
+                        [
+                            "inlineData" => [
+                                "mimeType" => $blob->mimeType->value,
+                                "data" => $blob->data,
+                            ],
+                        ],
+                    ],
                 ];
-                // $promptParts[] = $this->createBlobFromLocalUrl($asset->getFilePath());
                 $feedbackMessage .= "Including imported DAM image. ";
             }
         }
 
-        $promptParts = ["request" => $promptParts];
+        $promptParts["contents"][] = [
+            "role" => Role::USER->value,
+            "parts" => [
+                ["text" => $finalPromptText]
+            ],
+        ];
 
         try {
+            $startUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$modelId}:generateContent";
+
+            $client = HttpClient::create();
+
+            $startResponse = $client->request('POST', $startUrl, [
+                'json' => $promptParts,
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'x-goog-api-key' => $this->geminiApiKey,
+                ],
+            ]);
+
+            if ($startResponse->getStatusCode() != 200) {
+                dd($startResponse->getContent(false));
+            }
+
+            dd($startResponse->getContent());
+
             try {
                 $result = $this->imageGenerativeModel
                     ->withCachedContent($cachedContent)
