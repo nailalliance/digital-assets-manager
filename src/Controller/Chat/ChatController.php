@@ -277,15 +277,17 @@ class ChatController extends AbstractController
         $promptParts["contents"][] = [
             "role" => Role::USER->value,
             "parts" => [
-                ["text" => $finalPromptText]
+                [
+                    "text" => $finalPromptText . " **Crucially, you must maintain the original aspect ratio of the main image being edited.** Do NOT crop, stretch, or alter the main image's aspect ratio.",
+                ]
             ],
         ];
 
-        $promptParts["systemInstruction"] = [
-            "parts" => [
-                ["text" => "You are an expert photo editor. Your primary goal is to follow the user's instructions precisely. **Crucially, you must maintain the original aspect ratio of the main image being edited.** Do NOT crop, stretch, or alter the main image's aspect ratio."]
-            ]
-        ];
+        // $promptParts["systemInstruction"] = [
+        //     "parts" => [
+        //         ["text" => "You are an expert photo editor. Your primary goal is to follow the user's instructions precisely. **Crucially, you must maintain the original aspect ratio of the main image being edited.** Do NOT crop, stretch, or alter the main image's aspect ratio."]
+        //     ]
+        // ];
 
         try {
             $startUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$modelId}:generateContent";
