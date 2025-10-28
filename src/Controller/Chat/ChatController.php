@@ -33,12 +33,14 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Log\Logger;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
+use function array_map;
 use function basename;
 use function dump;
 use function file_get_contents;
 use function in_array;
 use function is_array;
 use function is_null;
+use function json_encode;
 use function mb_strtolower;
 use function mb_substr;
 use function mime_content_type;
@@ -235,7 +237,7 @@ class ChatController extends AbstractController
                     "role" => Role::USER->value,
                     "parts" => [
                         [
-                            "text" => "This is the primary image to be modified",
+                            "text" => "This is the main image being edited",
                         ],
                         [
                             "inlineData" => [
@@ -312,6 +314,21 @@ class ChatController extends AbstractController
 
             $imageUrls = [];
             $textResponse = "";
+            if ($this->isGranted('ROLE_ADMIN')) {
+                $logPrompt = $promptParts;
+                $logPrompt['contents'] = array_map(function ($content) {
+                    if (isset($content['parts'])) {
+                        return array_map(function ($part) {
+                            if (isset($part['inlineData'])) {
+                                return $part['inlineData']['mimeType'];
+                            }
+                            return $part;
+                        }, $content['parts']);
+                    }
+                    return $content;
+                }, $logPrompt['contents']);
+                $this->logChat($user, $chat, $promptText, json_encode($logPrompt), null);
+            }
             foreach ($parts as $part) {
                 if (isset($part['text'])) {
                     $textResponse = $part['text'];
