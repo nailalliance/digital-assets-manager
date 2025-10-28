@@ -200,10 +200,10 @@ class ChatController extends AbstractController
 
         $finalPromptText = $this->applyModelAgnosticPrefix($promptText);
 
-        $cachedContent = $this->getCachedContent($chat->getBrand()->getId(), $chat->getBrand()->getName());
+        // $cachedContent = $this->getCachedContent($chat->getBrand()->getId(), $chat->getBrand()->getName(), $modelId);
 
         $promptParts = [
-            "cachedContent" => $cachedContent,
+            // "cachedContent" => $cachedContent,
             "contents" => [],
         ];
 
@@ -296,24 +296,25 @@ class ChatController extends AbstractController
                 dd($startResponse->getContent(false));
             }
 
-            dd($startResponse->getContent());
+            $geminiResponse = $startResponse->toArray();
 
-            try {
-                $result = $this->imageGenerativeModel
-                    ->withCachedContent($cachedContent)
-                    ->generateContent($promptParts);
-                $parts = $result->parts();
-            } catch (\Exception $e) {
-                throw new \Exception("Generate Content Exception: " . $e->getMessage());
+            $parts = [];
+
+            if (isset($geminiResponse['candidates']) && isset($geminiResponse['candidates'][0]) && isset($geminiResponse['candidates'][0]['content']['parts'])) {
+                $parts = $geminiResponse['candidates'][0]['content']['parts'];
             }
 
             $imageUrls = [];
-
+            $textResponse = "";
             foreach ($parts as $part) {
-                if (!is_null($part->text)) continue;
+                if (isset($part['text'])) {
+                    $textResponse = $part['text'];
+                    continue;
+                }
+                // if (!is_null($part->text)) continue;
 
                 try {
-                    $imageName = $this->saveImageFromBase64($part->inlineData->data);
+                    $imageName = $this->saveImageFromBase64($part["inlineData"]["data"]);
                     $imageUrl = $this->generateUrl('asset_ai_image', ['filename' => $imageName]);
                     $this->logChat($user, $chat, $promptText, null, $imageUrl);
                     $imageUrls[] = $imageUrl;
@@ -322,7 +323,7 @@ class ChatController extends AbstractController
                 }
             }
 
-            return $this->json(['imageUrl' => $imageUrls, 'feedback' => $feedbackMessage]);
+            return $this->json(['text'=> $textResponse, 'imageUrl' => $imageUrls, 'feedback' => $feedbackMessage]);
 
         } catch (\Exception $e) {
             return $this->json(['error' => 'Image Error: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -680,7 +681,7 @@ class ChatController extends AbstractController
         );
     }
 
-    private function getCachedContent(int $brandId, string $cacheName): string
+    private function getCachedContent(int $brandId, string $cacheName, string $model = "gemini-2.0-flash"): string
     {
         $seeds = [
             1 => "gelish.json",
@@ -696,7 +697,7 @@ class ChatController extends AbstractController
         $cache_ = file_get_contents($this->getParameter('cag_dir') . "/" . $seed);
         // $cache_ = json_decode($cache_, true);
         $cachedContent = $this->geminiClient->cachedContents()->create(
-            model: "gemini-2.0-flash",
+            model: $model,
             ttl: "300s",
             displayName: $cacheName,
             parts: Content::parse(part: $cache_, role: Role::USER),
