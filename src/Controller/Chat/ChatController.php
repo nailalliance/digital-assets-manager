@@ -279,6 +279,12 @@ class ChatController extends AbstractController
             ],
         ];
 
+        $promptParts["systemInstruction"] = [
+            "parts" => [
+                ["text" => "Keep 1:1 aspect ratio"]
+            ]
+        ];
+
         try {
             $startUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$modelId}:generateContent";
 
