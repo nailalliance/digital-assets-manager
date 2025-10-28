@@ -283,7 +283,7 @@ class ChatController extends AbstractController
 
         $promptParts["systemInstruction"] = [
             "parts" => [
-                ["text" => "You are an expert photo editor. Your primary goal is to follow the user's instructions precisely. **Crucially, you must maintain the original aspect ratio of the main image being edited.** Do not crop, stretch, or alter the main image's aspect ratio to match the aspect ratio of any supporting images."]
+                ["text" => "You are an expert photo editor. Your primary goal is to follow the user's instructions precisely. **Crucially, you must maintain the original aspect ratio of the main image being edited.** Do NOT crop, stretch, or alter the main image's aspect ratio."]
             ]
         ];
 
