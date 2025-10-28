@@ -151,8 +151,12 @@ class ChatController extends AbstractController
         $chatHistory = [];
 
         foreach ($chat->getMessage() as $message) {
-            $chatHistory[] = Content::parse(part: $message->getQuestion(), role: Role::USER);
-            $chatHistory[] = Content::parse(part: $message->getAnswer(), role: Role::MODEL);
+            if (!empty($message->getQuestion())) {
+                $chatHistory[] = Content::parse(part: $message->getQuestion(), role: Role::USER);
+            }
+            if (!empty($message->getAnswer())) {
+                $chatHistory[] = Content::parse(part: $message->getAnswer(), role: Role::MODEL);
+            }
         }
 
         try {
@@ -195,13 +199,42 @@ class ChatController extends AbstractController
 
         $finalPromptText = $this->applyModelAgnosticPrefix($promptText);
 
-        $promptParts = [$finalPromptText];
+        $promptParts = [
+            "user_prompt" => [
+                "text" => $finalPromptText,
+            ]
+        ];
+
+        $cachedContent = $this->getCachedContent($chat->getBrand()->getId(), $chat->getBrand()->getName());
+
+        $chatHistory = [];
+
+        foreach ($chat->getMessage() as $message) {
+            if (!empty($message->getQuestion())) {
+                $chatHistory[] = [
+                    "role" => Role::USER,
+                    "content" => $message->getQuestion(),
+                ];
+            }
+            if (!empty($message->getAnswer())) {
+                $chatHistory[] = [
+                    "role" => Role::MODEL,
+                    "content" => $message->getAnswer(),
+                ];
+            }
+        }
+
+        $promptParts["user_prompt"]["chat_history"] = $chatHistory;
+
 
         $baseImageToEdit = $payload['currentlyEditingImage'] ?? null;
         if ($baseImageToEdit) {
             $blob = $this->createBlobFromLocalUrl($baseImageToEdit);
             if (str_starts_with($blob->mimeType->value, 'image')) {
-                $promptParts[] = $this->createBlobFromLocalUrl($baseImageToEdit);
+                $promptParts["image_to_edit"] = [
+                    "description" => "The primary image to be modified",
+                    "data" => $this->createBlobFromLocalUrl($baseImageToEdit),
+                ];
                 $feedbackMessage .= "Editing specified image. ";
             }
         }
@@ -210,14 +243,24 @@ class ChatController extends AbstractController
         if ($importedDamImageId) {
             $asset = $this->entityManager->getRepository(Assets::class)->find($importedDamImageId);
             if (!empty($asset)) {
-                $promptParts[] = $this->createBlobFromLocalUrl($asset->getFilePath());
+                $promptParts["supporting_images"] = [
+                    [
+                        "description" => "Attached image to use as described by user prompt",
+                        "data" => $this->createBlobFromLocalUrl($asset->getFilePath()),
+                    ]
+                ];
+                // $promptParts[] = $this->createBlobFromLocalUrl($asset->getFilePath());
                 $feedbackMessage .= "Including imported DAM image. ";
             }
         }
 
+        $promptParts = ["request" => $promptParts];
+
         try {
             try {
-                $result = $this->imageGenerativeModel->generateContent($promptParts);
+                $result = $this->imageGenerativeModel
+                    ->withCachedContent($cachedContent)
+                    ->generateContent($promptParts);
                 $parts = $result->parts();
             } catch (\Exception $e) {
                 throw new \Exception("Generate Content Exception: " . $e->getMessage());

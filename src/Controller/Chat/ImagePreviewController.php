@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/ai-image')]
-class AiImageController extends AbstractController
+class ImagePreviewController extends AbstractController
 {
     #[Route('/{filename}', name: 'asset_ai_image')]
     public function thumbnail(string $filename): BinaryFileResponse
