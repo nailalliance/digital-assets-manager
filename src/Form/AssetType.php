@@ -135,12 +135,12 @@ class AssetType extends AbstractType
                     'data-tag-input-target' => 'input',
                 ]
             ])
-            ->add('similarAssets', EntityType::class, [
-                'class' => Assets::class,
-                'choice_label' => 'name',
-                'multiple' => true,
-                'required' => false,
-            ])
+            // ->add('similarAssets', EntityType::class, [
+            //     'class' => Assets::class,
+            //     'choice_label' => 'name',
+            //     'multiple' => true,
+            //     'required' => false,
+            // ])
             ->add('thumbnail', FileType::class, [
                 'label' => 'Upload thumbnail',
                 'required' => false,
