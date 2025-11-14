@@ -87,12 +87,12 @@
                 {# Color Space Highlight #}
                 {% if asset.colorSpace.value == 'cmyk' %}
                     <div class="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
-                        <p class="font-bold">Print Only</p>
+                        <p class="font-bold">For Print Only</p>
                         <p>This file uses a CMYK color profile and is intended for professional printing.</p>
                     </div>
                 {% elseif asset.colorSpace.value == 'rgb' %}
                     <div class="mb-6 p-3 bg-gray-100 rounded-md text-sm text-gray-600">
-                        <p><span class="font-semibold">Screen/Web Use:</span> This file uses an RGB color profile.</p>
+                        <p><span class="font-semibold">For Screen/Web Use:</span> This file uses an RGB color profile.</p>
                     </div>
                 {% endif %}
 
