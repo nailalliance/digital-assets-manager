@@ -37,7 +37,7 @@
             {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
                 <div class="hidden md:flex items-stretch space-x-6 text-center">
                     <a href="{{ path('home') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600 flex-column items-center">Browse</a>
-                    <a href="{{ path('download_list_index') }}" data-turbo="false" class="relative text-gray-600 hover:text-blue-600">
+                    <a href="{{ path('download_list_index') }}" data-turbo="false" id="header-download-bag-link" class="relative text-gray-600 hover:text-blue-600">
                         Download Bag
                         {% set count = download_list_count() %}
                         {% if count > 0 %}

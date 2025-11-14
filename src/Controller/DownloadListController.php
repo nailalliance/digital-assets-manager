@@ -45,8 +45,13 @@ class DownloadListController extends AbstractController
 
         $this->addFlash('success', sprintf('"%s" has been added to your download bag.', $asset->getName()));
 
-        // Redirect back to the page the user came from
-        return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
+        return $this->json([
+            'success' => true,
+            'downloadCount' => $downloadListService->getCount()
+        ]);
+
+        // // Redirect back to the page the user came from
+        // return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
     }
 
     /**

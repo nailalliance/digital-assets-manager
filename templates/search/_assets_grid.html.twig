@@ -1,0 +1,61 @@
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-controller="search-asset-list">
+    {% if assets is not empty %}
+        {% for asset in assets %}
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col" data-asset-id="{{ asset.id }}">
+                <a data-turbo="false" href="{{ path('app_asset', {id: asset.id}) }}" class="block relative">
+                    <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
+                        {% if asset.thumbnailPath is not null and asset.thumbnailPath is not empty %}
+                            <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-full h-full object-cover">
+                        {% else %}
+                            <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"></path></svg>
+                        {% endif %}
+                    </div>
+                    {% if asset.colorSpace.value == 'cmyk' %}
+                        <span class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full shadow">PRINT ONLY</span>
+                    {% elseif asset.colorSpace.value == 'rgb' %}
+                        <span class="absolute top-2 right-2 bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded-full shadow">WEB</span>
+                    {% endif %}
+                    <div class="p-3">
+                        <p class="font-semibold text-sm truncate" title="{{ asset.name }}">{{ asset.name }}</p>
+                        <p class="text-xs text-gray-500">{{ asset.itemCodes|map(item => item.code)|join(', ') }}</p>
+                        <p class="text-xs text-gray-500">{{ asset.mimeType }}</p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            {% for brand in asset.brand %}
+                                <span class="bg-violet-100 text-violet-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ brand.name }}</span>
+                            {% endfor %}
+                            {% for category in asset.categories %}
+                                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ category.name }}</span>
+                            {% endfor %}
+                            {% for collection in asset.collections %}
+                                <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ collection.name }} {{ collection.year > 0 ? "("~collection.year~")" : '' }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </a>
+                <div class="mt-auto p-3 border-t border-gray-200 bg-gray-50 flex items-center justify-center space-x-2">
+                    <a href="{{ path('app_asset_quick_look', {id: asset.id}) }}" data-action="click->quick-look#open" title="Quick Look" class="p2-text-gray-500 hover:text-violet-600 transition-colors">
+                        <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.432 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </a>
+                    <a href="{{ path('asset_download', {id: asset.id}) }}" data-turbo="false" title="Download" class="p-2 text-gray-500 hover:text-violet-600 transition-colors">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    </a>
+                    <form action="{{ path('download_list_add', {id: asset.id}) }}" method="post" data-search-asset-list-target="addToBagForm" data-action="submit->search-asset-list#submitForm">
+                        <button type="submit" title="Add to Download Bag" class="p-2 text-gray-500 hover:text-violet-600 transition-colors">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-span-full text-center py-12 bg-white rounded-lg shadow-sm">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No assets found</h3>
+            <p class="mt-1 text-sm text-gray-500">
+                Try adjusting your search or filter terms.
+            </p>
+        </div>
+    {% endif %}
+</div>
