@@ -39,7 +39,7 @@
                     <a href="{{ path('asset_download', {id: asset.id}) }}" data-turbo="false" title="Download" class="p-2 text-gray-500 hover:text-violet-600 transition-colors">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     </a>
-                    <form action="{{ path('download_list_add', {id: asset.id}) }}" method="post" data-search-asset-list-target="addToBagForm" data-action="submit->search-asset-list#submitForm">
+                    <form action="{{ path('download_list_add_json', {id: asset.id}) }}" method="post" data-search-asset-list-target="addToBagForm" data-action="submit->search-asset-list#submitForm">
                         <button type="submit" title="Add to Download Bag" class="p-2 text-gray-500 hover:text-violet-600 transition-colors">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </button>

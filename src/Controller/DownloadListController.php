@@ -45,13 +45,24 @@ class DownloadListController extends AbstractController
 
         $this->addFlash('success', sprintf('"%s" has been added to your download bag.', $asset->getName()));
 
+        // Redirect back to the page the user came from
+        return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
+    }
+
+    /**
+     * Adds an asset to the download list.
+     */
+    #[Route('/add/{id}/json', name: 'download_list_add_json', methods: ['POST'])]
+    public function addJson(Assets $asset, DownloadListService $downloadListService, Request $request): Response
+    {
+        $downloadListService->add($asset->getId());
+
+        $this->addFlash('success', sprintf('"%s" has been added to your download bag.', $asset->getName()));
+
         return $this->json([
             'success' => true,
             'downloadCount' => $downloadListService->getCount()
         ]);
-
-        // // Redirect back to the page the user came from
-        // return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
     }
 
     /**
