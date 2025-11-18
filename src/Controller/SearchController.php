@@ -108,30 +108,6 @@ class SearchController extends AbstractController
                         $votes += 1;
                     }
 
-                    // if (!empty($selectedCategoryIds) > 0) {
-                    //     $universe += 1;
-                    // }
-                    // if (!empty($selectedCollectionIds) > 0) {
-                    //     $universe += 1;
-                    // }
-
-
-                    // if (array_intersect(
-                    //     $asset->getCategories()->map(fn($category) => $category->getId())->toArray(),
-                    //     $selectedCategoryIds
-                    // ))
-                    // {
-                    //     $votes += 1;
-                    // }
-                    //
-                    // if (array_intersect(
-                    //     $asset->getCollections()->map(fn($collection) => $collection->getId())->toArray(),
-                    //     $selectedCollectionIds
-                    // ))
-                    // {
-                    //     $votes += 1;
-                    // }
-
                     return $universe === $votes;
                 }
             );
