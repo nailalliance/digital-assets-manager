@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\Assets\AssetVersionTypeEnum;
 use App\Entity\User;
 use App\Form\WebDownloadType;
@@ -61,7 +62,7 @@ final class AssetController extends AbstractController
      * Handles the "Download for Web" form submission and streams the processed image.
      */
     #[Route('/assets/{id}/download-web', name: 'asset_download_web', methods: ['GET'])]
-    #[IsGranted('ASSET_VIEW', subject: 'asset')]
+    #[IsGranted(AssetVoter::VIEW, subject: 'asset')]
     public function downloadWeb(Assets $asset, Request $request, ImageProcessorService $imageProcessor): Response
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
@@ -121,6 +122,7 @@ final class AssetController extends AbstractController
     }
 
     #[Route('/assets/{id}/pdf', name: 'asset_pdf_preview', methods: ['GET'])]
+    #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
     public function pdfPreview(Assets $asset): Response
     {
         return $this->render('asset/_pdf.html.twig', ['asset' => $asset]);

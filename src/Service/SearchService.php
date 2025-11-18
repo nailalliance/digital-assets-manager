@@ -25,6 +25,7 @@ class SearchService
      * @param string $query The user's search term.
      * @param int $limit
      * @param int $offset
+     * @param AssetStatusEnum[] $status
      * @return array{ids: int[], hits:Assets[], total: int}
      */
     public function search(
@@ -35,15 +36,29 @@ class SearchService
         ?array $categoryIds = null,
         ?array $collectionIds = null,
         ?array $mimeTypes = null,
+        ?array $status = [],
     ): array
     {
         if (empty($query)) {
             return ['ids' => [], 'hits' => [], 'total' => 0];
         }
 
-        $filters = [
+        $filters = [];
+
+        // Status
+        $statuses = [
             'status=' . AssetStatusEnum::ACTIVE->value,
         ];
+
+        if (!empty($status))
+        {
+            foreach ($status as $status_)
+            {
+                $statuses[] = 'status=' . $status_->value;
+            }
+        }
+
+        $filters[] = "(" . join(' OR ', $statuses) . ")";
 
         $searchParams = [
             'limit' => $limit,

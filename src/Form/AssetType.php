@@ -36,6 +36,8 @@ class AssetType extends AbstractType
             ])
             ->add('status', ChoiceType::class, [
                 'choices' => [
+                    'Draft' => AssetStatusEnum::DRAFT,
+                    'Designer' => AssetStatusEnum::DESIGNER,
                     'Active' => AssetStatusEnum::ACTIVE,
                     'Inactive' => AssetStatusEnum::INACTIVE,
                     'Expired' => AssetStatusEnum::EXPIRED,

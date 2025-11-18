@@ -3,6 +3,7 @@
 namespace App\Security\Voter;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -40,7 +41,7 @@ class AssetVoter extends Voter
             return false;
         }
 
-        if ($this->security->isGranted('ROLE_FTP_DESIGNER'))
+        if ($this->security->isGranted('ROLE_FTP_ADMIN'))
         {
             return true;
         }
@@ -48,14 +49,18 @@ class AssetVoter extends Voter
         /** @var Assets $asset */
         $asset = $subject;
 
+        if ($this->security->isGranted('ROLE_FTP_DESIGNER'))
+        {
+            return !($asset->getStatus() === AssetStatusEnum::INACTIVE);
+        }
+
         $userBrandsIds = $user->getRestrictedBrands()->map(fn($brand) => $brand->getId())->toArray();
 
-        foreach ($asset->getBrand() as $assetBrand)
-        {
+        foreach ($asset->getBrand() as $assetBrand) {
             $parentBrand = $assetBrand->getBrands();
-            if ($parentBrand && in_array($parentBrand->getId(), $userBrandsIds, true))
-            {
-                return true;
+            if ($parentBrand && in_array($parentBrand->getId(), $userBrandsIds, true)) {
+                // return true;
+                return ($asset->getStatus() === AssetStatusEnum::ACTIVE);
             }
         }
 

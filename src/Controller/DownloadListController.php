@@ -3,10 +3,12 @@
 namespace App\Controller;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\Downloads\Lists;
 use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
 use App\Entity\User;
+use App\Security\Voter\AssetVoter;
 use App\Service\DownloadListService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -17,6 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
 use ZipStream\ZipStream;
 

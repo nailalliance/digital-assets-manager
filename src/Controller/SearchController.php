@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\Assets\Brands;
 use App\Repository\Assets\AssetsRepository;
 use App\Repository\Assets\BrandsRepository;
@@ -54,6 +55,12 @@ class SearchController extends AbstractController
             if ($selectedFileTypeGroup) {
                 $mimeTypes = MimeTypesGroups::getMimeTypes($selectedFileTypeGroup);
             }
+
+            $assetsStatus = [];
+            if ($this->isGranted('ROLE_FTP_DESIGNER')) {
+                $assetsStatus[] = AssetStatusEnum::DESIGNER;
+            }
+
             $searchResult = $searchService->search(
                 query: $query,
                 limit: 1000,
@@ -61,6 +68,7 @@ class SearchController extends AbstractController
                 categoryIds: $selectedCategoryIds,
                 collectionIds: $selectedCollectionIds,
                 mimeTypes: $mimeTypes,
+                status: $assetsStatus,
             );
             // $assetIdsFromSearch = $searchResult['ids'];
             // $totalAssets = $searchResult['total'];
