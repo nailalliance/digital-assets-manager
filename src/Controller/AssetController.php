@@ -122,7 +122,7 @@ final class AssetController extends AbstractController
     }
 
     #[Route('/assets/{id}/pdf', name: 'asset_pdf_preview', methods: ['GET'])]
-    #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
+    #[IsGranted(AssetVoter::VIEW, subject: 'asset')]
     public function pdfPreview(Assets $asset): Response
     {
         return $this->render('asset/_pdf.html.twig', ['asset' => $asset]);
