@@ -42,6 +42,7 @@
                 <div class="bg-white rounded-lg shadow-lg p-6" {{ asset.parent ? 'hidden' : '' }}>
                     <h3 class="text-lg font-bold mb-4">Status & Visibility</h3>
                     <div class="space-y-4">
+                        Created: {{ asset.createdAt | date('M d, Y') }}<br>
                         {{ form_row(editForm.status) }}
                         {{ form_row(editForm.embargoDate) }}
                         {{ form_row(editForm.expirationDate) }}
