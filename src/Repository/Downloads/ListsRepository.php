@@ -33,7 +33,9 @@ class ListsRepository extends ServiceEntityRepository
             ->andWhere('l.name IS NOT NULL') // Only show named lists
             ->setParameter('user', $user)
             ->andWhere('l.status = :status')
+            ->andWhere('l.name NOT LIKE :hiddenPrefix')
             ->setParameter('status', true)
+            ->setParameter('hiddenPrefix', 'API_%_SHARE_%')
             ->orderBy('l.createdAt', 'DESC') // Most recent on top
             ->setMaxResults(self::PAGINATOR_PER_PAGE)
             ->setFirstResult($offset)
@@ -69,7 +71,9 @@ class ListsRepository extends ServiceEntityRepository
 
         $qb->andWhere('l.name IS NOT NULL')
             ->andWhere('l.status = :status')
-            ->setParameter('status', true);
+            ->andWhere('l.name NOT LIKE :hiddenPrefix')
+            ->setParameter('status', true)
+            ->setParameter('hiddenPrefix', 'API_%_SHARE_%');
 
         if ($query) {
             $qb->andWhere('l.name LIKE :query')

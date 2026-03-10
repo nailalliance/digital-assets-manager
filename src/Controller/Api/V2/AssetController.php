@@ -3,9 +3,14 @@
 namespace App\Controller\Api\V2;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Downloads\Lists;
+use App\Entity\Downloads\OneTimeLinks;
 use App\Message\ProcessAssetUpload;
+use App\Repository\Assets\AssetsRepository;
+use App\Repository\Downloads\ListsRepository;
 use App\Service\SearchService;
 use App\Service\UniqueFilePathGenerator;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -111,5 +116,82 @@ class AssetController extends AbstractController
             'message' => 'File uploaded and is being processed.',
             'asset_id' => $asset->getId(),
         ], JsonResponse::HTTP_ACCEPTED);
+    }
+
+    #[Route('/public-urls', name: 'api_v2_assets_public_urls', methods: ['POST'])]
+    public function generatePublicUrls(
+        Request $request,
+        AssetsRepository $assetsRepository,
+        ListsRepository $listsRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse
+    {
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['error' => 'Authentication required'], JsonResponse::HTTP_UNAUTHORIZED);
+        }
+
+        $assetIds = $request->request->all('asset_ids');
+        $width = $request->request->getInt('width', 1000);
+        $height = $request->request->getInt('height', 1000);
+        $padding = $request->request->getInt('padding', 0);
+        $format = $request->request->getString('format', 'jpg');
+
+        if (empty($assetIds) || !is_array($assetIds)) {
+            return $this->json(['error' => 'Invalid asset IDs'], JsonResponse::HTTP_BAD_REQUEST);
+        }
+
+        if (!in_array($format, ['jpg', 'png', 'webp'])) {
+            return $this->json(['error' => 'Invalid format. Must be jpg, png, or webp'], JsonResponse::HTTP_BAD_REQUEST);
+        }
+
+        $monthStr = (new DateTimeImmutable())->format('Y-m');
+        $listName = "API_MONTHLY_SHARE_{$monthStr}";
+
+        $downloadList = $listsRepository->findOneBy(['name' => $listName]);
+        $oneTimeLink = null;
+
+        if (!$downloadList) {
+            $downloadList = new Lists();
+            $downloadList->setName($listName)->setCreator($user);
+
+            $oneTimeLink = new OneTimeLinks();
+            $oneTimeLink->setToken(Uuid::v4()->toBase32());
+            $oneTimeLink->setDownloadList($downloadList);
+            $oneTimeLink->setExpirationDate(new \DateTimeImmutable('2010-01-01', new \DateTimeZone('UTC')));
+
+            $entityManager->persist($downloadList);
+            $entityManager->persist($oneTimeLink);
+        } else {
+            $oneTimeLink = $downloadList->getOneTimeLinks()->first();
+        }
+
+        $assets = $assetsRepository->findBy(['id' => $assetIds]);
+        $urls = [];
+
+        foreach ($assets as $asset) {
+            if (!$downloadList->getAssets()->contains($asset)) {
+                $downloadList->addAsset($asset);
+            }
+
+            $itemCodes = $asset->getItemCodes()->map(fn($itemCode) => $itemCode->getCode())->toArray();
+            $filenameBase = !empty($itemCodes) ? implode('_', $itemCodes) . '_' . $asset->getName() : $asset->getName();
+            $safeFilename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $filenameBase);
+
+            $urls[] = $this->generateUrl('public_image_padded', [
+                'token' => $oneTimeLink->getToken(),
+                'assetId' => $asset->getId(),
+                'width' => $width,
+                'height' => $height,
+                'padding' => $padding,
+                'filename' => $safeFilename,
+                'extension' => $format,
+            ], UrlGeneratorInterface::ABSOLUTE_URL);
+        }
+
+        $entityManager->flush();
+
+        return $this->json(['urls' => $urls]);
     }
 }
