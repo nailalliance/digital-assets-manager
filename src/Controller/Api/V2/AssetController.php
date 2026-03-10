@@ -19,6 +19,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Uuid;
+use function json_encode;
+use function var_dump;
 
 #[Route('/api/v2/assets')]
 class AssetController extends AbstractController
@@ -132,11 +134,12 @@ class AssetController extends AbstractController
             return $this->json(['error' => 'Authentication required'], JsonResponse::HTTP_UNAUTHORIZED);
         }
 
-        $assetIds = $request->request->all('asset_ids');
-        $width = $request->request->getInt('width', 1000);
-        $height = $request->request->getInt('height', 1000);
-        $padding = $request->request->getInt('padding', 0);
-        $format = $request->request->getString('format', 'jpg');
+        $payload = $request->toArray();
+        $assetIds = $payload['asset_ids'] ?? [];
+        $width = intval($payload['width'] ?? 1000);
+        $height = intval($payload['height'] ?? 1000);
+        $padding = intval($payload['padding'] ?? 0);
+        $format = $payload['format'] ?? 'jpg';
 
         if (empty($assetIds) || !is_array($assetIds)) {
             return $this->json(['error' => 'Invalid asset IDs'], JsonResponse::HTTP_BAD_REQUEST);
