@@ -162,7 +162,7 @@ class AssetController extends AbstractController
             $oneTimeLink = new OneTimeLinks();
             $oneTimeLink->setToken(Uuid::v4()->toBase32());
             $oneTimeLink->setDownloadList($downloadList);
-            $oneTimeLink->setExpirationDate(new \DateTimeImmutable('2010-01-01', new \DateTimeZone('UTC')));
+            $oneTimeLink->setExpirationDate(new \DateTimeImmutable('2100-01-01', new \DateTimeZone('UTC')));
 
             $entityManager->persist($downloadList);
             $entityManager->persist($oneTimeLink);
