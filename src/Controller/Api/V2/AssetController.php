@@ -182,7 +182,7 @@ class AssetController extends AbstractController
             $filenameBase = !empty($itemCodes) ? implode('_', $itemCodes) . '_' . $asset->getName() : $asset->getName();
             $safeFilename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $filenameBase);
 
-            $urls[] = $this->generateUrl('public_image_padded', [
+            $urls[$asset->getId()] = $this->generateUrl('public_image_padded', [
                 'token' => $oneTimeLink->getToken(),
                 'assetId' => $asset->getId(),
                 'width' => $width,
