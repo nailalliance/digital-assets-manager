@@ -20,6 +20,7 @@ final class ProcessDirectShareHandler
     public function __invoke(ProcessDirectShare $message): void
     {
         $fileMetaData = $message->fileMetaData;
+        $originalFilename = $fileMetaData['metadata']['original_filename'] ?? $fileMetaData['metadata']['filename'];
 
         $oneTimeLink = new OneTimeLinks();
         $oneTimeLink->setToken(Uuid::v4()->toBase32());
@@ -30,7 +31,7 @@ final class ProcessDirectShareHandler
 
         $oneTimeLink->setTemporaryFiles([[
             'path' => $fileMetaData['file_path'],
-            'originalName' => $fileMetaData['metadata']['filename'],
+            'originalName' => $originalFilename,
             'size' => $fileMetaData['size'],
             'mimeType' => $fileMetaData['metadata']['filetype'],
         ]]);

@@ -54,7 +54,7 @@ final class ProcessAssetUploadHandler
             }
 
             $fileMetaData = $message->fileMetaData;
-            $originalFilename = $fileMetaData['metadata']['filename'];
+            $originalFilename = $fileMetaData['metadata']['original_filename'] ?? $fileMetaData['metadata']['filename'];
             $filePath = $fileMetaData['file_path'];
             $fileSize = $fileMetaData['size'];
             $mimeType = $fileMetaData['metadata']['filetype'];

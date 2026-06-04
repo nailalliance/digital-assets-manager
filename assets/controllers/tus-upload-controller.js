@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import * as tus from 'tus-js-client';
+import { createTusUploadMetadata } from './upload_metadata';
 
 export default class extends Controller {
     // We'll use a specific container for the progress elements
@@ -62,6 +63,8 @@ export default class extends Controller {
             return;
         }
 
+        const { uploadKey, metadata } = createTusUploadMetadata(file);
+
         this.hideError();
         this.submitButtonTarget.disabled = true;
         this.fileInputTarget.disabled = true;
@@ -82,10 +85,10 @@ export default class extends Controller {
             endpoint: endpoint,
             chunkSize: 100*1024*1024, // 100 MB
             retryDelays: [0, 3000, 5000, 10000, 20000],
-            metadata: {
-                filename: file.name,
-                filetype: file.type
+            headers: {
+                'Upload-Key': uploadKey,
             },
+            metadata,
             onAfterResponse: (req, res) => {
                 const id = res.getHeader('X-Asset-Id');
                 if (id)

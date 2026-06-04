@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import * as tus from 'tus-js-client';
+import { createTusUploadMetadata } from './upload_metadata';
 
 export default class extends Controller {
     static targets = [
@@ -32,7 +33,8 @@ export default class extends Controller {
 
     filesSelected() {
         if (this.fileInputTarget.files.length > 0) {
-            this.fileListTarget.textContent = `${this.fileInputTarget.files.length} file(s) selected`;
+            const file = this.fileInputTarget.files[0];
+            this.fileListTarget.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
             this.submitButtonTarget.disabled = false;
         } else {
             this.fileListTarget.textContent = 'No files selected';
@@ -45,27 +47,28 @@ export default class extends Controller {
         const file = this.fileInputTarget.files[0]; // Simplified for single file
         if (!file) return;
 
+        const { uploadKey, metadata } = createTusUploadMetadata(file);
+
         this.submitButtonTarget.disabled = true;
         this.progressContainerTarget.classList.remove('hidden');
         this.progressContainerTarget.querySelector('p').textContent = "Uploading...";
-
 
         const upload = new tus.Upload(file, {
             endpoint: '/admin/direct-share/upload/',
             chunkSize: 100*1024*1024, // 100 MB
             retryDelays: [0, 3000, 5000, 10000, 20000],
-            metadata: {
-                filename: file.name,
-                filetype: file.type
+            headers: {
+                'Upload-Key': uploadKey,
             },
+            metadata,
             onProgress: (bytesUploaded, bytesTotal) => {
                 const percentage = (bytesUploaded / bytesTotal * 100).toFixed(2);
                 this.progressBarTarget.style.width = `${percentage}%`;
             },
             onSuccess: () => {
                 this.progressContainerTarget.querySelector('p').textContent = "Upload complete! Processing...";
-                const uploadKey = upload.url.split('/').pop();
-                this.startPolling(uploadKey);
+                const completedUploadKey = upload.url.split('/').pop();
+                this.startPolling(completedUploadKey);
             },
             onError: (error) => {
                 alert(`Upload failed: ${error}`);
