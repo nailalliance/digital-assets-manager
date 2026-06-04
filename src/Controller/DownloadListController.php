@@ -10,6 +10,7 @@ use App\Entity\Downloads\OneTimeLinks;
 use App\Entity\User;
 use App\Security\Voter\AssetVoter;
 use App\Service\DownloadListService;
+use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,7 +22,6 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
-use ZipStream\ZipStream;
 
 
 #[Route('/download-list')]
@@ -142,37 +142,47 @@ class DownloadListController extends AbstractController
     public function zip(
         DownloadListService $downloadListService,
         EntityManagerInterface $entityManager,
-        RequestStack $requestStack
+        RequestStack $requestStack,
+        ZipDownloadResponseFactory $zipDownloadResponseFactory
     ): StreamedResponse {
         $assets = $downloadListService->getAssets();
         $zipFileName = 'download_bag_' . date('Y-m-d') . '.zip';
         $request = $requestStack->getCurrentRequest();
         $user = $this->getUser();
+        $downloadableAssets = [];
+        $entries = [];
 
-        $response = new StreamedResponse(function() use ($assets, $zipFileName, $entityManager, $request, $user) {
-            $zip = new ZipStream(outputName: $zipFileName);
+        foreach ($assets as $asset) {
+            $filePath = $asset->getFilePath();
 
-            foreach ($assets as $asset) {
-                if (file_exists($asset->getFilePath())) {
-                    // Log the download event for each asset
+            if (!is_readable($filePath)) {
+                continue;
+            }
+
+            $downloadableAssets[] = $asset;
+            $entries[] = [
+                'archiveName' => basename($filePath),
+                'sourcePath' => $filePath,
+            ];
+        }
+
+        return $zipDownloadResponseFactory->create(
+            $zipFileName,
+            $entries,
+            function () use ($downloadableAssets, $entityManager, $request, $user): void {
+                $ipAddress = $request?->getClientIp() ?? 'unknown';
+
+                foreach ($downloadableAssets as $asset) {
                     $log = new Logs();
                     $log->setAsset($asset);
                     $log->setUser($user);
-                    $log->setIpAddress($request->getClientIp());
+                    $log->setIpAddress($ipAddress);
                     $entityManager->persist($log);
-
-                    // Add the file to the zip stream
-                    $zip->addFileFromPath(basename($asset->getFilePath()), $asset->getFilePath());
                 }
+
+                $entityManager->flush();
             }
-
-            // Save all the new log entries to the database
-            $entityManager->flush();
-
-            $zip->finish();
-        });
-
-        return $response;
+        );
     }
 
     #[Route('/add-multiple', name: 'download_list_add_multiple', methods: ['POST'])]

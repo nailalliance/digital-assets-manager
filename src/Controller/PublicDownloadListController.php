@@ -6,6 +6,7 @@ use App\Entity\Assets\Assets;
 use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
 use App\Service\ImageProcessorService;
+use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -13,9 +14,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
-use ZipStream\ZipStream;
 use function basename;
 
 class PublicDownloadListController extends AbstractController
@@ -48,8 +47,9 @@ class PublicDownloadListController extends AbstractController
         #[MapEntity(mapping: ['token' => 'token'])]
         OneTimeLinks $oneTimeLink,
         EntityManagerInterface $entityManager,
-        RequestStack $requestStack
-    ): StreamedResponse {
+        RequestStack $requestStack,
+        ZipDownloadResponseFactory $zipDownloadResponseFactory
+    ): Response {
         if (!$this->isGranted('IS_AUTHENTICATED_FULLY'))
         {
             if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
@@ -68,84 +68,60 @@ class PublicDownloadListController extends AbstractController
         }
 
         if (!empty($temporaryFiles)) {
-            $filename = "";
-            foreach ($temporaryFiles as $fileData) {
-                $filename = $fileData['originalName'];
-                // TODO: For now, this will only download one file, so I will break here.
-                // In future, this needs to change.
-                break;
+            $fileData = $temporaryFiles[0] ?? null;
+            $filePath = is_array($fileData) ? ($fileData['path'] ?? null) : null;
+
+            if (!is_string($filePath) || !is_readable($filePath)) {
+                throw $this->createNotFoundException('Shared file not found.');
             }
 
-            $response = new StreamedResponse(function () use (&$filename, $temporaryFiles) {
-                foreach ($temporaryFiles as $fileData) {
-                    if (file_exists($fileData['path'])) {
-                        $file = $fileData['path'];
-                        $filename = $fileData['originalName'];
-                        $stream = fopen($file, 'rb');
+            $downloadName = basename((string) ($fileData['originalName'] ?? $filePath));
+            $response = new BinaryFileResponse($filePath);
+            $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $downloadName);
 
-                        while (!feof($stream)) {
-                            print(fread($stream, 8 * 1024));
-                            flush();
-                        }
-                        fclose($stream);
-                    }
-                    // TODO: For now, this will only download one file, so I will break here.
-                    // In future, this needs to change.
-                    break;
-                }
-            });
-
-            $mimetype = mime_content_type($filename);
-
-            // $response->headers->set('Content-Type', 'application/octet-stream');
-            $response->headers->set('Content-Type', $mimetype);
-            $response->headers->set('Content-Disposition', 'attachment; filename="'.basename($filename).'"');
+            if (isset($fileData['mimeType']) && is_string($fileData['mimeType']) && $fileData['mimeType'] !== '') {
+                $response->headers->set('Content-Type', $fileData['mimeType']);
+            }
 
             return $response;
         }
 
-        $response = new StreamedResponse(function() use ($downloadList, $temporaryFiles, $zipFileName, $entityManager, $request, $oneTimeLink) {
-            $zip = new ZipStream(outputName: $zipFileName);
+        $downloadableAssets = [];
+        $entries = [];
 
-            // Handle assets from a permanent DownloadList
-            if ($downloadList) {
-                foreach ($downloadList->getAssets() as $asset) {
-                    if (file_exists($asset->getFilePath())) {
-                        $log = new Logs();
-                        $log->setAsset($asset);
-                        $log->setIpAddress($request->getClientIp());
-                        $log->setOneTimeLink($oneTimeLink);
-                        $entityManager->persist($log);
+        if ($downloadList) {
+            foreach ($downloadList->getAssets() as $asset) {
+                $filePath = $asset->getFilePath();
 
-                        $zip->addFileFromPath(basename($asset->getFilePath()), $asset->getFilePath());
-                    }
+                if (!is_readable($filePath)) {
+                    continue;
                 }
+
+                $downloadableAssets[] = $asset;
+                $entries[] = [
+                    'archiveName' => basename($filePath),
+                    'sourcePath' => $filePath,
+                ];
             }
-            // // Handle files from a temporary Direct Share
-            // elseif (!empty($temporaryFiles)) {
-            //     foreach ($temporaryFiles as $fileData) {
-            //         if (file_exists($fileData['path'])) {
-            //             // $zip->addFileFromPath($fileData['originalName'], $fileData['path']);
-            //             $file = $fileData['path'];
-            //             $stream = fopen($file, 'rb');
-            //
-            //             while (!feof($stream)) {
-            //                 $zip->addFileFromStream(
-            //                     fileName: $fileData['originalName'],
-            //                     stream: $stream,
-            //                 );
-            //             }
-            //             fclose($stream);
-            //         }
-            //     }
-            // }
+        }
 
-            $entityManager->flush();
+        return $zipDownloadResponseFactory->create(
+            $zipFileName,
+            $entries,
+            function () use ($downloadableAssets, $entityManager, $request, $oneTimeLink): void {
+                $ipAddress = $request?->getClientIp() ?? 'unknown';
 
-            $zip->finish();
-        });
+                foreach ($downloadableAssets as $asset) {
+                    $log = new Logs();
+                    $log->setAsset($asset);
+                    $log->setIpAddress($ipAddress);
+                    $log->setOneTimeLink($oneTimeLink);
+                    $entityManager->persist($log);
+                }
 
-        return $response;
+                $entityManager->flush();
+            }
+        );
     }
 
     /**
