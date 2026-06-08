@@ -29,3 +29,4 @@ framework:
             # 'App\Message\YourMessage': async
 
             'App\Message\ProcessAssetUpload': async
+            'App\Message\ProcessDirectShare': async

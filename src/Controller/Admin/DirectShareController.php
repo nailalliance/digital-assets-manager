@@ -32,22 +32,30 @@ class DirectShareController extends AbstractController
     )]
     public function upload(Request $request): Response
     {
+        $userId = $this->getUser()?->getId();
+
+        if ($request->hasSession()) {
+            $request->getSession()->save();
+        }
+
         $server = new Server("file");
         $server
             ->setUploadDir($this->getParameter('direct_uploads_dir')) // Use a separate temp directory
             ->setApiPath('/admin/direct-share/upload');
 
-        $server->event()->addListener('tus-server.upload.complete', [$this, 'onUploadComplete']);
+        $server->event()->addListener('tus-server.upload.complete', function (TusEvent $event) use ($userId) {
+            $this->onUploadComplete($event, $userId);
+        });
 
-        return $server->serve()->send();
+        return $server->serve();
     }
 
-    public function onUploadComplete(TusEvent $event): void
+    public function onUploadComplete(TusEvent $event, ?int $userId): void
     {
         $this->messageBus->dispatch(new ProcessDirectShare(
             fileMetaData: $event->getFile()->details(),
             uploadKey: $event->getFile()->getKey(),
-            userId: $this->getUser()?->getId()
+            userId: $userId
         ));
     }
 }

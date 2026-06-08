@@ -59,6 +59,11 @@ class UploadController extends AbstractController
     ): Response
     {
         $this->setCacheItemKeyName($fileId);
+        $userId = $this->getUser()?->getId();
+
+        if ($request->hasSession()) {
+            $request->getSession()->save();
+        }
 
         $server = new Server("file");
 
@@ -70,8 +75,8 @@ class UploadController extends AbstractController
             ->setUploadDir($this->getParameter('upload_dir'))
             ->setApiPath($apiPath);
 
-        $server->event()->addListener('tus-server.upload.complete', function (TusEvent $event) use ($assetId) {
-            $this->onUploadComplete($event, $assetId);
+        $server->event()->addListener('tus-server.upload.complete', function (TusEvent $event) use ($assetId, $userId) {
+            $this->onUploadComplete($event, $assetId, $userId);
         });
 
         $response = $server->serve();
@@ -87,15 +92,15 @@ class UploadController extends AbstractController
             }
         }
 
-        return $response->send();
+        return $response;
     }
 
-    public function onUploadComplete(TusEvent $event, ?int $assetId): void
+    public function onUploadComplete(TusEvent $event, ?int $assetId, ?int $userId): void
     {
         $this->messageBus->dispatch(new ProcessAssetUpload(
             fileMetaData: $event->getFile()->details(),
             uploadKey: $event->getFile()->getKey(),
-            userId: $this->getUser()->getId(),
+            userId: $userId,
             cacheItemKeyName: $this->cacheItemKeyName,
             assetId: $assetId
         ));
