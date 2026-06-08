@@ -33,7 +33,10 @@ class DirectShareController extends AbstractController
     public function upload(Request $request): Response
     {
         $userId = $this->getUser()?->getId();
-        $this->detachSession($request);
+
+        if ($request->hasSession()) {
+            $request->getSession()->save();
+        }
 
         $server = new Server("file");
         $server
@@ -44,7 +47,8 @@ class DirectShareController extends AbstractController
             $this->onUploadComplete($event, $userId);
         });
 
-        return $server->serve();
+        $server->serve()->send();
+        exit;
     }
 
     public function onUploadComplete(TusEvent $event, ?int $userId): void
@@ -54,19 +58,5 @@ class DirectShareController extends AbstractController
             uploadKey: $event->getFile()->getKey(),
             userId: $userId
         ));
-    }
-
-    private function detachSession(Request $request): void
-    {
-        if (!$request->hasSession()) {
-            return;
-        }
-
-        $request->getSession()->save();
-        // Prevent Symfony from touching the session again after Tus has built its response.
-        $request->attributes->set('_stateless', true);
-        $request->setSessionFactory(static function () {
-            throw new \LogicException('Session access is disabled for Tus upload requests.');
-        });
     }
 }
