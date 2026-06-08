@@ -1,0 +1,29 @@
+{
+  "entrypoints": {
+    "tailwinds": {
+      "js": [
+        "/build/runtime.f5431fe9.js",
+        "/build/tailwinds.232e66a8.js"
+      ],
+      "css": [
+        "/build/tailwinds.dbe09e89.css"
+      ]
+    },
+    "app": {
+      "js": [
+        "/build/runtime.f5431fe9.js",
+        "/build/606.ee429fc6.js",
+        "/build/app.8ee2de53.js"
+      ],
+      "css": [
+        "/build/app.d73426e0.css"
+      ]
+    },
+    "image-editor": {
+      "js": [
+        "/build/runtime.f5431fe9.js",
+        "/build/image-editor.59a49f6a.js"
+      ]
+    }
+  }
+}

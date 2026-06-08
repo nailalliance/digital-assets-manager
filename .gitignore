@@ -80,7 +80,9 @@ $RECYCLE.BIN/
 
 ###> symfony/webpack-encore-bundle ###
 /node_modules/
-/public/build/
+# Keep compiled Encore assets in git for environments that deploy source over FTP
+# without a server-side asset build step.
+#/public/build/
 npm-debug.log
 yarn-error.log
 ###< symfony/webpack-encore-bundle ###
