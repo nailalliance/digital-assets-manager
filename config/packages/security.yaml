@@ -11,6 +11,12 @@ security:
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
+        tus_upload:
+            request_matcher: App\Security\RequestMatcher\TusUploadRequestMatcher
+            stateless: true
+            provider: app_user_provider
+            custom_authenticators:
+                - App\Security\TusUploadAuthenticator
         api:
             pattern: ^/api/
             stateless: true
@@ -58,6 +64,8 @@ security:
         - {path: ^/legal, roles: PUBLIC_ACCESS }
         - {path: ^/asset/\w+/file/, roles: PUBLIC_ACCESS }
         - {path: ^/thumbnail/\w+/file/, roles: PUBLIC_ACCESS }
+        - {path: ^/admin/direct-share/upload, roles: ROLE_FTP_DESIGNER }
+        - {path: ^/admin/assets(?:/\d+)?/upload, roles: ROLE_FTP_ADMIN }
         - {path: ^/admin/direct-share, roles: ROLE_FTP_DESIGNER }
         - {path: ^/admin, roles: ROLE_FTP_ADMIN }
         - {path: ^/assets/\d+/edit, roles: ROLE_FTP_ADMIN }

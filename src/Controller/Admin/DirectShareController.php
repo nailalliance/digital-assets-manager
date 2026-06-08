@@ -3,6 +3,7 @@
 namespace App\Controller\Admin;
 
 use App\Message\ProcessDirectShare;
+use App\Security\TusUploadTokenManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,14 +15,19 @@ use TusPhp\Tus\Server;
 #[Route('/admin/direct-share')]
 class DirectShareController extends AbstractController
 {
-    public function __construct(private MessageBusInterface $messageBus)
+    public function __construct(
+        private MessageBusInterface $messageBus,
+        private TusUploadTokenManager $uploadTokenManager,
+    )
     {
     }
 
     #[Route('/', name: 'admin_direct_share_index', methods: ['GET'])]
     public function index(): Response
     {
-        return $this->render('admin/direct_share/index.html.twig');
+        return $this->render('admin/direct_share/index.html.twig', [
+            'uploadAuthToken' => $this->uploadTokenManager->createForUser($this->getUser()),
+        ]);
     }
 
     #[Route(
@@ -34,10 +40,6 @@ class DirectShareController extends AbstractController
     {
         $userId = $this->getUser()?->getId();
 
-        if ($request->hasSession()) {
-            $request->getSession()->save();
-        }
-
         $server = new Server("file");
         $server
             ->setUploadDir($this->getParameter('direct_uploads_dir')) // Use a separate temp directory
@@ -47,8 +49,7 @@ class DirectShareController extends AbstractController
             $this->onUploadComplete($event, $userId);
         });
 
-        $server->serve()->send();
-        exit;
+        return $server->serve();
     }
 
     public function onUploadComplete(TusEvent $event, ?int $userId): void

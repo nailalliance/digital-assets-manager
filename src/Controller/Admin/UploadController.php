@@ -4,6 +4,7 @@ namespace App\Controller\Admin;
 
 use App\Entity\Assets\Assets;
 use App\Message\ProcessAssetUpload;
+use App\Security\TusUploadTokenManager;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,7 +20,8 @@ class UploadController extends AbstractController
 
     public function __construct(
         private CacheItemPoolInterface $cache,
-        private MessageBusInterface $messageBus
+        private MessageBusInterface $messageBus,
+        private TusUploadTokenManager $uploadTokenManager,
     )
     {}
 
@@ -27,6 +29,7 @@ class UploadController extends AbstractController
     public function index(): Response
     {
         return $this->render('admin/asset_upload/index.html.twig', [
+            'uploadAuthToken' => $this->uploadTokenManager->createForUser($this->getUser()),
         ]);
     }
 
@@ -92,8 +95,7 @@ class UploadController extends AbstractController
             }
         }
 
-        $response->send();
-        exit;
+        return $response;
     }
 
     public function onUploadComplete(TusEvent $event, ?int $assetId, ?int $userId): void

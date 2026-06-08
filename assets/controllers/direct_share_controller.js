@@ -8,6 +8,10 @@ export default class extends Controller {
         "progressContainer", "progressBar", "resultContainer", "urlInput"
     ];
 
+    static values = {
+        authToken: String,
+    };
+
     pollingInterval = null;
 
     connect() {
@@ -59,6 +63,7 @@ export default class extends Controller {
             retryDelays: [0, 3000, 5000, 10000, 20000],
             headers: {
                 'Upload-Key': uploadKey,
+                'X-UPLOAD-AUTH': this.authTokenValue,
             },
             metadata,
             onProgress: (bytesUploaded, bytesTotal) => {

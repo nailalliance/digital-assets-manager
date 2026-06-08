@@ -9,7 +9,8 @@
             <p class="text-gray-600 mb-6">Drag and drop a file or click the area below to select a file for upload.</p>
 
             <div
-                data-controller="tus-upload">
+                data-controller="tus-upload"
+                data-tus-upload-auth-token-value="{{ uploadAuthToken }}">
                 <form data-action="submit->tus-upload#upload">
 
                     {# The Dropzone Area #}

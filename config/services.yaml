@@ -33,6 +33,10 @@ services:
         arguments:
             - '@App\Repository\UserRepository'
 
+    App\Security\TusUploadTokenManager:
+        arguments:
+            $appSecret: '%env(APP_SECRET)%'
+
     App\Doctrine\BrandFilter:
         autowire: true
         calls:

@@ -10,6 +10,7 @@ use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\ItemCodesRepository;
 use App\Repository\Assets\TagsRepository;
 use App\Service\ImageProcessorService;
+use App\Security\TusUploadTokenManager;
 use App\Service\UniqueFilePathGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -31,7 +32,8 @@ class AssetEditController extends AbstractController
         ItemCodesRepository $itemCodesRepository,
         TagsRepository $tagsRepository,
         ImageProcessorService $imageProcessor,
-        Filesystem $filesystem
+        Filesystem $filesystem,
+        TusUploadTokenManager $uploadTokenManager,
     ): Response
     {
         $form = $this->createForm(AssetType::class, $asset);
@@ -139,7 +141,7 @@ class AssetEditController extends AbstractController
             'asset' => $asset,
             'editForm' => $form->createView(),
             'parentBrands' => $parentBrands,
+            'uploadAuthToken' => $uploadTokenManager->createForUser($this->getUser()),
         ]);
     }
 }
-

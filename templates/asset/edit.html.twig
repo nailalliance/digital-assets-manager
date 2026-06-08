@@ -168,6 +168,7 @@
                         <div class="bg-white rounded-lg shadow-lg p-6"
                              data-controller="tus-upload"
                              data-tus-upload-asset-id-value="{{ asset.id }}" {# Pass the asset ID #}
+                             data-tus-upload-auth-token-value="{{ uploadAuthToken }}"
                         >
                             <h3 class="text-lg font-bold mb-4">Upload Asset File</h3>
                             <form data-action="submit->tus-upload#upload">

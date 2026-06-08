@@ -3,7 +3,7 @@
 {% block title %}Direct Share Upload{% endblock %}
 
 {% block body %}
-    <div class="max-w-4xl mx-auto" data-controller="direct-share">
+    <div class="max-w-4xl mx-auto" data-controller="direct-share" data-direct-share-auth-token-value="{{ uploadAuthToken }}">
         <div class="bg-white rounded-lg shadow-xl p-8">
             <h1 class="text-3xl font-bold text-gray-900 mb-2">Direct Share</h1>
             {# <p class="text-gray-600 mb-6">Upload one or more files to generate a temporary, shareable download link.</p> #}
