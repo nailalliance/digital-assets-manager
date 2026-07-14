@@ -4,13 +4,14 @@ namespace App\Controller\Admin;
 
 use App\Message\ProcessDirectShare;
 use App\Security\TusUploadTokenManager;
+use App\Tus\Cache\PerUploadFileStore;
+use App\Tus\OptimizedTusServer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use TusPhp\Events\TusEvent;
-use TusPhp\Tus\Server;
 
 #[Route('/admin/direct-share')]
 class DirectShareController extends AbstractController
@@ -40,7 +41,13 @@ class DirectShareController extends AbstractController
     {
         $userId = $this->getUser()?->getId();
 
-        $server = new Server("file");
+        if ($request->hasSession()) {
+            $request->getSession()->save();
+        }
+
+        $server = new OptimizedTusServer(
+            new PerUploadFileStore($this->getParameter('kernel.cache_dir') . '/tus-uploads')
+        );
         $server
             ->setUploadDir($this->getParameter('direct_uploads_dir')) // Use a separate temp directory
             ->setApiPath('/admin/direct-share/upload');

@@ -5,6 +5,8 @@ namespace App\Controller\Admin;
 use App\Entity\Assets\Assets;
 use App\Message\ProcessAssetUpload;
 use App\Security\TusUploadTokenManager;
+use App\Tus\Cache\PerUploadFileStore;
+use App\Tus\OptimizedTusServer;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,7 +14,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use TusPhp\Events\TusEvent;
-use TusPhp\Tus\Server;
 
 class UploadController extends AbstractController
 {
@@ -68,7 +69,9 @@ class UploadController extends AbstractController
             $request->getSession()->save();
         }
 
-        $server = new Server("file");
+        $server = new OptimizedTusServer(
+            new PerUploadFileStore($this->getParameter('kernel.cache_dir') . '/tus-uploads')
+        );
 
         $apiPath = $assetId
             ? $this->generateUrl('app_asset_update_file', ['id' => $assetId])
