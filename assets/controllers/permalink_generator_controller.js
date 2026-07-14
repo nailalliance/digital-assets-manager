@@ -1,14 +1,16 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ["modal", "widthInput", "heightInput", "paddingInput", "extensionInput", "csvButtonContainer"];
+    static targets = ["modal", "widthInput", "heightInput", "paddingInput", "extensionInput", "csvButtonContainer", "expiryNotice", "expiryText"];
     static values = {
         baseUrl: String,
         shareEndpoint: String,
+        expirationDate: String,
     }
 
     generatedLinks = [];
     generatedToken = null;
+    generatedExpirationDate = null;
 
     openModal() {
         this.modalTarget.classList.remove('hidden');
@@ -39,19 +41,21 @@ export default class extends Controller {
             return;
         }
 
-        let sharedToken;
+        let shareDetails;
 
         try {
-            sharedToken = await this.resolveShareToken(imageAssets);
+            shareDetails = await this.resolveShareDetails(imageAssets);
         } catch (error) {
             console.error(error);
             alert(error instanceof Error ? error.message : 'Could not generate web links.');
             return;
         }
 
+        this.updateExpirationNotice(shareDetails.expirationDate);
+
         imageAssets.forEach(assetElement => {
             const { assetId, filename, sku, assetName } = assetElement.dataset;
-            const token = assetElement.dataset.token || sharedToken;
+            const token = assetElement.dataset.token || shareDetails.token;
             const permalinkContainer = assetElement.querySelector('.permalink-container');
             const extensionIndex = filename.lastIndexOf('.');
             const cleanFilename = extensionIndex > 0 ? filename.substring(0, extensionIndex) : filename;
@@ -118,10 +122,14 @@ export default class extends Controller {
         }
 
         let csvContent = "data:text/csv;charset=utf-8,";
-        // Add headers
+        const expirationDate = this.resolveExpirationDate();
+
+        if (expirationDate) {
+            csvContent += `"Web links expire on ${expirationDate}"\r\n`;
+        }
+
         csvContent += "sku,name,webLinkUrl\r\n";
 
-        // Add rows
         this.generatedLinks.forEach(row => {
             const sku = `"${row.sku.replace(/"/g, '""')}"`;
             const name = `"${row.name.replace(/"/g, '""')}"`;
@@ -139,15 +147,22 @@ export default class extends Controller {
         document.body.removeChild(link);
     }
 
-    async resolveShareToken(imageAssets) {
+    async resolveShareDetails(imageAssets) {
         const existingToken = imageAssets.find(assetElement => assetElement.dataset.token)?.dataset.token;
+        const existingExpirationDate = this.resolveExpirationDate();
 
         if (existingToken) {
-            return existingToken;
+            return {
+                token: existingToken,
+                expirationDate: existingExpirationDate,
+            };
         }
 
         if (this.generatedToken) {
-            return this.generatedToken;
+            return {
+                token: this.generatedToken,
+                expirationDate: this.generatedExpirationDate,
+            };
         }
 
         if (!this.hasShareEndpointValue) {
@@ -175,11 +190,36 @@ export default class extends Controller {
         }
 
         this.generatedToken = data.token;
+        this.generatedExpirationDate = data.expirationDate || null;
 
         imageAssets.forEach(assetElement => {
             assetElement.dataset.token = this.generatedToken;
         });
 
-        return this.generatedToken;
+        return {
+            token: this.generatedToken,
+            expirationDate: this.generatedExpirationDate,
+        };
+    }
+
+    resolveExpirationDate() {
+        if (this.generatedExpirationDate) {
+            return this.generatedExpirationDate;
+        }
+
+        if (this.hasExpirationDateValue && this.expirationDateValue) {
+            return this.expirationDateValue;
+        }
+
+        return null;
+    }
+
+    updateExpirationNotice(expirationDate) {
+        if (!expirationDate || !this.hasExpiryNoticeTarget || !this.hasExpiryTextTarget) {
+            return;
+        }
+
+        this.expiryTextTarget.textContent = `Web links expire on ${expirationDate}.`;
+        this.expiryNoticeTarget.classList.remove('hidden');
     }
 }

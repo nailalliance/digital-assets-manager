@@ -2,27 +2,27 @@
   "entrypoints": {
     "tailwinds": {
       "js": [
-        "/build/runtime.js",
-        "/build/tailwinds.js"
+        "/build/runtime.a48ffd0c.js",
+        "/build/tailwinds.232e66a8.js"
       ],
       "css": [
-        "/build/tailwinds.css"
+        "/build/tailwinds.38cc9bc1.css"
       ]
     },
     "app": {
       "js": [
-        "/build/runtime.js",
-        "/build/vendors-node_modules_hotwired_turbo_dist_turbo_es2017-esm_js-node_modules_symfony_stimulus-br-50b7f9.js",
-        "/build/app.js"
+        "/build/runtime.a48ffd0c.js",
+        "/build/271.1a24bc30.js",
+        "/build/app.3a9ed010.js"
       ],
       "css": [
-        "/build/app.css"
+        "/build/app.d73426e0.css"
       ]
     },
     "image-editor": {
       "js": [
-        "/build/runtime.js",
-        "/build/image-editor.js"
+        "/build/runtime.a48ffd0c.js",
+        "/build/image-editor.59a49f6a.js"
       ]
     }
   }

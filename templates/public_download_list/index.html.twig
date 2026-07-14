@@ -5,7 +5,12 @@
 {% block title %}Download Assets{% endblock %}
 
 {% block body %}
-    <div class="max-w-4xl mx-auto" data-controller="permalink-generator" data-permalink-generator-base-url-value="{{ app.request.schemeAndHttpHost }}">
+    <div
+        class="max-w-4xl mx-auto"
+        data-controller="permalink-generator"
+        data-permalink-generator-base-url-value="{{ app.request.schemeAndHttpHost }}"
+        data-permalink-generator-expiration-date-value="{{ oneTimeLink.expirationDate|date('F j, Y') }}"
+    >
         {% set tempFiles = oneTimeLink.temporaryFiles|default([]) %}
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-gray-900">Download Assets</h1>
@@ -59,6 +64,10 @@
                     {{ tempFiles|length > 1 ? 'Download All (.zip)' : 'Download' }}
                 </a>
             {% endif %}
+        </div>
+
+        <div data-permalink-generator-target="expiryNotice" class="hidden mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <span data-permalink-generator-target="expiryText"></span>
         </div>
 
         <div data-permalink-generator-target="csvButtonContainer" class="hidden mb-6 text-center">
