@@ -37,6 +37,7 @@ export default class extends Controller {
             const { token, assetId, filename, sku, assetName } = assetElement.dataset;
             const permalinkContainer = assetElement.querySelector('.permalink-container');
             const cleanFilename = filename.substring(0, filename.lastIndexOf('.'));
+            const inputId = `permalink-${assetId}-${width}x${height}-${padding}-${extension}`;
 
             let relativeUrl = `/share/${token}/image/${assetId}/${width}x${height}/`;
             if (padding > 0) {
@@ -53,19 +54,28 @@ export default class extends Controller {
                 webLinkUrl: fullUrl
             });
 
-            const permalinkHtml = `
-                <div class="relative flex items-center mt-2">
-                    <input type="text" readonly value="${fullUrl}" class="w-full bg-gray-100 border-gray-300 rounded-md p-2 pr-10 text-xs">
-                    <button data-action="click->permalink-generator#copyUrl" class="absolute inset-y-0 right-0 pr-3 flex items-center" title="Copy URL">
-                        <svg class="h-5 w-5 text-gray-500 hover:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    </button>
-                </div>
-                <a href="${fullUrl}" target="_blank" class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 mt-2">
-                    Open Web Link
-                </a>
-            `;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'relative flex items-center mt-2';
 
-            permalinkContainer.innerHTML = permalinkHtml;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = inputId;
+            input.readOnly = true;
+            input.value = fullUrl;
+            input.className = 'w-full bg-gray-100 border-gray-300 rounded-md p-2 pr-10 text-xs transition-colors duration-200';
+
+            const copyButton = document.createElement('copy-to-clipboard');
+            copyButton.setAttribute('for', inputId);
+            copyButton.className = 'absolute inset-y-0 right-0 pr-3 flex items-center';
+
+            const openLink = document.createElement('a');
+            openLink.href = fullUrl;
+            openLink.target = '_blank';
+            openLink.className = 'inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 mt-2';
+            openLink.textContent = 'Open Web Link';
+
+            wrapper.append(input, copyButton);
+            permalinkContainer.replaceChildren(wrapper, openLink);
         });
 
         // Show the "Download CSV" button if links were generated
@@ -74,10 +84,6 @@ export default class extends Controller {
         }
 
         this.closeModal();
-    }
-
-    copyUrl(event) {
-        // ... (copyUrl logic remains the same)
     }
 
     downloadCsv() {
@@ -108,4 +114,3 @@ export default class extends Controller {
         document.body.removeChild(link);
     }
 }
-

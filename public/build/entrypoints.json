@@ -2,18 +2,18 @@
   "entrypoints": {
     "tailwinds": {
       "js": [
-        "/build/runtime.ad0c4783.js",
+        "/build/runtime.a48ffd0c.js",
         "/build/tailwinds.232e66a8.js"
       ],
       "css": [
-        "/build/tailwinds.59cf1e51.css"
+        "/build/tailwinds.055a7cf7.css"
       ]
     },
     "app": {
       "js": [
-        "/build/runtime.ad0c4783.js",
-        "/build/690.b8ff3c60.js",
-        "/build/app.c8b5d2a7.js"
+        "/build/runtime.a48ffd0c.js",
+        "/build/289.d95b4ff0.js",
+        "/build/app.9938603d.js"
       ],
       "css": [
         "/build/app.d73426e0.css"
@@ -21,7 +21,7 @@
     },
     "image-editor": {
       "js": [
-        "/build/runtime.ad0c4783.js",
+        "/build/runtime.a48ffd0c.js",
         "/build/image-editor.59a49f6a.js"
       ]
     }

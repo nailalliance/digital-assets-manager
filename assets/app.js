@@ -1,4 +1,5 @@
 import './bootstrap.js';
+import './components/copy_to_clipboard.js';
 /*
  * Welcome to your app's main JavaScript file!
  *
