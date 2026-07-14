@@ -102,6 +102,37 @@ class OneTimeLinks
         return $this;
     }
 
+    public function appendTemporaryFile(array $temporaryFile): OneTimeLinks
+    {
+        $temporaryFiles = $this->temporaryFiles ?? [];
+        $uploadKey = $temporaryFile['tusUploadKey'] ?? null;
+
+        if (is_string($uploadKey) && $this->hasTemporaryFileUploadKey($uploadKey)) {
+            return $this;
+        }
+
+        $temporaryFiles[] = $temporaryFile;
+        $this->temporaryFiles = $temporaryFiles;
+
+        return $this;
+    }
+
+    public function hasTemporaryFileUploadKey(string $uploadKey): bool
+    {
+        foreach ($this->temporaryFiles ?? [] as $temporaryFile) {
+            if (($temporaryFile['tusUploadKey'] ?? null) === $uploadKey) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function getTemporaryFileCount(): int
+    {
+        return count($this->temporaryFiles ?? []);
+    }
+
     public function getCreator(): ?User
     {
         return $this->creator;

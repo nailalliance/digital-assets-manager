@@ -16,6 +16,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 use function basename;
+use function count;
+use function is_array;
+use function pathinfo;
 
 class PublicDownloadListController extends AbstractController
 {
@@ -24,19 +27,8 @@ class PublicDownloadListController extends AbstractController
         #[MapEntity(mapping: ['token' => 'token'])]
         OneTimeLinks $oneTimeLink
     ): Response {
-        if (!$this->isGranted('IS_AUTHENTICATED_FULLY'))
-        {
-            if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
-                throw $this->createNotFoundException('This link has expired.');
-            }
-        }
+        $this->ensureOneTimeLinkIsAccessible($oneTimeLink);
 
-        if (!is_null($oneTimeLink->getDownloadList()) && !$oneTimeLink->getDownloadList()->getStatus())
-        {
-            throw $this->createNotFoundException('This link has expired.');
-        }
-
-        // Pass the entire OneTimeLinks object to the template
         return $this->render('public_download_list/index.html.twig', [
             'oneTimeLink' => $oneTimeLink,
         ]);
@@ -50,12 +42,7 @@ class PublicDownloadListController extends AbstractController
         RequestStack $requestStack,
         ZipDownloadResponseFactory $zipDownloadResponseFactory
     ): Response {
-        if (!$this->isGranted('IS_AUTHENTICATED_FULLY'))
-        {
-            if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
-                throw $this->createNotFoundException('This link has expired.');
-            }
-        }
+        $this->ensureOneTimeLinkIsAccessible($oneTimeLink);
 
         $downloadList = $oneTimeLink->getDownloadList();
         $temporaryFiles = $oneTimeLink->getTemporaryFiles();
@@ -68,22 +55,14 @@ class PublicDownloadListController extends AbstractController
         }
 
         if (!empty($temporaryFiles)) {
-            $fileData = $temporaryFiles[0] ?? null;
-            $filePath = is_array($fileData) ? ($fileData['path'] ?? null) : null;
-
-            if (!is_string($filePath) || !is_readable($filePath)) {
-                throw $this->createNotFoundException('Shared file not found.');
+            if (count($temporaryFiles) === 1) {
+                return $this->createTemporaryFileResponse($temporaryFiles[0]);
             }
 
-            $downloadName = basename((string) ($fileData['originalName'] ?? $filePath));
-            $response = new BinaryFileResponse($filePath);
-            $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $downloadName);
-
-            if (isset($fileData['mimeType']) && is_string($fileData['mimeType']) && $fileData['mimeType'] !== '') {
-                $response->headers->set('Content-Type', $fileData['mimeType']);
-            }
-
-            return $response;
+            return $zipDownloadResponseFactory->create(
+                'shared_files.zip',
+                $this->buildTemporaryFileEntries($temporaryFiles)
+            );
         }
 
         $downloadableAssets = [];
@@ -122,6 +101,24 @@ class PublicDownloadListController extends AbstractController
                 $entityManager->flush();
             }
         );
+    }
+
+    #[Route('/share/{token}/file/{index}', name: 'public_download_list_file', requirements: ['index' => '\d+'])]
+    public function temporaryFile(
+        #[MapEntity(mapping: ['token' => 'token'])]
+        OneTimeLinks $oneTimeLink,
+        int $index
+    ): BinaryFileResponse {
+        $this->ensureOneTimeLinkIsAccessible($oneTimeLink);
+
+        $temporaryFiles = $oneTimeLink->getTemporaryFiles() ?? [];
+        $fileData = $temporaryFiles[$index] ?? null;
+
+        if (!is_array($fileData)) {
+            throw $this->createNotFoundException('Shared file not found.');
+        }
+
+        return $this->createTemporaryFileResponse($fileData);
     }
 
     /**
@@ -213,5 +210,91 @@ class PublicDownloadListController extends AbstractController
         $response->headers->set('Content-Type', 'image/' . $extension);
 
         return $response;
+    }
+
+    private function ensureOneTimeLinkIsAccessible(OneTimeLinks $oneTimeLink): void
+    {
+        if (!$this->isGranted('IS_AUTHENTICATED_FULLY')) {
+            if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
+                throw $this->createNotFoundException('This link has expired.');
+            }
+        }
+
+        if (!is_null($oneTimeLink->getDownloadList()) && !$oneTimeLink->getDownloadList()->getStatus()) {
+            throw $this->createNotFoundException('This link has expired.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $fileData
+     */
+    private function createTemporaryFileResponse(array $fileData): BinaryFileResponse
+    {
+        $filePath = $fileData['path'] ?? null;
+
+        if (!is_string($filePath) || !is_readable($filePath)) {
+            throw $this->createNotFoundException('Shared file not found.');
+        }
+
+        $downloadName = basename((string) ($fileData['originalName'] ?? $filePath));
+        $response = new BinaryFileResponse($filePath);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $downloadName);
+
+        if (isset($fileData['mimeType']) && is_string($fileData['mimeType']) && $fileData['mimeType'] !== '') {
+            $response->headers->set('Content-Type', $fileData['mimeType']);
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $temporaryFiles
+     * @return list<array{archiveName: string, sourcePath: string}>
+     */
+    private function buildTemporaryFileEntries(array $temporaryFiles): array
+    {
+        $entries = [];
+        $usedNames = [];
+
+        foreach ($temporaryFiles as $temporaryFile) {
+            if (!is_array($temporaryFile)) {
+                continue;
+            }
+
+            $filePath = $temporaryFile['path'] ?? null;
+            if (!is_string($filePath) || !is_readable($filePath)) {
+                throw $this->createNotFoundException('Shared file not found.');
+            }
+
+            $preferredName = basename((string) ($temporaryFile['originalName'] ?? $filePath));
+            $entries[] = [
+                'archiveName' => $this->createUniqueArchiveName($preferredName, $usedNames),
+                'sourcePath' => $filePath,
+            ];
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param array<string, bool> $usedNames
+     */
+    private function createUniqueArchiveName(string $preferredName, array &$usedNames): string
+    {
+        $candidate = $preferredName !== '' ? $preferredName : 'shared-file';
+        $extension = pathinfo($candidate, PATHINFO_EXTENSION);
+        $filename = $extension !== '' ? substr($candidate, 0, -(strlen($extension) + 1)) : $candidate;
+        $suffix = 2;
+
+        while (isset($usedNames[$candidate])) {
+            $candidate = $extension !== ''
+                ? sprintf('%s (%d).%s', $filename, $suffix, $extension)
+                : sprintf('%s (%d)', $filename, $suffix);
+            $suffix++;
+        }
+
+        $usedNames[$candidate] = true;
+
+        return $candidate;
     }
 }

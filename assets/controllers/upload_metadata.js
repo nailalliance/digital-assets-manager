@@ -16,15 +16,20 @@ function getSafeExtension(filename) {
     return `.${match[1].toLowerCase()}`;
 }
 
-export function createTusUploadMetadata(file) {
+export function createTusUploadMetadata(file, shareToken = null) {
     const uploadKey = generateUploadKey();
+    const metadata = {
+        filename: `${uploadKey}${getSafeExtension(file.name)}`,
+        original_filename: file.name,
+        filetype: file.type || 'application/octet-stream',
+    };
+
+    if (shareToken) {
+        metadata.share_token = shareToken;
+    }
 
     return {
         uploadKey,
-        metadata: {
-            filename: `${uploadKey}${getSafeExtension(file.name)}`,
-            original_filename: file.name,
-            filetype: file.type || 'application/octet-stream',
-        },
+        metadata,
     };
 }

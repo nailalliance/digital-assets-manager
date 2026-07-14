@@ -6,6 +6,7 @@
 
 {% block body %}
     <div class="max-w-4xl mx-auto" data-controller="permalink-generator" data-permalink-generator-base-url-value="{{ app.request.schemeAndHttpHost }}">
+        {% set tempFiles = oneTimeLink.temporaryFiles|default([]) %}
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-gray-900">Download Assets</h1>
             {% set listName = oneTimeLink.downloadList ? oneTimeLink.downloadList.name : 'Shared Files' %}
@@ -48,14 +49,14 @@
                     <span class="text-xs">(from jpg|png only)</span>
                 </button>
             {% endif %}
-            {% if (oneTimeLink.temporaryFiles is not empty) %}
+            {% if tempFiles is not empty %}
                 <a href="{{ path('public_download_list_zip', {token: oneTimeLink.token}) }}" data-turbo="false"
                    class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
                     <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
-                    Download
+                    {{ tempFiles|length > 1 ? 'Download All (.zip)' : 'Download' }}
                 </a>
             {% endif %}
         </div>
@@ -110,7 +111,6 @@
                     </li>
                 {% endfor %}
 
-                {% set tempFiles = oneTimeLink.temporaryFiles|default([]) %}
                 {% for file in tempFiles %}
                     <li class="p-4 sm:p-6">
                         <div class="flex items-center">
@@ -122,6 +122,11 @@
                             <div class="ml-4 flex-1">
                                 <p class="font-medium text-gray-800">{{ file.originalName }}</p>
                                 <p class="text-sm text-gray-500">{{ fileSizeMacro.format(file.size) }}</p>
+                            </div>
+                            <div class="ml-4">
+                                <a href="{{ path('public_download_list_file', {token: oneTimeLink.token, index: loop.index0}) }}" data-turbo="false" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
+                                    Download
+                                </a>
                             </div>
                         </div>
                     </li>
@@ -168,4 +173,3 @@
         </div>
     </div>
 {% endblock %}
-
