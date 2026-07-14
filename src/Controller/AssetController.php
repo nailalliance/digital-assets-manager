@@ -23,6 +23,13 @@ use Symfony\UX\Turbo\TurboBundle;
 
 final class AssetController extends AbstractController
 {
+    private const EDITOR_SUPPORTED_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+    ];
+
     #[Route('/assets/{id}', name: 'app_asset')]
     #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
     public function index(Assets $assets, EntityManagerInterface $entityManager): Response
@@ -55,6 +62,22 @@ final class AssetController extends AbstractController
             'primaryAsset' => $primaryAsset,
             'editableChild' => $editableChild,
             'cmykChild' => $cmykChild,
+            'canEditImage' => $this->canEditImage($assets),
+        ]);
+    }
+
+    #[Route('/assets/{id}/editor', name: 'app_asset_editor', methods: ['GET'])]
+    #[IsGranted(AssetVoter::VIEW, subject: 'asset')]
+    public function editor(Assets $asset): Response
+    {
+        if (!$this->canEditImage($asset)) {
+            $this->addFlash('warning', 'This asset type is not supported by the canvas editor yet.');
+
+            return $this->redirectToRoute('app_asset', ['id' => $asset->getId()]);
+        }
+
+        return $this->render('asset/editor.html.twig', [
+            'asset' => $asset,
         ]);
     }
 
@@ -126,5 +149,10 @@ final class AssetController extends AbstractController
     public function pdfPreview(Assets $asset): Response
     {
         return $this->render('asset/_pdf.html.twig', ['asset' => $asset]);
+    }
+
+    private function canEditImage(Assets $asset): bool
+    {
+        return in_array($asset->getMimeType(), self::EDITOR_SUPPORTED_MIME_TYPES, true);
     }
 }

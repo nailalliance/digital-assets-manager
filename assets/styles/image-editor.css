@@ -1,0 +1,113 @@
+.image-editor-workspace {
+    background-image:
+        linear-gradient(45deg, rgba(148, 163, 184, 0.14) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(148, 163, 184, 0.14) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(148, 163, 184, 0.14) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(148, 163, 184, 0.14) 75%);
+    background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    background-size: 24px 24px;
+}
+
+.image-editor-surface,
+.image-editor-overlay {
+    touch-action: none;
+}
+
+.image-editor-overlay {
+    user-select: none;
+}
+
+.image-editor-toolbar button.is-active {
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
+    color: white;
+}
+
+.image-editor-crop-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid #2563eb;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.48);
+    cursor: move;
+}
+
+.image-editor-crop-box.is-inactive {
+    border-style: dashed;
+    border-color: #60a5fa;
+}
+
+.image-editor-text {
+    position: absolute;
+    box-sizing: border-box;
+    min-width: 24px;
+    min-height: 24px;
+    overflow: hidden;
+    background: transparent;
+    border: 1px dashed transparent;
+    color: #111827;
+    cursor: move;
+    white-space: pre-wrap;
+    word-break: break-word;
+    outline: none;
+    line-height: 1.2;
+}
+
+.image-editor-text.is-selected {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+.image-editor-text.is-editing {
+    cursor: text;
+}
+
+.image-editor-text.is-editing,
+.image-editor-text:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.18);
+}
+
+.image-editor-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #2563eb;
+    border-radius: 999px;
+    background: white;
+    pointer-events: none;
+}
+
+.image-editor-text .image-editor-handle {
+    display: none;
+}
+
+.image-editor-text.is-selected .image-editor-handle,
+.image-editor-text.is-editing .image-editor-handle {
+    display: block;
+}
+
+.image-editor-handle-tl {
+    top: -6px;
+    left: -6px;
+}
+
+.image-editor-handle-tr {
+    top: -6px;
+    right: -6px;
+}
+
+.image-editor-handle-bl {
+    bottom: -6px;
+    left: -6px;
+}
+
+.image-editor-handle-br {
+    right: -6px;
+    bottom: -6px;
+}
+
+.image-editor-format-active {
+    background-color: #eff6ff;
+    border-color: #60a5fa;
+    color: #1d4ed8;
+}

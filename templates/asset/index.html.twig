@@ -141,6 +141,12 @@
                             </button>
                         </form>
                     </div>
+                    {% if canEditImage %}
+                        <a href="{{ path('app_asset_editor', {id: asset.id}) }}" data-turbo="false" class="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h2m-1 0v14m8-7H4"></path></svg>
+                            Edit Image
+                        </a>
+                    {% endif %}
                     {% if is_granted('ROLE_FTP_ADMIN') %}
                         <a href="{{ path('admin_asset_edit', {id: asset.id}) }}" class="w-full inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
                             Edit Asset

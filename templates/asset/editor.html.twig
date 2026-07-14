@@ -1,0 +1,207 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Edit {{ asset.name }} | {{ parent() }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('image-editor') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('image-editor') }}
+{% endblock %}
+
+{% block body %}
+    <div
+        {{ stimulus_controller('image-editor', {
+            imageUrl: path('asset_stream', {id: asset.id}),
+            assetName: asset.name,
+            mimeType: asset.mimeType
+        }) }}
+        class="space-y-4"
+    >
+        <div class="rounded-2xl bg-white p-4 shadow-sm">
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ path('app_asset', {id: asset.id}) }}" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Back to Asset
+                </a>
+                <button type="button" data-image-editor-target="undoButton" data-action="click->image-editor#undo" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                    Undo
+                </button>
+                <button type="button" data-image-editor-target="redoButton" data-action="click->image-editor#redo" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                    Redo
+                </button>
+                <button type="button" data-action="click->image-editor#resetEditor" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Reset
+                </button>
+                <button type="button" data-action="click->image-editor#decreaseImageScale" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Image -
+                </button>
+                <button type="button" data-action="click->image-editor#increaseImageScale" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Image +
+                </button>
+                <span data-image-editor-target="imageScaleLabel" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
+                    100%
+                </span>
+                <button type="button" data-action="click->image-editor#copyScript" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Copy Script
+                </button>
+                <button type="button" data-action="click->image-editor#openPasteModal" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Paste Script
+                </button>
+                <button type="button" data-action="click->image-editor#downloadImage" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                    Download
+                </button>
+            </div>
+            <p data-image-editor-target="status" class="mt-3 text-sm text-slate-500">
+                Select mode lets you drag the image and use the mouse wheel to zoom. Use Crop to adjust the export frame or Text to add a new text layer.
+            </p>
+        </div>
+
+        <div class="grid gap-4 xl:grid-cols-[4.5rem,1fr,18rem]">
+            <aside class="rounded-2xl bg-white p-3 shadow-sm">
+                <div class="image-editor-toolbar flex flex-col gap-2">
+                    <button type="button" data-action="click->image-editor#setTool" data-tool="select" class="is-active rounded-xl border border-slate-300 px-2 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Select
+                    </button>
+                    <button type="button" data-action="click->image-editor#setTool" data-tool="text" class="rounded-xl border border-slate-300 px-2 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Text
+                    </button>
+                    <button type="button" data-action="click->image-editor#setTool" data-tool="crop" class="rounded-xl border border-slate-300 px-2 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Crop
+                    </button>
+                </div>
+            </aside>
+
+            <section class="rounded-2xl bg-white p-4 shadow-sm">
+                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h1 class="text-xl font-semibold text-slate-900">Canvas Editor</h1>
+                        <p class="text-sm text-slate-500">{{ asset.name }}</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span data-image-editor-target="selectionSummary" class="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
+                            No text selected
+                        </span>
+                        <span data-image-editor-target="cropSummary" class="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
+                            Crop: 100%
+                        </span>
+                    </div>
+                </div>
+
+                <div data-image-editor-target="workspace" class="image-editor-workspace relative h-[70vh] min-h-[32rem] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                    <div data-image-editor-target="surface" class="image-editor-surface absolute">
+                        <canvas data-image-editor-target="canvas" class="absolute inset-0 h-full w-full"></canvas>
+                        <div data-image-editor-target="overlay" class="image-editor-overlay absolute inset-0">
+                            <div data-image-editor-target="cropBox" class="image-editor-crop-box">
+                                <span class="image-editor-handle image-editor-handle-tl"></span>
+                                <span class="image-editor-handle image-editor-handle-tr"></span>
+                                <span class="image-editor-handle image-editor-handle-bl"></span>
+                                <span class="image-editor-handle image-editor-handle-br"></span>
+                            </div>
+                            <div data-image-editor-target="textLayer" class="absolute inset-0"></div>
+                        </div>
+                    </div>
+                    <div data-image-editor-target="loadingState" class="absolute inset-0 flex items-center justify-center text-sm font-medium text-slate-500">
+                        Loading image…
+                    </div>
+                </div>
+            </section>
+
+            <aside class="rounded-2xl bg-white p-4 shadow-sm">
+                <div class="mb-4">
+                    <h2 class="text-lg font-semibold text-slate-900">Inspector</h2>
+                    <p class="text-sm text-slate-500">Select a text layer to change its formatting.</p>
+                </div>
+
+                <div data-image-editor-target="emptyInspectorState" class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                    No text selected yet.
+                </div>
+
+                <div data-image-editor-target="textInspector" class="hidden space-y-4">
+                    <div>
+                        <label for="image-editor-font-family" class="mb-1 block text-sm font-medium text-slate-700">Font</label>
+                        <select id="image-editor-font-family" data-image-editor-target="fontFamilySelect" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="fontFamily" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">
+                            <option value="Arial">Arial</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Trebuchet MS">Trebuchet MS</option>
+                            <option value="Verdana">Verdana</option>
+                            <option value="Tahoma">Tahoma</option>
+                            <option value="Courier New">Courier New</option>
+                            <option value="Impact">Impact</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="image-editor-font-size" class="mb-1 block text-sm font-medium text-slate-700">Font Size</label>
+                        <input id="image-editor-font-size" type="number" min="8" step="1" data-image-editor-target="fontSizeInput" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="fontSize" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">
+                    </div>
+
+                    <div>
+                        <label for="image-editor-font-color" class="mb-1 block text-sm font-medium text-slate-700">Text Color</label>
+                        <input id="image-editor-font-color" type="color" data-image-editor-target="colorInput" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="color" class="h-11 w-full rounded-lg border border-slate-300 bg-white px-1 py-1">
+                    </div>
+
+                    <div class="space-y-2">
+                        <span class="block text-sm font-medium text-slate-700">Style</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" data-image-editor-target="boldButton" data-action="click->image-editor#toggleSelectedTextStyle" data-style-property="fontWeight" data-style-value="bold" data-default-value="normal" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                Bold
+                            </button>
+                            <button type="button" data-image-editor-target="italicButton" data-action="click->image-editor#toggleSelectedTextStyle" data-style-property="fontStyle" data-style-value="italic" data-default-value="normal" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                Italic
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <span class="block text-sm font-medium text-slate-700">Alignment</span>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="left" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                Left
+                            </button>
+                            <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="center" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                Center
+                            </button>
+                            <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="right" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                Right
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="button" data-action="click->image-editor#deleteSelectedText" class="w-full rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+                        Delete Text
+                    </button>
+                </div>
+            </aside>
+        </div>
+
+        <div data-image-editor-target="scriptModal" data-action="click->image-editor#closeScriptModalOnBackdrop" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+            <div class="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
+                <div class="mb-4 flex items-center justify-between">
+                    <div>
+                        <h2 data-image-editor-target="scriptModalTitle" class="text-lg font-semibold text-slate-900">Paste Script</h2>
+                        <p data-image-editor-target="scriptModalHint" class="text-sm text-slate-500">Paste an editor script to replace the current canvas state.</p>
+                    </div>
+                    <button type="button" data-action="click->image-editor#closeScriptModal" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Close
+                    </button>
+                </div>
+
+                <textarea data-image-editor-target="scriptTextarea" class="h-72 w-full rounded-xl border border-slate-300 p-3 font-mono text-sm text-slate-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"></textarea>
+
+                <div class="mt-4 flex items-center justify-end gap-2">
+                    <button type="button" data-action="click->image-editor#closeScriptModal" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="button" data-image-editor-target="scriptConfirmButton" data-action="click->image-editor#confirmScriptModal" class="rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                        Apply Script
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

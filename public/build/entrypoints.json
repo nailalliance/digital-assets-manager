@@ -6,14 +6,14 @@
         "/build/tailwinds.232e66a8.js"
       ],
       "css": [
-        "/build/tailwinds.38cc9bc1.css"
+        "/build/tailwinds.ae597af6.css"
       ]
     },
     "app": {
       "js": [
         "/build/runtime.a48ffd0c.js",
-        "/build/271.1a24bc30.js",
-        "/build/app.3a9ed010.js"
+        "/build/387.05e1ec89.js",
+        "/build/app.9a8c651b.js"
       ],
       "css": [
         "/build/app.d73426e0.css"
@@ -22,7 +22,10 @@
     "image-editor": {
       "js": [
         "/build/runtime.a48ffd0c.js",
-        "/build/image-editor.59a49f6a.js"
+        "/build/image-editor.4c83c0b4.js"
+      ],
+      "css": [
+        "/build/image-editor.614c113a.css"
       ]
     }
   }
