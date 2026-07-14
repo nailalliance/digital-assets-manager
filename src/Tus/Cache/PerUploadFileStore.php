@@ -10,6 +10,7 @@ final class PerUploadFileStore extends AbstractCache
     public function __construct(
         private readonly string $cacheDir
     ) {
+        $this->ensureCacheDirExists();
     }
 
     public function get(string $key, bool $withExpired = false)
@@ -85,8 +86,12 @@ final class PerUploadFileStore extends AbstractCache
 
     private function ensureCacheDirExists(): void
     {
-        if (!is_dir($this->cacheDir)) {
-            mkdir($this->cacheDir, 0775, true);
+        if (is_dir($this->cacheDir)) {
+            return;
+        }
+
+        if (!@mkdir($this->cacheDir, 0775, true) && !is_dir($this->cacheDir)) {
+            throw new \RuntimeException(sprintf('Unable to create Tus cache directory: %s', $this->cacheDir));
         }
     }
 
@@ -114,12 +119,12 @@ final class PerUploadFileStore extends AbstractCache
     {
         $handle = @fopen($path, $mode);
         if ($handle === false) {
-            return null;
+            throw new \RuntimeException(sprintf('Unable to open Tus cache file: %s', $path));
         }
 
         try {
             if (!flock($handle, $lockType)) {
-                return null;
+                throw new \RuntimeException(sprintf('Unable to lock Tus cache file: %s', $path));
             }
 
             return $callback($handle);
@@ -146,6 +151,8 @@ final class PerUploadFileStore extends AbstractCache
 
     private function getPath(string $key): string
     {
+        $this->ensureCacheDirExists();
+
         return rtrim($this->cacheDir, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR
             . $this->encodeKey($this->getActualCacheKey($key))

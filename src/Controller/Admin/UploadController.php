@@ -64,13 +64,14 @@ class UploadController extends AbstractController
     {
         $this->setCacheItemKeyName($fileId);
         $userId = $this->getUser()?->getId();
+        $cacheDir = rtrim($this->getParameter('upload_dir'), DIRECTORY_SEPARATOR) . '/.tus-cache';
 
         if ($request->hasSession()) {
             $request->getSession()->save();
         }
 
         $server = new OptimizedTusServer(
-            new PerUploadFileStore($this->getParameter('kernel.cache_dir') . '/tus-uploads')
+            new PerUploadFileStore($cacheDir)
         );
 
         $apiPath = $assetId

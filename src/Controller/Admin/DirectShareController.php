@@ -40,13 +40,14 @@ class DirectShareController extends AbstractController
     public function upload(Request $request): Response
     {
         $userId = $this->getUser()?->getId();
+        $cacheDir = rtrim($this->getParameter('direct_uploads_dir'), DIRECTORY_SEPARATOR) . '/.tus-cache';
 
         if ($request->hasSession()) {
             $request->getSession()->save();
         }
 
         $server = new OptimizedTusServer(
-            new PerUploadFileStore($this->getParameter('kernel.cache_dir') . '/tus-uploads')
+            new PerUploadFileStore($cacheDir)
         );
         $server
             ->setUploadDir($this->getParameter('direct_uploads_dir')) // Use a separate temp directory
