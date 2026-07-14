@@ -1,8 +1,9 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-controller="search-asset-list">
     {% if assets is not empty %}
         {% for asset in assets %}
-            <div class="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col" data-asset-id="{{ asset.id }}">
+            <div class="relative bg-white rounded-lg shadow-sm overflow-hidden flex flex-col" data-asset-id="{{ asset.id }}">
                 <a data-turbo="false" href="{{ path('app_asset', {id: asset.id}) }}" class="block relative">
+                    {{ include('asset/_designer_only_ribbon.html.twig', {asset: asset}) }}
                     <div class="aspect-square w-full bg-gray-200 flex items-center justify-center">
                         {% if asset.thumbnailPath is not null and asset.thumbnailPath is not empty %}
                             <img src="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}" alt="{{ asset.name }}" class="w-full h-full object-cover">

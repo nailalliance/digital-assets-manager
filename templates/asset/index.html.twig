@@ -42,7 +42,8 @@
 {% endblock %}
 
 {% block body %}
-    <div class="bg-white rounded-lg shadow-xl overflow-hidden">
+    <div class="relative bg-white rounded-lg shadow-xl overflow-hidden">
+        {{ include('asset/_designer_only_ribbon.html.twig', {asset: asset}) }}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0">
 
             {# Left Column: Asset Preview #}
@@ -80,6 +81,10 @@
             <div class="p-8 flex flex-col">
                 {# Asset Name #}
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ asset.name }}</h1>
+
+                {% if asset.status and asset.status.value == 'designer' %}
+                    <p class="mb-4 text-sm font-medium text-sky-700">Visible to designers and admins only.</p>
+                {% endif %}
 
                 {# Item Code #}
                 <p class="text-sm text-gray-500 mb-6 font-mono">{{ asset.itemCodes ? asset.itemCodes | map(item => item.code) | join(', ') }}</p>
@@ -277,4 +282,3 @@
         </div>
     </div>
 {% endblock %}
-

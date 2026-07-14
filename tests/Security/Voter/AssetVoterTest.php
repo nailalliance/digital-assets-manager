@@ -3,6 +3,7 @@
 namespace App\Tests\Security\Voter;
 
 use App\Entity\Assets\Assets;
+use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\Assets\Brands;
 use App\Entity\User;
 use App\Security\Voter\AssetVoter;
@@ -15,7 +16,7 @@ use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 class AssetVoterTest extends TestCase
 {
     #[DataProvider('provideVoteCases')]
-    public function testVote(array $userRoles, array $userRestrictedBrandIds, int $assetParentBrandId, int $expectedVote): void
+    public function testVote(array $userRoles, array $userRestrictedBrandIds, int $assetParentBrandId, AssetStatusEnum $assetStatus, int $expectedVote): void
     {
         // Step 1: Create the User and assign their brands
         $user = new User();
@@ -32,6 +33,7 @@ class AssetVoterTest extends TestCase
         $childBrand = $this->createMock(Brands::class);
         $childBrand->method('getBrands')->willReturn($parentBrand);
         $asset = new Assets();
+        $asset->setStatus($assetStatus);
         $asset->addBrand($childBrand);
 
         // Step 3: Set up the mocks and run the test
@@ -51,6 +53,7 @@ class AssetVoterTest extends TestCase
             ['ROLE_FTP_DESIGNER'],
             [], // No brand restrictions
             99, // Asset can be from any brand
+            AssetStatusEnum::DESIGNER,
             VoterInterface::ACCESS_GRANTED
         ];
 
@@ -58,13 +61,23 @@ class AssetVoterTest extends TestCase
             ['ROLE_BOARD_USER'],
             [3], // User has access to brand 3
             3,   // Asset is from brand 3
+            AssetStatusEnum::ACTIVE,
             VoterInterface::ACCESS_GRANTED
+        ];
+
+        yield 'Restricted user cannot view designer-only asset' => [
+            ['ROLE_BOARD_USER'],
+            [3], // User has access to brand 3
+            3,   // Asset is from brand 3
+            AssetStatusEnum::DESIGNER,
+            VoterInterface::ACCESS_DENIED
         ];
 
         yield 'Restricted user cannot view disallowed asset' => [
             ['ROLE_BOARD_USER'],
             [3], // User has access to brand 3
             4,   // Asset is from brand 4
+            AssetStatusEnum::ACTIVE,
             VoterInterface::ACCESS_DENIED
         ];
 
@@ -72,6 +85,7 @@ class AssetVoterTest extends TestCase
             ['ROLE_BOARD_USER'],
             [], // User has no brand access
             5,  // Asset is from any brand
+            AssetStatusEnum::ACTIVE,
             VoterInterface::ACCESS_DENIED
         ];
     }

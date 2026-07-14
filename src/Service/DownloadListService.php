@@ -3,14 +3,17 @@
 namespace App\Service;
 
 use App\Entity\Assets\Assets;
+use App\Security\Voter\AssetVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Bundle\SecurityBundle\Security;
 
 class DownloadListService
 {
     public function __construct(
         private readonly RequestStack $requestStack,
-        private readonly EntityManagerInterface $entityManager
+        private readonly EntityManagerInterface $entityManager,
+        private readonly Security $security,
     ) {
         // The session is no longer fetched in the constructor
     }
@@ -18,8 +21,14 @@ class DownloadListService
     /**
      * Adds an asset to the download list in the session.
      */
-    public function add(int $assetId): void
+    public function add(int $assetId): bool
     {
+        $asset = $this->entityManager->getRepository(Assets::class)->find($assetId);
+
+        if (!$asset instanceof Assets || !$this->security->isGranted(AssetVoter::VIEW, $asset)) {
+            return false;
+        }
+
         $session = $this->requestStack->getSession();
         $downloadList = $session->get('download_list', []);
 
@@ -28,6 +37,8 @@ class DownloadListService
         }
 
         $session->set('download_list', $downloadList);
+
+        return true;
     }
 
     /**
@@ -56,6 +67,22 @@ class DownloadListService
      */
     public function getAssets(): array
     {
+        return $this->getAccessibleAssets();
+    }
+
+    /**
+     * Gets the count of items in the list.
+     */
+    public function getCount(): int
+    {
+        return count($this->getAccessibleAssets());
+    }
+
+    /**
+     * @return Assets[]
+     */
+    private function getAccessibleAssets(): array
+    {
         $session = $this->requestStack->getSession();
         $downloadList = $session->get('download_list', []);
         $assetIds = array_keys($downloadList);
@@ -64,14 +91,23 @@ class DownloadListService
             return [];
         }
 
-        return $this->entityManager->getRepository(Assets::class)->findBy(['id' => $assetIds]);
-    }
+        $assets = $this->entityManager->getRepository(Assets::class)->findBy(['id' => $assetIds]);
+        $accessibleAssets = [];
+        $accessibleAssetIds = [];
 
-    /**
-     * Gets the count of items in the list.
-     */
-    public function getCount(): int
-    {
-        return count($this->requestStack->getSession()->get('download_list', []));
+        foreach ($assets as $asset) {
+            if (!$this->security->isGranted(AssetVoter::VIEW, $asset)) {
+                continue;
+            }
+
+            $accessibleAssets[] = $asset;
+            $accessibleAssetIds[$asset->getId()] = true;
+        }
+
+        if ($accessibleAssetIds !== $downloadList) {
+            $session->set('download_list', $accessibleAssetIds);
+        }
+
+        return $accessibleAssets;
     }
 }

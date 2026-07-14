@@ -27,6 +27,20 @@ class AssetsRepository extends ServiceEntityRepository
         parent::__construct($registry, Assets::class);
     }
 
+    /**
+     * @return string[]
+     */
+    private function getVisibleStatusesForCurrentUser(): array
+    {
+        $statuses = [AssetStatusEnum::ACTIVE->value];
+
+        if ($this->security->isGranted('ROLE_FTP_DESIGNER')) {
+            $statuses[] = AssetStatusEnum::DESIGNER->value;
+        }
+
+        return $statuses;
+    }
+
     private function applyBrandRestrictions(QueryBuilder $qb): QueryBuilder
     {
         /** @var ?User $user */
@@ -68,10 +82,10 @@ class AssetsRepository extends ServiceEntityRepository
     ): Paginator
     {
         $qb = $this->createQueryBuilder('a')
-            ->where('a.status = :status')
+            ->where('a.status IN (:statuses)')
             ->andWhere('a.embargoDate IS NULL OR a.embargoDate <= :now')
             ->andWhere('a.expirationDate IS NULL OR a.expirationDate >= :now')
-            ->setParameter('status', 'active')
+            ->setParameter('statuses', $this->getVisibleStatusesForCurrentUser())
             ->setParameter('now', new \DateTimeImmutable());
 
         if ($fileTypeGroup) {
@@ -144,10 +158,10 @@ class AssetsRepository extends ServiceEntityRepository
             ->innerJoin('a.brand', 'b')
             ->where('b.id IN (:brandIds)')
             ->andWhere('b.status = :brandStatus')
-            ->andWhere('a.status = :status')
+            ->andWhere('a.status IN (:statuses)')
             ->setParameter('brandIds', $brandIds)
             ->setParameter('brandStatus', true)
-            ->setParameter('status', 'active')
+            ->setParameter('statuses', $this->getVisibleStatusesForCurrentUser())
             ->orderBy('a.createdAt', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()

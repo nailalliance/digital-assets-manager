@@ -3,12 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\Assets\Assets;
-use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\Downloads\Lists;
 use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
 use App\Entity\User;
-use App\Security\Voter\AssetVoter;
 use App\Service\DownloadListService;
 use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
 
 
@@ -44,9 +41,11 @@ class DownloadListController extends AbstractController
     #[Route('/add/{id}', name: 'download_list_add', methods: ['POST'])]
     public function add(Assets $asset, DownloadListService $downloadListService, Request $request): Response
     {
-        $downloadListService->add($asset->getId());
-
-        $this->addFlash('success', sprintf('"%s" has been added to your download bag.', $asset->getName()));
+        if ($downloadListService->add($asset->getId())) {
+            $this->addFlash('success', sprintf('"%s" has been added to your download bag.', $asset->getName()));
+        } else {
+            $this->addFlash('warning', 'You do not have access to that asset.');
+        }
 
         // Redirect back to the page the user came from
         return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
@@ -56,9 +55,15 @@ class DownloadListController extends AbstractController
      * Adds an asset to the download list.
      */
     #[Route('/add/{id}/json', name: 'download_list_add_json', methods: ['POST'])]
-    public function addJson(Assets $asset, DownloadListService $downloadListService, Request $request): Response
+    public function addJson(Assets $asset, DownloadListService $downloadListService): Response
     {
-        $downloadListService->add($asset->getId());
+        if (!$downloadListService->add($asset->getId())) {
+            return $this->json([
+                'success' => false,
+                'message' => 'You do not have access to that asset.',
+                'downloadCount' => $downloadListService->getCount(),
+            ], Response::HTTP_FORBIDDEN);
+        }
 
         $this->addFlash('success', sprintf('"%s" has been added to your download bag.', $asset->getName()));
 
@@ -196,11 +201,21 @@ class DownloadListController extends AbstractController
             return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
         }
 
+        $addedCount = 0;
+
         foreach ($assetIds as $id) {
-            $downloadListService->add((int) $id);
+            if ($downloadListService->add((int) $id)) {
+                $addedCount++;
+            }
         }
 
-        $this->addFlash('success', sprintf('%d assets have been added to your download bag.', count($assetIds)));
+        if ($addedCount === 0) {
+            $this->addFlash('warning', 'No accessible assets were added to your download bag.');
+        } elseif ($addedCount < count($assetIds)) {
+            $this->addFlash('warning', sprintf('%d assets were added. Some selected assets are not accessible to you.', $addedCount));
+        } else {
+            $this->addFlash('success', sprintf('%d assets have been added to your download bag.', $addedCount));
+        }
 
         return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
     }
