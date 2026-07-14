@@ -6,6 +6,8 @@
 parameters:
     upload_dir: '%kernel.project_dir%/files'
     thumbnail_dir: '%kernel.project_dir%/files-thumbs'
+    permalink_cache_dir: '%kernel.project_dir%/files-web-cache'
+    permalink_cache_version: 'v1'
     ai_dir: '%kernel.project_dir%/files-ai'
     cag_dir: '%kernel.project_dir%/docs/business'
     direct_uploads_dir: '%kernel.project_dir%/files-direct'

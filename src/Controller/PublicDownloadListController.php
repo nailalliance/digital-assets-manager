@@ -5,7 +5,7 @@ namespace App\Controller;
 use App\Entity\Assets\Assets;
 use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
-use App\Service\ImageProcessorService;
+use App\Service\PermalinkImageCacheService;
 use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -159,13 +159,13 @@ class PublicDownloadListController extends AbstractController
         OneTimeLinks $oneTimeLink,
         #[MapEntity(id: 'assetId')]
         Assets $asset,
-        ImageProcessorService $imageProcessor,
+        PermalinkImageCacheService $permalinkImageCache,
         int $width,
         int $height,
         int $padding,
         string $filename,
         string $extension
-    ): Response {
+    ): BinaryFileResponse {
         if (!$this->isGranted('IS_AUTHENTICATED_FULLY')) {
             if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
                 throw $this->createNotFoundException('This link has expired.');
@@ -195,21 +195,32 @@ class PublicDownloadListController extends AbstractController
             throw $this->createNotFoundException('Source file not found.');
         }
 
-        $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension);
-
-        if (!$imageBinary) {
+        try {
+            $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension);
+        } catch (\InvalidArgumentException | \RuntimeException) {
             throw $this->createNotFoundException('Could not process image.');
         }
 
-        $response = new Response($imageBinary);
+        $response = new BinaryFileResponse($cachedImagePath);
         $disposition = $response->headers->makeDisposition(
             ResponseHeaderBag::DISPOSITION_INLINE,
             $filename . '.' . $extension
         );
         $response->headers->set('Content-Disposition', $disposition);
-        $response->headers->set('Content-Type', 'image/' . $extension);
+        $response->headers->set('Content-Type', $this->resolveImageContentType($extension));
+        $response->headers->set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
 
         return $response;
+    }
+
+    private function resolveImageContentType(string $extension): string
+    {
+        return match ($extension) {
+            'jpg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            default => 'application/octet-stream',
+        };
     }
 
     private function ensureOneTimeLinkIsAccessible(OneTimeLinks $oneTimeLink): void
