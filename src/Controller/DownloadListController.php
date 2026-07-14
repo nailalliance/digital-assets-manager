@@ -133,6 +133,7 @@ class DownloadListController extends AbstractController
 
         // Return the URL for the new link
         return $this->json([
+            'token' => $oneTimeLink->getToken(),
             'url' => $this->generateUrl(
                 'public_download_list',
                 ['token' => $oneTimeLink->getToken()],

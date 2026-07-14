@@ -3,11 +3,12 @@ import { Controller } from '@hotwired/stimulus';
 export default class extends Controller {
     static targets = ["modal", "widthInput", "heightInput", "paddingInput", "extensionInput", "csvButtonContainer"];
     static values = {
-        baseUrl: String
+        baseUrl: String,
+        shareEndpoint: String,
     }
 
-    // This will store the generated link data for the CSV export
     generatedLinks = [];
+    generatedToken = null;
 
     openModal() {
         this.modalTarget.classList.remove('hidden');
@@ -17,13 +18,13 @@ export default class extends Controller {
         this.modalTarget.classList.add('hidden');
     }
 
-    generate(event) {
+    async generate(event) {
         event.preventDefault();
 
-        this.generatedLinks = []; // Clear previous links
+        this.generatedLinks = [];
         const width = this.widthInputTarget.value;
         const height = this.heightInputTarget.value;
-        const padding = this.paddingInputTarget.value || 0;
+        const padding = Number(this.paddingInputTarget.value || 0);
         const extension = this.extensionInputTarget.value;
 
         if (!width || !height) {
@@ -31,13 +32,36 @@ export default class extends Controller {
             return;
         }
 
-        const imageAssets = this.element.querySelectorAll('[data-image-asset="true"]');
+        const imageAssets = Array.from(this.element.querySelectorAll('[data-image-asset="true"]'));
+
+        if (imageAssets.length === 0) {
+            alert('No compatible assets are available for web links.');
+            return;
+        }
+
+        let sharedToken;
+
+        try {
+            sharedToken = await this.resolveShareToken(imageAssets);
+        } catch (error) {
+            console.error(error);
+            alert(error instanceof Error ? error.message : 'Could not generate web links.');
+            return;
+        }
 
         imageAssets.forEach(assetElement => {
-            const { token, assetId, filename, sku, assetName } = assetElement.dataset;
+            const { assetId, filename, sku, assetName } = assetElement.dataset;
+            const token = assetElement.dataset.token || sharedToken;
             const permalinkContainer = assetElement.querySelector('.permalink-container');
-            const cleanFilename = filename.substring(0, filename.lastIndexOf('.'));
+            const extensionIndex = filename.lastIndexOf('.');
+            const cleanFilename = extensionIndex > 0 ? filename.substring(0, extensionIndex) : filename;
             const inputId = `permalink-${assetId}-${width}x${height}-${padding}-${extension}`;
+
+            if (!token || !permalinkContainer) {
+                return;
+            }
+
+            assetElement.dataset.token = token;
 
             let relativeUrl = `/share/${token}/image/${assetId}/${width}x${height}/`;
             if (padding > 0) {
@@ -47,10 +71,9 @@ export default class extends Controller {
 
             const fullUrl = this.baseUrlValue + relativeUrl;
 
-            // Store data for CSV export
             this.generatedLinks.push({
-                sku: sku,
-                name: assetName,
+                sku: sku || '',
+                name: assetName || '',
                 webLinkUrl: fullUrl
             });
 
@@ -71,6 +94,7 @@ export default class extends Controller {
             const openLink = document.createElement('a');
             openLink.href = fullUrl;
             openLink.target = '_blank';
+            openLink.rel = 'noopener noreferrer';
             openLink.className = 'inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 mt-2';
             openLink.textContent = 'Open Web Link';
 
@@ -78,12 +102,13 @@ export default class extends Controller {
             permalinkContainer.replaceChildren(wrapper, openLink);
         });
 
-        // Show the "Download CSV" button if links were generated
         if (this.generatedLinks.length > 0) {
             this.csvButtonContainerTarget.classList.remove('hidden');
+            this.closeModal();
+            return;
         }
 
-        this.closeModal();
+        alert('No compatible assets are available for web links.');
     }
 
     downloadCsv() {
@@ -112,5 +137,49 @@ export default class extends Controller {
 
         link.click();
         document.body.removeChild(link);
+    }
+
+    async resolveShareToken(imageAssets) {
+        const existingToken = imageAssets.find(assetElement => assetElement.dataset.token)?.dataset.token;
+
+        if (existingToken) {
+            return existingToken;
+        }
+
+        if (this.generatedToken) {
+            return this.generatedToken;
+        }
+
+        if (!this.hasShareEndpointValue) {
+            throw new Error('Could not determine a share token for these assets.');
+        }
+
+        const response = await fetch(this.shareEndpointValue, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new FormData(),
+        });
+
+        let data = {};
+
+        try {
+            data = await response.json();
+        } catch (error) {
+            console.error(error);
+        }
+
+        if (!response.ok || !data.token) {
+            throw new Error(data.error || 'Could not create a share link for these assets.');
+        }
+
+        this.generatedToken = data.token;
+
+        imageAssets.forEach(assetElement => {
+            assetElement.dataset.token = this.generatedToken;
+        });
+
+        return this.generatedToken;
     }
 }

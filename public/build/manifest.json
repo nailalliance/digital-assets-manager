@@ -1,11 +1,11 @@
 {
-  "build/tailwinds.css": "/build/tailwinds.055a7cf7.css",
-  "build/tailwinds.js": "/build/tailwinds.232e66a8.js",
-  "build/app.css": "/build/app.d73426e0.css",
-  "build/app.js": "/build/app.9938603d.js",
-  "build/image-editor.js": "/build/image-editor.59a49f6a.js",
-  "build/runtime.js": "/build/runtime.a48ffd0c.js",
-  "build/436.4f24f66d.js": "/build/436.4f24f66d.js",
-  "build/289.d95b4ff0.js": "/build/289.d95b4ff0.js",
-  "build/0.95455ed9.js": "/build/0.95455ed9.js"
+  "build/tailwinds.css": "/build/tailwinds.css",
+  "build/tailwinds.js": "/build/tailwinds.js",
+  "build/app.css": "/build/app.css",
+  "build/app.js": "/build/app.js",
+  "build/image-editor.js": "/build/image-editor.js",
+  "build/runtime.js": "/build/runtime.js",
+  "build/assets_controllers_csrf_protection_controller_js.js": "/build/assets_controllers_csrf_protection_controller_js.js",
+  "build/vendors-node_modules_hotwired_turbo_dist_turbo_es2017-esm_js-node_modules_symfony_stimulus-br-50b7f9.js": "/build/vendors-node_modules_hotwired_turbo_dist_turbo_es2017-esm_js-node_modules_symfony_stimulus-br-50b7f9.js",
+  "build/vendors-node_modules_core-js_modules_es_array-buffer_constructor_js-node_modules_core-js_modu-cebe39.js": "/build/vendors-node_modules_core-js_modules_es_array-buffer_constructor_js-node_modules_core-js_modu-cebe39.js"
 }
