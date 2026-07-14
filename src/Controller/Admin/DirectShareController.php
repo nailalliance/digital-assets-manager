@@ -37,11 +37,16 @@ class DirectShareController extends AbstractController
     }
 
     #[Route('/session', name: 'admin_direct_share_session', methods: ['POST'])]
-    public function createSession(): JsonResponse
+    public function createSession(Request $request): JsonResponse
     {
+        $payload = json_decode($request->getContent(), true);
+        $payload = is_array($payload) ? $payload : [];
+        $expectedFileCount = max(1, (int) ($payload['expectedFileCount'] ?? 1));
+
         $oneTimeLink = new OneTimeLinks();
         $oneTimeLink->setToken(Uuid::v4()->toBase32());
-        $oneTimeLink->setExpirationDate(new \DateTimeImmutable('+30 days'));
+        $oneTimeLink->setExpirationDate(new \DateTimeImmutable('+30 days', new \DateTimeZone('UTC')));
+        $oneTimeLink->setExpectedFileCount($expectedFileCount);
         $oneTimeLink->setTemporaryFiles([]);
 
         if ($this->getUser() !== null) {
@@ -53,6 +58,7 @@ class DirectShareController extends AbstractController
 
         return $this->json([
             'token' => $oneTimeLink->getToken(),
+            'expectedFileCount' => $expectedFileCount,
         ]);
     }
 
@@ -89,12 +95,16 @@ class DirectShareController extends AbstractController
     {
         $fileMetaData = $event->getFile()->details();
         $shareToken = $fileMetaData['metadata']['share_token'] ?? $event->getFile()->getKey();
+        $expectedFileCount = isset($fileMetaData['metadata']['share_expected_count'])
+            ? max(1, (int) $fileMetaData['metadata']['share_expected_count'])
+            : null;
 
         $this->messageBus->dispatch(new ProcessDirectShare(
             fileMetaData: $fileMetaData,
             uploadKey: $event->getFile()->getKey(),
             shareToken: $shareToken,
-            userId: $userId
+            userId: $userId,
+            expectedFileCount: $expectedFileCount,
         ));
     }
 }

@@ -9,6 +9,7 @@ class ProcessDirectShare
         public readonly string $uploadKey,
         public readonly string $shareToken,
         public readonly ?int $userId,
+        public readonly ?int $expectedFileCount = null,
     )
     {}
 }

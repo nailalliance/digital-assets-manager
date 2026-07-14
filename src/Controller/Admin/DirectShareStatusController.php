@@ -24,14 +24,16 @@ final class DirectShareStatusController extends AbstractController
             return $this->json(['status' => 'processing', 'processedCount' => 0], 202);
         }
 
-        $expectedCount = max(0, (int) $request->query->get('expected', 0));
+        $expectedCount = $oneTimeLink->getExpectedFileCount() ?? max(0, (int) $request->query->get('expected', 0));
         $processedCount = $oneTimeLink->getTemporaryFileCount();
-        $isComplete = $expectedCount > 0 ? $processedCount >= $expectedCount : $processedCount > 0;
+        $isComplete = $oneTimeLink->isUploadComplete()
+            || ($expectedCount > 0 && $processedCount >= $expectedCount);
 
         if ($isComplete) {
             return $this->json([
                 'status' => 'complete',
                 'processedCount' => $processedCount,
+                'expectedCount' => $expectedCount,
                 'url' => $urlGenerator->generate(
                     'public_download_list',
                     ['token' => $oneTimeLink->getToken()],
@@ -43,6 +45,7 @@ final class DirectShareStatusController extends AbstractController
         return $this->json([
             'status' => 'processing',
             'processedCount' => $processedCount,
+            'expectedCount' => $expectedCount,
         ], 202);
     }
 }

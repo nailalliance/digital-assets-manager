@@ -39,3 +39,26 @@ change that requires it.
 Tus upload changes are especially sensitive to stale bundles because the client
 must send the exact headers expected by the stateless upload firewall. If upload
 behavior changes, always rebuild `public/build/` before deploy.
+
+## Direct share cleanup
+
+Multi-file direct shares now keep a short-lived upload session while files are
+still arriving. To clean up interrupted uploads and expired direct-share links,
+run this command on a schedule:
+
+```bash
+php bin/console app:cleanup-direct-shares
+```
+
+Helpful options:
+
+```bash
+php bin/console app:cleanup-direct-shares --dry-run
+php bin/console app:cleanup-direct-shares --stale-hours=24
+```
+
+Running it hourly is a good default. The command removes:
+
+1. Expired Tus chunk metadata and orphaned partial files.
+2. Incomplete direct-share sessions that have been idle longer than the stale window.
+3. Expired completed direct-share links together with their stored files.

@@ -16,6 +16,39 @@ class OneTimeLinksRepository extends ServiceEntityRepository
         parent::__construct($registry, OneTimeLinks::class);
     }
 
+    /**
+     * @return list<OneTimeLinks>
+     */
+    public function findStalePendingDirectShares(\DateTimeImmutable $updatedBefore): array
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.downloadList IS NULL')
+            ->andWhere('o.assets IS NULL')
+            ->andWhere('o.uploadCompletedAt IS NULL')
+            ->andWhere('(o.expectedFileCount IS NOT NULL OR o.temporaryFiles IS NOT NULL OR o.tusUploadKey IS NOT NULL)')
+            ->andWhere('o.updatedAt <= :updatedBefore')
+            ->setParameter('updatedBefore', $updatedBefore)
+            ->orderBy('o.updatedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return list<OneTimeLinks>
+     */
+    public function findExpiredCompletedDirectShares(\DateTimeImmutable $expiredBefore): array
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.downloadList IS NULL')
+            ->andWhere('o.assets IS NULL')
+            ->andWhere('o.uploadCompletedAt IS NOT NULL')
+            ->andWhere('o.expirationDate <= :expiredBefore')
+            ->setParameter('expiredBefore', $expiredBefore)
+            ->orderBy('o.expirationDate', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     //    /**
     //     * @return OneTimeLinks[] Returns an array of OneTimeLinks objects
     //     */

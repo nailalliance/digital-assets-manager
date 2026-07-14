@@ -58,4 +58,15 @@ final class OneTimeLinksTest extends TestCase
             array_column($oneTimeLink->getTemporaryFiles(), 'originalName')
         );
     }
+
+    public function testUploadCompleteDependsOnUploadCompletedAt(): void
+    {
+        $oneTimeLink = new OneTimeLinks();
+
+        self::assertFalse($oneTimeLink->isUploadComplete());
+
+        $oneTimeLink->setUploadCompletedAt(new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+
+        self::assertTrue($oneTimeLink->isUploadComplete());
+    }
 }

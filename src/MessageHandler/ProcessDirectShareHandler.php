@@ -37,8 +37,12 @@ final class ProcessDirectShareHandler
             if ($oneTimeLink === null) {
                 $oneTimeLink = new OneTimeLinks();
                 $oneTimeLink->setToken($message->shareToken);
-                $oneTimeLink->setExpirationDate(new \DateTimeImmutable('+30 days'));
+                $oneTimeLink->setExpirationDate(new \DateTimeImmutable('+30 days', new \DateTimeZone('UTC')));
                 $oneTimeLink->setTemporaryFiles([]);
+            }
+
+            if ($oneTimeLink->getExpectedFileCount() === null && $message->expectedFileCount !== null) {
+                $oneTimeLink->setExpectedFileCount($message->expectedFileCount);
             }
 
             if ($oneTimeLink->getTusUploadKey() === null) {
@@ -56,6 +60,11 @@ final class ProcessDirectShareHandler
             if ($message->userId && $oneTimeLink->getCreator() === null) {
                 $user = $this->entityManager->getReference(User::class, $message->userId);
                 $oneTimeLink->setCreator($user);
+            }
+
+            $expectedFileCount = $oneTimeLink->getExpectedFileCount();
+            if ($expectedFileCount !== null && $expectedFileCount > 0 && $oneTimeLink->getTemporaryFileCount() >= $expectedFileCount) {
+                $oneTimeLink->setUploadCompletedAt(new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
             }
 
             $this->entityManager->persist($oneTimeLink);

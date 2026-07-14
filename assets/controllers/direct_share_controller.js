@@ -104,7 +104,11 @@ export default class extends Controller {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
+                'Content-Type': 'application/json',
             },
+            body: JSON.stringify({
+                expectedFileCount: this.selectedFiles.length,
+            }),
         });
 
         if (!response.ok) {
@@ -115,7 +119,7 @@ export default class extends Controller {
     }
 
     uploadSingleFile(file, index, shareToken, completedBytes, totalBytes) {
-        const { uploadKey, metadata } = createTusUploadMetadata(file, shareToken);
+        const { uploadKey, metadata } = createTusUploadMetadata(file, shareToken, this.selectedFiles.length);
 
         return new Promise((resolve, reject) => {
             const upload = new tus.Upload(file, {

@@ -16,7 +16,7 @@ function getSafeExtension(filename) {
     return `.${match[1].toLowerCase()}`;
 }
 
-export function createTusUploadMetadata(file, shareToken = null) {
+export function createTusUploadMetadata(file, shareToken = null, expectedFileCount = null) {
     const uploadKey = generateUploadKey();
     const metadata = {
         filename: `${uploadKey}${getSafeExtension(file.name)}`,
@@ -26,6 +26,10 @@ export function createTusUploadMetadata(file, shareToken = null) {
 
     if (shareToken) {
         metadata.share_token = shareToken;
+    }
+
+    if (typeof expectedFileCount === 'number' && expectedFileCount > 0) {
+        metadata.share_expected_count = String(expectedFileCount);
     }
 
     return {

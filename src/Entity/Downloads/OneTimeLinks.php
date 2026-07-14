@@ -9,6 +9,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: OneTimeLinksRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class OneTimeLinks
 {
     #[ORM\Id]
@@ -37,6 +38,18 @@ class OneTimeLinks
 
     #[ORM\Column(length: 255, unique: true, nullable: true)]
     private ?string $tusUploadKey = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $expectedFileCount = null;
+
+    #[ORM\Column]
+    private ?\DateTimeImmutable $createdAt = null;
+
+    #[ORM\Column]
+    private ?\DateTimeImmutable $updatedAt = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $uploadCompletedAt = null;
 
     public function getId(): ?int
     {
@@ -153,5 +166,72 @@ class OneTimeLinks
     {
         $this->tusUploadKey = $tusUploadKey;
         return $this;
+    }
+
+    public function getExpectedFileCount(): ?int
+    {
+        return $this->expectedFileCount;
+    }
+
+    public function setExpectedFileCount(?int $expectedFileCount): self
+    {
+        $this->expectedFileCount = $expectedFileCount === null ? null : max(0, $expectedFileCount);
+
+        return $this;
+    }
+
+    public function getCreatedAt(): ?\DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(\DateTimeImmutable $createdAt): self
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getUpdatedAt(): ?\DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
+
+    public function setUpdatedAt(\DateTimeImmutable $updatedAt): self
+    {
+        $this->updatedAt = $updatedAt;
+
+        return $this;
+    }
+
+    public function getUploadCompletedAt(): ?\DateTimeImmutable
+    {
+        return $this->uploadCompletedAt;
+    }
+
+    public function setUploadCompletedAt(?\DateTimeImmutable $uploadCompletedAt): self
+    {
+        $this->uploadCompletedAt = $uploadCompletedAt;
+
+        return $this;
+    }
+
+    public function isUploadComplete(): bool
+    {
+        return $this->uploadCompletedAt !== null;
+    }
+
+    #[ORM\PrePersist]
+    public function initializeTimestamps(): void
+    {
+        $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $this->createdAt ??= $now;
+        $this->updatedAt ??= $now;
+    }
+
+    #[ORM\PreUpdate]
+    public function refreshUpdatedAt(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
     }
 }
