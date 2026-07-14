@@ -37,6 +37,35 @@ final class OptimizedFileTest extends TestCase
         @unlink($inputPath);
         @unlink($outputPath);
     }
+
+    public function testItFlushesTheFinalOffsetAtTheEndOfANonFinalPatch(): void
+    {
+        $inputPath = tempnam(sys_get_temp_dir(), 'tus-input-');
+        $outputPath = tempnam(sys_get_temp_dir(), 'tus-output-');
+
+        self::assertNotFalse($inputPath);
+        self::assertNotFalse($outputPath);
+
+        file_put_contents($inputPath, str_repeat('B', 10 * 1024 * 1024));
+        file_put_contents($outputPath, '');
+
+        $cache = new InMemoryTusCache();
+        $cache->set('upload-key', ['offset' => 0]);
+
+        $file = new TestOptimizedFile($inputPath, $cache);
+        $file
+            ->setMeta(0, 20 * 1024 * 1024, $outputPath)
+            ->setKey('upload-key');
+
+        $offset = $file->upload(20 * 1024 * 1024);
+
+        self::assertSame(10 * 1024 * 1024, $offset);
+        self::assertSame(10 * 1024 * 1024, $cache->get('upload-key')['offset']);
+        self::assertSame(3, $cache->setCalls);
+
+        @unlink($inputPath);
+        @unlink($outputPath);
+    }
 }
 
 final class TestOptimizedFile extends OptimizedFile

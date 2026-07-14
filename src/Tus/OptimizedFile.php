@@ -21,6 +21,7 @@ class OptimizedFile extends File
         $output = $this->open($this->getFilePath(), self::APPEND_BINARY);
         $key = $this->getKey();
         $nextOffsetSync = min($totalBytes, $this->offset + self::OFFSET_SYNC_INTERVAL);
+        $lastSyncedOffset = $this->offset;
 
         try {
             $this->seek($output, $this->offset);
@@ -45,8 +46,13 @@ class OptimizedFile extends File
 
                 if ($this->offset >= $nextOffsetSync || $this->offset === $totalBytes) {
                     $this->cache->set($key, ['offset' => $this->offset]);
+                    $lastSyncedOffset = $this->offset;
                     $nextOffsetSync = min($totalBytes, $this->offset + self::OFFSET_SYNC_INTERVAL);
                 }
+            }
+
+            if ($lastSyncedOffset !== $this->offset) {
+                $this->cache->set($key, ['offset' => $this->offset]);
             }
         } finally {
             $this->close($input);
