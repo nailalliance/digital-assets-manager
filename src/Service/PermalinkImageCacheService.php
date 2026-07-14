@@ -44,7 +44,11 @@ final class PermalinkImageCacheService
         }
 
         $cacheDir = \dirname($cachePath);
-        $this->filesystem->mkdir($cacheDir);
+        try {
+            $this->filesystem->mkdir($cacheDir);
+        } catch (IOExceptionInterface $exception) {
+            throw new \RuntimeException('Could not prepare cached permalink image directory.', previous: $exception);
+        }
 
         $lock = $this->lockFactory->createLock($this->buildLockKey($assetId, $width, $height, $padding, $format));
         $lock->acquire(true);

@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Assets\Assets;
 use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
+use App\Service\ImageProcessorService;
 use App\Service\PermalinkImageCacheService;
 use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -160,12 +161,13 @@ class PublicDownloadListController extends AbstractController
         #[MapEntity(id: 'assetId')]
         Assets $asset,
         PermalinkImageCacheService $permalinkImageCache,
+        ImageProcessorService $imageProcessor,
         int $width,
         int $height,
         int $padding,
         string $filename,
         string $extension
-    ): BinaryFileResponse {
+    ): Response {
         if (!$this->isGranted('IS_AUTHENTICATED_FULLY')) {
             if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
                 throw $this->createNotFoundException('This link has expired.');
@@ -197,11 +199,18 @@ class PublicDownloadListController extends AbstractController
 
         try {
             $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension);
-        } catch (\InvalidArgumentException | \RuntimeException) {
+            $response = new BinaryFileResponse($cachedImagePath);
+        } catch (\InvalidArgumentException) {
             throw $this->createNotFoundException('Could not process image.');
-        }
+        } catch (\RuntimeException) {
+            $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension);
 
-        $response = new BinaryFileResponse($cachedImagePath);
+            if ($imageBinary === null || $imageBinary === '') {
+                throw $this->createNotFoundException('Could not process image.');
+            }
+
+            $response = new Response($imageBinary);
+        }
         $disposition = $response->headers->makeDisposition(
             ResponseHeaderBag::DISPOSITION_INLINE,
             $filename . '.' . $extension
