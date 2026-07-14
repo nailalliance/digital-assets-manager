@@ -13,6 +13,7 @@ export default class extends Controller {
     };
 
     pollingInterval = null;
+    copyFeedbackTimeout = null;
     selectedFiles = [];
 
     connect() {
@@ -22,6 +23,10 @@ export default class extends Controller {
     disconnect() {
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
+        }
+
+        if (this.copyFeedbackTimeout) {
+            clearTimeout(this.copyFeedbackTimeout);
         }
     }
 
@@ -190,14 +195,30 @@ export default class extends Controller {
         }, 2000); // Check every 2 seconds
     }
 
-    copyToClipboard() {
+    async copyToClipboard() {
+        this.highlightUrlInput();
+
         if (navigator.clipboard?.writeText) {
-            navigator.clipboard.writeText(this.urlInputTarget.value);
+            await navigator.clipboard.writeText(this.urlInputTarget.value);
             return;
         }
 
-        this.urlInputTarget.select();
         document.execCommand('copy');
+    }
+
+    highlightUrlInput() {
+        this.urlInputTarget.focus({ preventScroll: true });
+        this.urlInputTarget.select();
+        this.urlInputTarget.setSelectionRange(0, this.urlInputTarget.value.length);
+        this.urlInputTarget.classList.add('ring-2', 'ring-violet-300', 'bg-violet-50');
+
+        if (this.copyFeedbackTimeout) {
+            clearTimeout(this.copyFeedbackTimeout);
+        }
+
+        this.copyFeedbackTimeout = setTimeout(() => {
+            this.urlInputTarget.classList.remove('ring-2', 'ring-violet-300', 'bg-violet-50');
+        }, 1200);
     }
 
     renderSelectedFiles() {

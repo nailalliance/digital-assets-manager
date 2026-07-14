@@ -2,6 +2,7 @@ import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
     static targets = ["modal", "urlInput", "nameInput", "generateForm", "confirmation"];
+    copyFeedbackTimeout = null;
 
     async generate(event) {
         event.preventDefault();
@@ -53,9 +54,35 @@ export default class extends Controller {
         this.confirmationTarget.classList.add('hidden')
     }
 
-    copyToClipboard() {
-        this.urlInputTarget.select();
+    disconnect() {
+        if (this.copyFeedbackTimeout) {
+            clearTimeout(this.copyFeedbackTimeout);
+        }
+    }
+
+    async copyToClipboard() {
+        this.highlightUrlInput();
+
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(this.urlInputTarget.value);
+            return;
+        }
+
         document.execCommand('copy');
-        // You can add a "Copied!" message here if you like
+    }
+
+    highlightUrlInput() {
+        this.urlInputTarget.focus({ preventScroll: true });
+        this.urlInputTarget.select();
+        this.urlInputTarget.setSelectionRange(0, this.urlInputTarget.value.length);
+        this.urlInputTarget.classList.add('ring-2', 'ring-violet-300', 'bg-violet-50');
+
+        if (this.copyFeedbackTimeout) {
+            clearTimeout(this.copyFeedbackTimeout);
+        }
+
+        this.copyFeedbackTimeout = setTimeout(() => {
+            this.urlInputTarget.classList.remove('ring-2', 'ring-violet-300', 'bg-violet-50');
+        }, 1200);
     }
 }
