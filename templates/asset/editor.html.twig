@@ -59,17 +59,26 @@
             </p>
         </div>
 
-        <div class="grid gap-4 xl:grid-cols-[4.5rem,1fr,18rem]">
-            <aside class="rounded-2xl bg-white p-3 shadow-sm">
+        <div class="grid gap-4 xl:grid-cols-[4.5rem,minmax(0,1fr),21rem]">
+            <aside class="image-editor-tool-rail h-fit rounded-2xl bg-slate-900 p-2 shadow-sm">
                 <div class="image-editor-toolbar flex flex-col gap-2">
-                    <button type="button" data-action="click->image-editor#setTool" data-tool="select" class="is-active rounded-xl border border-slate-300 px-2 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                        Select
+                    <button type="button" data-action="click->image-editor#setTool" data-tool="select" title="Select" class="image-editor-tool-button is-active">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M5 4.5v14l4.4-4.4 2.7 5.4 2.3-1.1-2.7-5.5 6.1-.9L5 4.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                        </svg>
+                        <span class="sr-only">Select</span>
                     </button>
-                    <button type="button" data-action="click->image-editor#setTool" data-tool="text" class="rounded-xl border border-slate-300 px-2 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                        Text
+                    <button type="button" data-action="click->image-editor#setTool" data-tool="text" title="Text" class="image-editor-tool-button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M6 6.5h12M12 6.5v11M8.5 17.5h7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                        </svg>
+                        <span class="sr-only">Text</span>
                     </button>
-                    <button type="button" data-action="click->image-editor#setTool" data-tool="crop" class="rounded-xl border border-slate-300 px-2 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                        Crop
+                    <button type="button" data-action="click->image-editor#setTool" data-tool="crop" title="Crop" class="image-editor-tool-button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M7 4.5v10.5a2 2 0 0 0 2 2h10.5M4.5 7H15a2 2 0 0 1 2 2v10.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                        </svg>
+                        <span class="sr-only">Crop</span>
                     </button>
                 </div>
             </aside>
@@ -109,72 +118,95 @@
                 </div>
             </section>
 
-            <aside class="rounded-2xl bg-white p-4 shadow-sm">
-                <div class="mb-4">
-                    <h2 class="text-lg font-semibold text-slate-900">Inspector</h2>
-                    <p class="text-sm text-slate-500">Select a text layer to change its formatting.</p>
+            <aside class="image-editor-sidebar h-fit overflow-hidden rounded-2xl bg-slate-900 text-slate-100 shadow-sm">
+                <div class="border-b border-white/10 p-4">
+                    <div class="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Properties</p>
+                            <h2 class="mt-1 text-lg font-semibold text-white">Selected Layer</h2>
+                        </div>
+                        <span data-image-editor-target="layerCount" class="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-300">
+                            2 layers
+                        </span>
+                    </div>
+
+                    <div data-image-editor-target="propertiesEmptyState" class="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
+                        <p data-image-editor-target="propertiesEmptyTitle" class="font-semibold text-white">Base image selected</p>
+                        <p data-image-editor-target="propertiesEmptyMessage" class="mt-1 text-slate-400">Select a text layer from the canvas or Layers to edit its properties.</p>
+                    </div>
+
+                    <div data-image-editor-target="textInspector" class="hidden space-y-4">
+                        <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Text Properties</p>
+                            <p class="mt-1 text-sm text-slate-300">Selected text layers update live on the canvas.</p>
+                        </div>
+
+                        <div>
+                            <label for="image-editor-font-family" class="mb-1 block text-sm font-medium text-slate-200">Font</label>
+                            <select id="image-editor-font-family" data-image-editor-target="fontFamilySelect" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="fontFamily" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                                <option value="Arial">Arial</option>
+                                <option value="Helvetica">Helvetica</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Trebuchet MS">Trebuchet MS</option>
+                                <option value="Verdana">Verdana</option>
+                                <option value="Tahoma">Tahoma</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Impact">Impact</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="image-editor-font-size" class="mb-1 block text-sm font-medium text-slate-200">Font Size</label>
+                            <input id="image-editor-font-size" type="number" min="8" step="1" data-image-editor-target="fontSizeInput" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="fontSize" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                        </div>
+
+                        <div>
+                            <label for="image-editor-font-color" class="mb-1 block text-sm font-medium text-slate-200">Text Color</label>
+                            <input id="image-editor-font-color" type="color" data-image-editor-target="colorInput" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="color" class="image-editor-color-input h-11 w-full rounded-lg border border-white/10 bg-white/5 px-1 py-1">
+                        </div>
+
+                        <div class="space-y-2">
+                            <span class="block text-sm font-medium text-slate-200">Style</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" data-image-editor-target="boldButton" data-action="click->image-editor#toggleSelectedTextStyle" data-style-property="fontWeight" data-style-value="bold" data-default-value="normal" class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10">
+                                    Bold
+                                </button>
+                                <button type="button" data-image-editor-target="italicButton" data-action="click->image-editor#toggleSelectedTextStyle" data-style-property="fontStyle" data-style-value="italic" data-default-value="normal" class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10">
+                                    Italic
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <span class="block text-sm font-medium text-slate-200">Alignment</span>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="left" class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10">
+                                    Left
+                                </button>
+                                <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="center" class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10">
+                                    Center
+                                </button>
+                                <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="right" class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-white/10">
+                                    Right
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="button" data-action="click->image-editor#deleteSelectedText" class="w-full rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-200 hover:bg-red-500/20">
+                            Delete Text
+                        </button>
+                    </div>
                 </div>
 
-                <div data-image-editor-target="emptyInspectorState" class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                    No text selected yet.
-                </div>
-
-                <div data-image-editor-target="textInspector" class="hidden space-y-4">
-                    <div>
-                        <label for="image-editor-font-family" class="mb-1 block text-sm font-medium text-slate-700">Font</label>
-                        <select id="image-editor-font-family" data-image-editor-target="fontFamilySelect" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="fontFamily" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">
-                            <option value="Arial">Arial</option>
-                            <option value="Helvetica">Helvetica</option>
-                            <option value="Georgia">Georgia</option>
-                            <option value="Times New Roman">Times New Roman</option>
-                            <option value="Trebuchet MS">Trebuchet MS</option>
-                            <option value="Verdana">Verdana</option>
-                            <option value="Tahoma">Tahoma</option>
-                            <option value="Courier New">Courier New</option>
-                            <option value="Impact">Impact</option>
-                        </select>
+                <div class="p-4">
+                    <div class="mb-3">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Layers</p>
+                        <h3 class="mt-1 text-lg font-semibold text-white">Stack Order</h3>
+                        <p class="text-sm text-slate-400">Top layers appear first in the list.</p>
                     </div>
 
-                    <div>
-                        <label for="image-editor-font-size" class="mb-1 block text-sm font-medium text-slate-700">Font Size</label>
-                        <input id="image-editor-font-size" type="number" min="8" step="1" data-image-editor-target="fontSizeInput" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="fontSize" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">
-                    </div>
-
-                    <div>
-                        <label for="image-editor-font-color" class="mb-1 block text-sm font-medium text-slate-700">Text Color</label>
-                        <input id="image-editor-font-color" type="color" data-image-editor-target="colorInput" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="color" class="h-11 w-full rounded-lg border border-slate-300 bg-white px-1 py-1">
-                    </div>
-
-                    <div class="space-y-2">
-                        <span class="block text-sm font-medium text-slate-700">Style</span>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button type="button" data-image-editor-target="boldButton" data-action="click->image-editor#toggleSelectedTextStyle" data-style-property="fontWeight" data-style-value="bold" data-default-value="normal" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                Bold
-                            </button>
-                            <button type="button" data-image-editor-target="italicButton" data-action="click->image-editor#toggleSelectedTextStyle" data-style-property="fontStyle" data-style-value="italic" data-default-value="normal" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                Italic
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <span class="block text-sm font-medium text-slate-700">Alignment</span>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="left" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                Left
-                            </button>
-                            <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="center" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                Center
-                            </button>
-                            <button type="button" data-image-editor-target="alignButton" data-action="click->image-editor#setSelectedTextAlign" data-style-value="right" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                Right
-                            </button>
-                        </div>
-                    </div>
-
-                    <button type="button" data-action="click->image-editor#deleteSelectedText" class="w-full rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
-                        Delete Text
-                    </button>
+                    <div data-image-editor-target="layersList" class="max-h-[24rem] space-y-2 overflow-y-auto pr-1"></div>
                 </div>
             </aside>
         </div>

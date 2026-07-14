@@ -34,7 +34,9 @@ export default class extends Controller {
         'imageScaleLabel',
         'selectionSummary',
         'cropSummary',
-        'emptyInspectorState',
+        'propertiesEmptyState',
+        'propertiesEmptyTitle',
+        'propertiesEmptyMessage',
         'textInspector',
         'fontFamilySelect',
         'fontSizeInput',
@@ -42,6 +44,8 @@ export default class extends Controller {
         'boldButton',
         'italicButton',
         'alignButton',
+        'layersList',
+        'layerCount',
         'scriptModal',
         'scriptModalTitle',
         'scriptModalHint',
@@ -147,21 +151,33 @@ export default class extends Controller {
     }
 
     setTool(event) {
-        this.activeTool = event.currentTarget.dataset.tool;
+        this.setActiveTool(event.currentTarget.dataset.tool);
+    }
+
+    setActiveTool(tool, { render = true, updateStatus = true } = {}) {
+        this.activeTool = tool;
 
         if (this.editingTextId) {
             this.exitTextEditing();
         }
 
-        if (this.activeTool === 'crop') {
-            this.setStatus('Drag or resize the crop frame to change the export area.');
-        } else if (this.activeTool === 'text') {
-            this.setStatus('Click anywhere on the image to add a new text layer.');
-        } else {
-            this.setStatus('Drag the image to reposition it and use the mouse wheel to zoom.');
+        if (tool !== 'select' && this.selectedTextId) {
+            this.selectedTextId = null;
         }
 
-        this.renderAll();
+        if (updateStatus) {
+            if (this.activeTool === 'crop') {
+                this.setStatus('Drag or resize the crop frame to change the export area.');
+            } else if (this.activeTool === 'text') {
+                this.setStatus('Click anywhere on the image to add a new text layer.');
+            } else {
+                this.setStatus('Drag the image to reposition it and use the mouse wheel to zoom.');
+            }
+        }
+
+        if (render) {
+            this.renderAll();
+        }
     }
 
     undo() {
@@ -409,13 +425,7 @@ export default class extends Controller {
             return;
         }
 
-        const previousState = this.cloneState(this.state);
-        this.state.texts = this.state.texts.filter((text) => text.id !== selectedText.id);
-        this.selectedTextId = null;
-        this.editingTextId = null;
-        this.commitState(previousState);
-        this.renderAll(true);
-        this.setStatus('Text layer deleted.');
+        this.deleteTextLayerById(selectedText.id);
     }
 
     handleWorkspaceMouseDown(event) {
@@ -841,6 +851,7 @@ export default class extends Controller {
             this.editingTextId = null;
         }
         this.refreshInspector();
+        this.renderLayers();
         this.syncTextElements();
         this.updateSelectionSummary();
     }
@@ -856,6 +867,7 @@ export default class extends Controller {
         this.renderCropBox();
         this.syncTextElements();
         this.refreshInspector();
+        this.renderLayers();
         this.updateHistoryButtons();
         this.updateSelectionSummary();
         this.updateCropSummary();
@@ -960,16 +972,203 @@ export default class extends Controller {
         }
     }
 
+    renderLayers() {
+        const totalLayers = this.state.texts.length + 2;
+        this.layerCountTarget.textContent = `${totalLayers} ${totalLayers === 1 ? 'layer' : 'layers'}`;
+        this.layersListTarget.innerHTML = '';
+
+        const layers = [
+            ...this.state.texts.map((text, index) => ({ type: 'text', text, index })).reverse(),
+            { type: 'crop' },
+            { type: 'image' },
+        ];
+
+        layers.forEach((layer) => {
+            this.layersListTarget.appendChild(this.buildLayerRow(layer));
+        });
+    }
+
+    buildLayerRow(layer) {
+        const row = document.createElement('div');
+        row.className = 'image-editor-layer-row';
+
+        const isSelected = layer.type === 'text'
+            ? this.selectedTextId === layer.text.id
+            : layer.type === 'crop'
+                ? this.activeTool === 'crop' && !this.selectedTextId
+                : this.activeTool === 'select' && !this.selectedTextId;
+
+        if (isSelected) {
+            row.classList.add('is-selected');
+        }
+
+        const mainButton = document.createElement('button');
+        mainButton.type = 'button';
+        mainButton.className = 'image-editor-layer-main';
+        mainButton.addEventListener('click', () => {
+            this.activateLayer(layer);
+        });
+
+        const icon = document.createElement('span');
+        icon.className = 'image-editor-layer-icon';
+        icon.textContent = layer.type === 'text' ? 'T' : layer.type === 'crop' ? 'C' : 'IMG';
+
+        const textWrap = document.createElement('div');
+        textWrap.className = 'image-editor-layer-text';
+
+        const title = document.createElement('div');
+        title.className = 'image-editor-layer-title';
+        title.textContent = this.getLayerTitle(layer);
+
+        const subtitle = document.createElement('div');
+        subtitle.className = 'image-editor-layer-subtitle';
+        subtitle.textContent = this.getLayerSubtitle(layer);
+
+        textWrap.append(title, subtitle);
+        mainButton.append(icon, textWrap);
+        row.appendChild(mainButton);
+
+        if (layer.type === 'text') {
+            const actions = document.createElement('div');
+            actions.className = 'image-editor-layer-actions';
+            actions.append(
+                this.createLayerAction('↑', 'Bring Forward', layer.index >= this.state.texts.length - 1, () => this.moveTextLayer(layer.text.id, 1)),
+                this.createLayerAction('↓', 'Send Backward', layer.index <= 0, () => this.moveTextLayer(layer.text.id, -1)),
+                this.createLayerAction('×', 'Delete Layer', false, () => this.deleteTextLayerById(layer.text.id))
+            );
+            row.appendChild(actions);
+        }
+
+        return row;
+    }
+
+    createLayerAction(label, title, disabled, handler) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'image-editor-layer-action';
+        button.textContent = label;
+        button.title = title;
+        button.disabled = disabled;
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (!disabled) {
+                handler();
+            }
+        });
+
+        return button;
+    }
+
+    activateLayer(layer) {
+        if (layer.type === 'text') {
+            this.selectedTextId = layer.text.id;
+            this.editingTextId = null;
+            this.activeTool = 'select';
+            this.renderAll();
+            this.setStatus(`Selected ${truncateText(layer.text.text || 'text layer', 24)}.`);
+            return;
+        }
+
+        this.selectText(null);
+        this.setActiveTool(layer.type === 'crop' ? 'crop' : 'select');
+    }
+
+    moveTextLayer(textId, delta) {
+        const index = this.state.texts.findIndex((text) => text.id === textId);
+        const nextIndex = index + delta;
+
+        if (index < 0 || nextIndex < 0 || nextIndex >= this.state.texts.length) {
+            return;
+        }
+
+        const previousState = this.cloneState(this.state);
+        [this.state.texts[index], this.state.texts[nextIndex]] = [this.state.texts[nextIndex], this.state.texts[index]];
+        this.selectedTextId = textId;
+        this.commitState(previousState);
+        this.renderAll();
+        this.setStatus('Layer order updated.');
+    }
+
+    deleteTextLayerById(textId) {
+        const textLayer = this.findTextById(textId);
+        if (!textLayer) {
+            return;
+        }
+
+        const previousState = this.cloneState(this.state);
+        this.state.texts = this.state.texts.filter((text) => text.id !== textId);
+
+        if (this.selectedTextId === textId) {
+            this.selectedTextId = null;
+        }
+        if (this.editingTextId === textId) {
+            this.editingTextId = null;
+        }
+
+        this.commitState(previousState);
+        this.renderAll(true);
+        this.setStatus(`Deleted ${truncateText(textLayer.text || 'text layer', 24)}.`);
+    }
+
+    getLayerTitle(layer) {
+        if (layer.type === 'image') {
+            return 'Base image';
+        }
+
+        if (layer.type === 'crop') {
+            return 'Crop frame';
+        }
+
+        return truncateText(layer.text.text || 'Untitled text', 28);
+    }
+
+    getLayerSubtitle(layer) {
+        if (layer.type === 'image') {
+            return `Scale ${Math.round(this.state.baseImage.scale * 100)}%`;
+        }
+
+        if (layer.type === 'crop') {
+            return `${Math.round(this.state.crop.width * 100)}% × ${Math.round(this.state.crop.height * 100)}% export area`;
+        }
+
+        const fontSize = Math.round(layer.text.fontSize);
+        return `${layer.text.fontFamily} • ${fontSize}px`;
+    }
+
+    getPropertiesEmptyState() {
+        if (this.activeTool === 'crop') {
+            return {
+                title: 'Crop frame active',
+                message: 'Resize or drag the crop frame directly on the canvas to change the export area.',
+            };
+        }
+
+        if (this.activeTool === 'text') {
+            return {
+                title: 'Add a text layer',
+                message: 'Click anywhere on the canvas to add a new text layer, then select it to edit its properties.',
+            };
+        }
+
+        return {
+            title: 'Base image selected',
+            message: 'Use Select mode to pan or zoom the image, or choose a text layer from Layers to edit its properties.',
+        };
+    }
+
     refreshInspector() {
         const selectedText = this.getSelectedText();
 
         if (!selectedText) {
-            this.emptyInspectorStateTarget.classList.remove('hidden');
+            this.propertiesEmptyStateTarget.classList.remove('hidden');
             this.textInspectorTarget.classList.add('hidden');
+            const emptyState = this.getPropertiesEmptyState();
+            this.propertiesEmptyTitleTarget.textContent = emptyState.title;
+            this.propertiesEmptyMessageTarget.textContent = emptyState.message;
             return;
         }
 
-        this.emptyInspectorStateTarget.classList.add('hidden');
+        this.propertiesEmptyStateTarget.classList.add('hidden');
         this.textInspectorTarget.classList.remove('hidden');
         this.fontFamilySelectTarget.value = normalizeFont(selectedText.fontFamily);
         this.fontSizeInputTarget.value = String(Math.round(selectedText.fontSize));
@@ -983,9 +1182,19 @@ export default class extends Controller {
 
     updateSelectionSummary() {
         const selectedText = this.getSelectedText();
-        this.selectionSummaryTarget.textContent = selectedText
-            ? `Selected text: ${truncateText(selectedText.text || 'Untitled', 28)}`
-            : 'No text selected';
+        if (selectedText) {
+            this.selectionSummaryTarget.textContent = `Selected text: ${truncateText(selectedText.text || 'Untitled', 28)}`;
+            return;
+        }
+
+        if (this.activeTool === 'crop') {
+            this.selectionSummaryTarget.textContent = 'Crop frame selected';
+            return;
+        }
+
+        this.selectionSummaryTarget.textContent = this.activeTool === 'text'
+            ? 'Text tool active'
+            : 'Base image selected';
     }
 
     updateCropSummary() {
