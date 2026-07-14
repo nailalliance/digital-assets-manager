@@ -3,6 +3,7 @@
 namespace App\Controller\Admin;
 
 use App\Message\ProcessDirectShare;
+use App\MessageHandler\ProcessDirectShareHandler;
 use App\Entity\Downloads\OneTimeLinks;
 use App\Security\TusUploadTokenManager;
 use App\Tus\Cache\PerUploadFileStore;
@@ -12,7 +13,6 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
 use TusPhp\Events\TusEvent;
@@ -21,9 +21,9 @@ use TusPhp\Events\TusEvent;
 class DirectShareController extends AbstractController
 {
     public function __construct(
-        private MessageBusInterface $messageBus,
         private TusUploadTokenManager $uploadTokenManager,
         private EntityManagerInterface $entityManager,
+        private ProcessDirectShareHandler $processDirectShareHandler,
     )
     {
     }
@@ -99,7 +99,7 @@ class DirectShareController extends AbstractController
             ? max(1, (int) $fileMetaData['metadata']['share_expected_count'])
             : null;
 
-        $this->messageBus->dispatch(new ProcessDirectShare(
+        $this->processDirectShareHandler->process(new ProcessDirectShare(
             fileMetaData: $fileMetaData,
             uploadKey: $event->getFile()->getKey(),
             shareToken: $shareToken,

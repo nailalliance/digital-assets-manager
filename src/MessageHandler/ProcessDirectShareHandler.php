@@ -22,6 +22,11 @@ final class ProcessDirectShareHandler
 
     public function __invoke(ProcessDirectShare $message): void
     {
+        $this->process($message);
+    }
+
+    public function process(ProcessDirectShare $message): void
+    {
         $lock = $this->lockFactory->createLock('process-direct-share-' . $message->shareToken, 30);
 
         if (!$lock->acquire(true)) {
