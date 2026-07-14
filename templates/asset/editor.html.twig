@@ -59,9 +59,9 @@
             </p>
         </div>
 
-        <div class="grid gap-4 xl:grid-cols-[4.5rem,minmax(0,1fr),21rem]">
-            <aside class="image-editor-tool-rail h-fit rounded-2xl bg-slate-900 p-2 shadow-sm">
-                <div class="image-editor-toolbar flex flex-col gap-2">
+        <div class="grid gap-4 md:grid-cols-[4.5rem,minmax(0,1fr)] xl:grid-cols-[4.5rem,minmax(0,1fr),21rem]">
+            <aside class="image-editor-tool-rail h-fit justify-self-start rounded-2xl bg-slate-900 p-2 shadow-sm md:row-span-2 md:justify-self-stretch">
+                <div class="image-editor-toolbar flex flex-row gap-2 md:flex-col">
                     <button type="button" data-action="click->image-editor#setTool" data-tool="select" title="Select" class="image-editor-tool-button is-active">
                         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M5 4.5v14l4.4-4.4 2.7 5.4 2.3-1.1-2.7-5.5 6.1-.9L5 4.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
@@ -83,7 +83,7 @@
                 </div>
             </aside>
 
-            <section class="rounded-2xl bg-white p-4 shadow-sm">
+            <section class="min-w-0 rounded-2xl bg-white p-4 shadow-sm">
                 <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <h1 class="text-xl font-semibold text-slate-900">Canvas Editor</h1>
@@ -118,7 +118,7 @@
                 </div>
             </section>
 
-            <aside class="image-editor-sidebar h-fit overflow-hidden rounded-2xl bg-slate-900 text-slate-100 shadow-sm">
+            <aside class="image-editor-sidebar min-w-0 overflow-hidden rounded-2xl bg-slate-900 text-slate-100 shadow-sm">
                 <div class="border-b border-white/10 p-4">
                     <div class="mb-4 flex items-start justify-between gap-3">
                         <div>
