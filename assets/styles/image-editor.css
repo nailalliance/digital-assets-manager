@@ -19,6 +19,82 @@
     background-size: 24px 24px;
 }
 
+.image-editor-ruler {
+    position: absolute;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 0.8rem;
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+    z-index: 5;
+}
+
+.image-editor-ruler-top {
+    min-height: 24px;
+}
+
+.image-editor-ruler-left {
+    min-width: 24px;
+}
+
+.image-editor-ruler-tick {
+    position: absolute;
+    color: rgba(226, 232, 240, 0.72);
+    font-size: 0.65rem;
+    line-height: 1;
+}
+
+.image-editor-ruler-tick::before {
+    content: '';
+    position: absolute;
+    background: rgba(226, 232, 240, 0.38);
+}
+
+.image-editor-ruler-tick-horizontal {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+}
+
+.image-editor-ruler-tick-horizontal::before {
+    top: 0.35rem;
+    left: 0;
+    width: 1px;
+    height: 0.65rem;
+}
+
+.image-editor-ruler-tick-vertical {
+    left: 0;
+    right: 0;
+    height: 1px;
+}
+
+.image-editor-ruler-tick-vertical::before {
+    top: 0;
+    left: 0.35rem;
+    width: 0.65rem;
+    height: 1px;
+}
+
+.image-editor-ruler-label {
+    position: absolute;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.image-editor-ruler-tick-horizontal .image-editor-ruler-label {
+    top: 1rem;
+    left: 0.35rem;
+}
+
+.image-editor-ruler-tick-vertical .image-editor-ruler-label {
+    top: 0.25rem;
+    left: 0.25rem;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
 .image-editor-surface,
 .image-editor-overlay {
     touch-action: none;
@@ -90,7 +166,7 @@
     position: absolute;
     box-sizing: border-box;
     border: 2px solid #2563eb;
-    box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.48);
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18);
     cursor: move;
     z-index: 2;
 }
@@ -140,10 +216,12 @@
 .image-editor-text.is-selected {
     border-color: #2563eb;
     box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+    overflow: visible;
 }
 
 .image-editor-text.is-editing {
     cursor: text;
+    overflow: visible;
 }
 
 .image-editor-text.is-editing,

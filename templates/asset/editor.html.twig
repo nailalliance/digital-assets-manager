@@ -103,6 +103,8 @@
 
                 <div class="image-editor-stage rounded-[1.75rem] border border-white/10 bg-slate-950/80 p-4 shadow-inner">
                     <div data-image-editor-target="workspace" class="image-editor-workspace relative h-[68vh] min-h-[30rem] overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-100">
+                        <div data-image-editor-target="topRuler" class="image-editor-ruler image-editor-ruler-top"></div>
+                        <div data-image-editor-target="leftRuler" class="image-editor-ruler image-editor-ruler-left"></div>
                         <div data-image-editor-target="surface" class="image-editor-surface absolute">
                             <canvas data-image-editor-target="canvas" class="absolute inset-0 h-full w-full"></canvas>
                             <div data-image-editor-target="overlay" class="image-editor-overlay absolute inset-0">
@@ -143,6 +145,29 @@
                     <div data-image-editor-target="propertiesEmptyState" class="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
                         <p data-image-editor-target="propertiesEmptyTitle" class="font-semibold text-white">Base image selected</p>
                         <p data-image-editor-target="propertiesEmptyMessage" class="mt-1 text-slate-400">Select a text layer from the canvas or Layers to edit its properties.</p>
+                    </div>
+
+                    <div data-image-editor-target="geometryInspector" class="hidden space-y-4">
+                        <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                            <p data-image-editor-target="geometryTitle" class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Geometry</p>
+                            <p data-image-editor-target="geometryDescription" class="mt-1 text-sm text-slate-300">Dimensions are shown in source pixels.</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="image-editor-geometry-width" class="mb-1 block text-sm font-medium text-slate-200">Width (px)</label>
+                                <input id="image-editor-geometry-width" type="number" min="1" step="1" data-image-editor-target="geometryWidthInput" data-action="change->image-editor#changeGeometryDimension" data-dimension="width" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                            </div>
+
+                            <div>
+                                <label for="image-editor-geometry-height" class="mb-1 block text-sm font-medium text-slate-200">Height (px)</label>
+                                <input id="image-editor-geometry-height" type="number" min="1" step="1" data-image-editor-target="geometryHeightInput" data-action="change->image-editor#changeGeometryDimension" data-dimension="height" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                            </div>
+                        </div>
+
+                        <p data-image-editor-target="geometryHint" class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-400">
+                            Width and height are measured in source pixels.
+                        </p>
                     </div>
 
                     <div data-image-editor-target="textInspector" class="hidden space-y-4">

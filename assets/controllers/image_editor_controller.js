@@ -24,6 +24,8 @@ const HANDLE_EDGE_SELECTORS = {
     top: '.image-editor-handle-tl, .image-editor-handle-tr',
     bottom: '.image-editor-handle-bl, .image-editor-handle-br',
 };
+const RULER_BAR_SIZE = 24;
+const RULER_SCREEN_STEP = 72;
 
 export default class extends Controller {
     static targets = [
@@ -31,6 +33,8 @@ export default class extends Controller {
         'surface',
         'canvas',
         'overlay',
+        'topRuler',
+        'leftRuler',
         'imageBox',
         'cropBox',
         'textLayer',
@@ -44,6 +48,12 @@ export default class extends Controller {
         'propertiesEmptyState',
         'propertiesEmptyTitle',
         'propertiesEmptyMessage',
+        'geometryInspector',
+        'geometryTitle',
+        'geometryDescription',
+        'geometryWidthInput',
+        'geometryHeightInput',
+        'geometryHint',
         'textInspector',
         'fontFamilySelect',
         'fontSizeInput',
@@ -435,6 +445,40 @@ export default class extends Controller {
         }
 
         this.deleteTextLayerById(selectedText.id);
+    }
+
+    changeGeometryDimension(event) {
+        if (!this.state) {
+            return;
+        }
+
+        const dimension = event.currentTarget.dataset.dimension;
+        const nextPixels = Math.max(1, Math.round(Number.parseFloat(event.currentTarget.value || '0')));
+
+        if (!Number.isFinite(nextPixels)) {
+            this.refreshInspector();
+            return;
+        }
+
+        const previousState = this.cloneState(this.state);
+
+        if (this.isCropSelected()) {
+            this.updateCropDimensionFromPixels(dimension, nextPixels);
+            this.commitState(previousState);
+            this.renderAll();
+            this.setStatus('Crop size updated.');
+            return;
+        }
+
+        if (this.isBaseImageSelected()) {
+            this.updateImageDimensionFromPixels(dimension, nextPixels);
+            this.commitState(previousState);
+            this.renderAll();
+            this.setStatus('Image size updated.');
+            return;
+        }
+
+        this.refreshInspector();
     }
 
     handleWorkspaceMouseDown(event) {
@@ -928,6 +972,7 @@ export default class extends Controller {
 
         this.getSurfaceMetrics(forceLayout);
         this.updateSurfaceLayout();
+        this.renderRulers();
         this.renderPreview();
         this.renderImageBox();
         this.renderCropBox();
@@ -1211,14 +1256,74 @@ export default class extends Controller {
         return `${layer.text.fontFamily} • ${fontSize}px`;
     }
 
-    getPropertiesEmptyState() {
-        if (this.activeTool === 'crop') {
+    isCropSelected() {
+        return this.activeTool === 'crop' && !this.selectedTextId;
+    }
+
+    isBaseImageSelected() {
+        return this.activeTool === 'select' && !this.selectedTextId;
+    }
+
+    getCropPixelDimensions() {
+        return {
+            width: Math.max(1, Math.round(this.state.crop.width * this.state.sourceBounds.width)),
+            height: Math.max(1, Math.round(this.state.crop.height * this.state.sourceBounds.height)),
+        };
+    }
+
+    getBaseImagePixelDimensions() {
+        return {
+            width: Math.max(1, Math.round(this.state.baseImage.scale * this.state.sourceBounds.width)),
+            height: Math.max(1, Math.round(this.state.baseImage.scale * this.state.sourceBounds.height)),
+        };
+    }
+
+    updateCropDimensionFromPixels(dimension, nextPixels) {
+        if (dimension === 'width') {
+            this.state.crop.width = nextPixels / this.state.sourceBounds.width;
+        } else {
+            this.state.crop.height = nextPixels / this.state.sourceBounds.height;
+        }
+
+        this.clampCrop();
+    }
+
+    updateImageDimensionFromPixels(dimension, nextPixels) {
+        const sourceLength = dimension === 'width'
+            ? this.state.sourceBounds.width
+            : this.state.sourceBounds.height;
+        const nextScale = clamp(nextPixels / sourceLength, MIN_IMAGE_SCALE, MAX_IMAGE_SCALE);
+
+        this.state.baseImage.scale = nextScale;
+    }
+
+    getGeometryInspectorState() {
+        if (this.isCropSelected()) {
+            const dimensions = this.getCropPixelDimensions();
             return {
-                title: 'Crop frame active',
-                message: 'Resize or drag the crop frame directly on the canvas to change the export area.',
+                title: 'Crop Frame',
+                description: 'Output dimensions in export pixels.',
+                width: dimensions.width,
+                height: dimensions.height,
+                hint: 'Resize the crop frame or type exact export dimensions here.',
             };
         }
 
+        if (this.isBaseImageSelected()) {
+            const dimensions = this.getBaseImagePixelDimensions();
+            return {
+                title: 'Base Image',
+                description: 'Scaled image dimensions in source pixels.',
+                width: dimensions.width,
+                height: dimensions.height,
+                hint: 'Editing one value keeps the image aspect ratio locked.',
+            };
+        }
+
+        return null;
+    }
+
+    getPropertiesEmptyState() {
         if (this.activeTool === 'text') {
             return {
                 title: 'Add a text layer',
@@ -1227,33 +1332,48 @@ export default class extends Controller {
         }
 
         return {
-            title: 'Base image selected',
-            message: 'Use Select mode to drag the image or resize it from the corner handles, or choose a text layer from Layers to edit its properties.',
+            title: 'No layer selected',
+            message: 'Select an image, crop frame, or text layer to edit its properties.',
         };
     }
 
     refreshInspector() {
         const selectedText = this.getSelectedText();
 
-        if (!selectedText) {
-            this.propertiesEmptyStateTarget.classList.remove('hidden');
-            this.textInspectorTarget.classList.add('hidden');
-            const emptyState = this.getPropertiesEmptyState();
-            this.propertiesEmptyTitleTarget.textContent = emptyState.title;
-            this.propertiesEmptyMessageTarget.textContent = emptyState.message;
+        if (selectedText) {
+            this.propertiesEmptyStateTarget.classList.add('hidden');
+            this.geometryInspectorTarget.classList.add('hidden');
+            this.textInspectorTarget.classList.remove('hidden');
+            this.fontFamilySelectTarget.value = normalizeFont(selectedText.fontFamily);
+            this.fontSizeInputTarget.value = String(Math.round(selectedText.fontSize));
+            this.colorInputTarget.value = normalizeColor(selectedText.color);
+            toggleActiveFormat(this.boldButtonTarget, selectedText.fontWeight === 'bold');
+            toggleActiveFormat(this.italicButtonTarget, selectedText.fontStyle === 'italic');
+            this.alignButtonTargets.forEach((button) => {
+                toggleActiveFormat(button, button.dataset.styleValue === selectedText.textAlign);
+            });
             return;
         }
 
-        this.propertiesEmptyStateTarget.classList.add('hidden');
-        this.textInspectorTarget.classList.remove('hidden');
-        this.fontFamilySelectTarget.value = normalizeFont(selectedText.fontFamily);
-        this.fontSizeInputTarget.value = String(Math.round(selectedText.fontSize));
-        this.colorInputTarget.value = normalizeColor(selectedText.color);
-        toggleActiveFormat(this.boldButtonTarget, selectedText.fontWeight === 'bold');
-        toggleActiveFormat(this.italicButtonTarget, selectedText.fontStyle === 'italic');
-        this.alignButtonTargets.forEach((button) => {
-            toggleActiveFormat(button, button.dataset.styleValue === selectedText.textAlign);
-        });
+        const geometryState = this.getGeometryInspectorState();
+        if (geometryState) {
+            this.propertiesEmptyStateTarget.classList.add('hidden');
+            this.textInspectorTarget.classList.add('hidden');
+            this.geometryInspectorTarget.classList.remove('hidden');
+            this.geometryTitleTarget.textContent = geometryState.title;
+            this.geometryDescriptionTarget.textContent = geometryState.description;
+            this.geometryWidthInputTarget.value = String(geometryState.width);
+            this.geometryHeightInputTarget.value = String(geometryState.height);
+            this.geometryHintTarget.textContent = geometryState.hint;
+            return;
+        }
+
+        this.geometryInspectorTarget.classList.add('hidden');
+        this.textInspectorTarget.classList.add('hidden');
+        this.propertiesEmptyStateTarget.classList.remove('hidden');
+        const emptyState = this.getPropertiesEmptyState();
+        this.propertiesEmptyTitleTarget.textContent = emptyState.title;
+        this.propertiesEmptyMessageTarget.textContent = emptyState.message;
     }
 
     updateSelectionSummary() {
@@ -1299,6 +1419,66 @@ export default class extends Controller {
         this.surfaceTarget.style.height = `${this.surfaceMetrics.height}px`;
         this.surfaceTarget.style.left = `${this.surfaceMetrics.left}px`;
         this.surfaceTarget.style.top = `${this.surfaceMetrics.top}px`;
+    }
+
+    renderRulers() {
+        const metrics = this.getSurfaceMetrics();
+        const topOffset = Math.max(metrics.top - RULER_BAR_SIZE - 4, 4);
+        const leftOffset = Math.max(metrics.left - RULER_BAR_SIZE - 4, 4);
+
+        this.topRulerTarget.style.left = `${metrics.left}px`;
+        this.topRulerTarget.style.top = `${topOffset}px`;
+        this.topRulerTarget.style.width = `${metrics.width}px`;
+        this.topRulerTarget.style.height = `${RULER_BAR_SIZE}px`;
+        this.leftRulerTarget.style.left = `${leftOffset}px`;
+        this.leftRulerTarget.style.top = `${metrics.top}px`;
+        this.leftRulerTarget.style.width = `${RULER_BAR_SIZE}px`;
+        this.leftRulerTarget.style.height = `${metrics.height}px`;
+
+        this.populateRuler(this.topRulerTarget, this.state.sourceBounds.width, metrics.scale, 'horizontal');
+        this.populateRuler(this.leftRulerTarget, this.state.sourceBounds.height, metrics.scale, 'vertical');
+    }
+
+    populateRuler(container, sourceLength, scale, orientation) {
+        container.innerHTML = '';
+
+        const stepValue = getRulerStepValue(scale);
+        const fragment = document.createDocumentFragment();
+        const renderedValues = new Set();
+
+        for (let value = 0; value <= sourceLength; value += stepValue) {
+            fragment.appendChild(this.buildRulerTick(value, scale, orientation));
+            renderedValues.add(value);
+        }
+
+        if (!renderedValues.has(sourceLength)) {
+            fragment.appendChild(this.buildRulerTick(sourceLength, scale, orientation, true));
+        }
+
+        container.appendChild(fragment);
+    }
+
+    buildRulerTick(value, scale, orientation, isTerminal = false) {
+        const tick = document.createElement('div');
+        tick.className = `image-editor-ruler-tick image-editor-ruler-tick-${orientation}`;
+        const offset = Math.round(value * scale);
+
+        if (orientation === 'horizontal') {
+            tick.style.left = `${offset}px`;
+        } else {
+            tick.style.top = `${offset}px`;
+        }
+
+        if (isTerminal) {
+            tick.classList.add('is-terminal');
+        }
+
+        const label = document.createElement('span');
+        label.className = 'image-editor-ruler-label';
+        label.textContent = String(Math.round(value));
+        tick.appendChild(label);
+
+        return tick;
     }
 
     renderExportCanvas() {
@@ -1810,6 +1990,13 @@ function placeCursorAtEnd(element) {
 
 function toggleActiveFormat(element, isActive) {
     element.classList.toggle('image-editor-format-active', isActive);
+}
+
+function getRulerStepValue(scale) {
+    const preferredSourceStep = RULER_SCREEN_STEP / Math.max(scale, 0.0001);
+    const candidates = [25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000];
+
+    return candidates.find((candidate) => candidate >= preferredSourceStep) ?? candidates.at(-1);
 }
 
 function clamp(value, min, max) {
