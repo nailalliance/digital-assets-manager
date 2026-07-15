@@ -221,6 +221,8 @@ class ImageProcessorService
 
             $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
             $image->compositeImage($mask, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
+        } catch (\ImagickException) {
+            return;
         } finally {
             $mask->clear();
         }
