@@ -199,11 +199,20 @@ class ImageProcessorService
 
     private function applyLargestClipPathIfAvailable(\Imagick $image): void
     {
-        $pathData = $this->findLargestClipPathData($image);
+        $pathData = $this->findBestClipPathData($image);
         if ($pathData === null) {
             return;
         }
 
+        try {
+            $this->applyClipPathData($image, $pathData);
+        } catch (\ImagickException) {
+            return;
+        }
+    }
+
+    private function applyClipPathData(\Imagick $image, string $pathData): void
+    {
         $mask = new \Imagick();
 
         try {
@@ -228,17 +237,14 @@ class ImageProcessorService
             $image->compositeImage($mask, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
             $image->setImageBackgroundColor(new \ImagickPixel('white'));
             $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_BACKGROUND);
-        } catch (\ImagickException) {
-            return;
         } finally {
             $mask->clear();
         }
     }
 
-    private function findLargestClipPathData(\Imagick $image): ?string
+    private function findBestClipPathData(\Imagick $image): ?string
     {
-        $bestPathData = null;
-        $maxBoxArea = 0.0;
+        $candidates = [];
 
         for ($i = 0; $i <= 15; $i++) {
             $svgPathData = $image->getImageProperty("8BIM:1999,2998:#{$i}");
@@ -251,16 +257,102 @@ class ImageProcessorService
                 continue;
             }
 
-            $area = $this->estimateClipPathBoundingBoxArea($pathData);
-            if ($area === null || $area <= $maxBoxArea) {
+            $bounds = $this->extractClipPathBounds($pathData);
+            if ($bounds === null) {
                 continue;
             }
 
-            $maxBoxArea = $area;
-            $bestPathData = $pathData;
+            $candidates[] = [
+                'pathData' => $pathData,
+                'boundingBoxArea' => $bounds['area'],
+                'boundingBoxWidth' => $bounds['width'],
+                'boundingBoxHeight' => $bounds['height'],
+            ];
         }
 
-        return $bestPathData;
+        if ($candidates === []) {
+            return null;
+        }
+
+        usort(
+            $candidates,
+            static fn (array $left, array $right): int => $right['boundingBoxArea'] <=> $left['boundingBoxArea']
+        );
+
+        $largestBoundingBoxWidth = $candidates[0]['boundingBoxWidth'];
+        $largestBoundingBoxHeight = $candidates[0]['boundingBoxHeight'];
+        $topCandidates = array_values(array_filter(
+            $candidates,
+            static fn (array $candidate): bool => $candidate['boundingBoxWidth'] >= ($largestBoundingBoxWidth * 0.5)
+                && $candidate['boundingBoxHeight'] >= ($largestBoundingBoxHeight * 0.9)
+        ));
+        $topCandidates = array_slice($topCandidates, 0, 4);
+
+        if (count($topCandidates) === 1) {
+            return $topCandidates[0]['pathData'];
+        }
+
+        if ($topCandidates === []) {
+            return $candidates[0]['pathData'];
+        }
+
+        $coverageTieThreshold = 0.03;
+        $bestCandidate = $topCandidates[0];
+        $bestCoverage = $this->scoreClipPathCandidate($image, $bestCandidate['pathData']);
+
+        foreach (array_slice($topCandidates, 1) as $candidate) {
+            $candidateCoverage = $this->scoreClipPathCandidate($image, $candidate['pathData']);
+            if ($candidateCoverage > ($bestCoverage + $coverageTieThreshold)) {
+                $bestCandidate = $candidate;
+                $bestCoverage = $candidateCoverage;
+                continue;
+            }
+
+            if (
+                abs($candidateCoverage - $bestCoverage) <= $coverageTieThreshold
+                && $candidate['boundingBoxArea'] < $bestCandidate['boundingBoxArea']
+            ) {
+                $bestCandidate = $candidate;
+                $bestCoverage = $candidateCoverage;
+            }
+        }
+
+        return $bestCandidate['pathData'];
+    }
+
+    private function scoreClipPathCandidate(\Imagick $image, string $pathData): float
+    {
+        $probe = clone $image;
+
+        try {
+            $this->applyClipPathData($probe, $pathData);
+
+            $flattened = new \Imagick();
+            $flattened->newImage($probe->getImageWidth(), $probe->getImageHeight(), 'white', 'png');
+            $flattened->compositeImage($probe, \Imagick::COMPOSITE_OVER, 0, 0);
+            $flattened->trimImage(0);
+            $flattened->setImagePage(0, 0, 0, 0);
+            $flattened->thumbnailImage(128, 128, true, true);
+
+            $totalPixels = $flattened->getImageWidth() * $flattened->getImageHeight();
+            if ($totalPixels <= 0) {
+                return 0.0;
+            }
+
+            $nonWhitePixels = 0;
+            foreach ($flattened->getImageHistogram() as $pixel) {
+                $color = $pixel->getColor(true);
+                if ($color['r'] < 0.99 || $color['g'] < 0.99 || $color['b'] < 0.99) {
+                    $nonWhitePixels += $pixel->getColorCount();
+                }
+            }
+
+            return $nonWhitePixels / $totalPixels;
+        } catch (\ImagickException) {
+            return 0.0;
+        } finally {
+            $probe->clear();
+        }
     }
 
     private function extractClipPathData(string $svgPathData): ?string
@@ -273,6 +365,16 @@ class ImageProcessorService
     }
 
     private function estimateClipPathBoundingBoxArea(string $pathData): ?float
+    {
+        $bounds = $this->extractClipPathBounds($pathData);
+
+        return $bounds['area'] ?? null;
+    }
+
+    /**
+     * @return array{width: float, height: float, area: float}|null
+     */
+    private function extractClipPathBounds(string $pathData): ?array
     {
         preg_match_all('/[-+]?[0-9]*\.?[0-9]+/', $pathData, $coords);
         $numbers = $coords[0] ?? [];
@@ -307,7 +409,14 @@ class ImageProcessorService
             }
         }
 
-        return ($maxX - $minX) * ($maxY - $minY);
+        $width = $maxX - $minX;
+        $height = $maxY - $minY;
+
+        return [
+            'width' => $width,
+            'height' => $height,
+            'area' => $width * $height,
+        ];
     }
 
     private function buildClipPathMaskSvg(string $pathData, int $width, int $height): string
