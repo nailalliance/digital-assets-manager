@@ -153,6 +153,8 @@ class PublicDownloadListController extends AbstractController
         return new BinaryFileResponse($thumbnailPath);
     }
 
+    #[Route('/share/{token}/image/{assetId}/debug-clip-paths/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_debug_clip_paths_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => false, 'clipPathIndex' => null, 'debugClipPaths' => true])]
+    #[Route('/share/{token}/image/{assetId}/debug-clip-paths/{width}x{height}/{filename}.{extension}', name: 'public_image_debug_clip_paths', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => false, 'clipPathIndex' => null, 'debugClipPaths' => true])]
     #[Route('/share/{token}/image/{assetId}/use-clip-path/{pathIndex}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_clip_path_index_padded', requirements: ['assetId' => '\d+', 'pathIndex' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true])]
     #[Route('/share/{token}/image/{assetId}/use-clip-path/{pathIndex}/{width}x{height}/{filename}.{extension}', name: 'public_image_clip_path_index', requirements: ['assetId' => '\d+', 'pathIndex' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true])]
     #[Route('/share/{token}/image/{assetId}/use-largest-clip-path/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_largest_clip_path_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true, 'clipPathIndex' => null])]
@@ -172,7 +174,8 @@ class PublicDownloadListController extends AbstractController
         bool $useLargestClipPath,
         ?int $clipPathIndex,
         string $filename,
-        string $extension
+        string $extension,
+        bool $debugClipPaths = false
     ): Response {
         if (!$this->isGranted('IS_AUTHENTICATED_FULLY')) {
             if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
@@ -203,6 +206,18 @@ class PublicDownloadListController extends AbstractController
             throw $this->createNotFoundException('Source file not found.');
         }
 
+        if ($debugClipPaths) {
+            return $this->createClipPathDebugSheetResponse(
+                $asset,
+                $imageProcessor,
+                $width,
+                $height,
+                $padding,
+                $filename,
+                $extension
+            );
+        }
+
         try {
             $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension, $useLargestClipPath, $clipPathIndex);
             $response = new BinaryFileResponse($cachedImagePath);
@@ -226,6 +241,165 @@ class PublicDownloadListController extends AbstractController
         $response->headers->set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
 
         return $response;
+    }
+
+    private function createClipPathDebugSheetResponse(
+        Assets $asset,
+        ImageProcessorService $imageProcessor,
+        int $width,
+        int $height,
+        int $padding,
+        string $filename,
+        string $extension
+    ): Response {
+        if (!class_exists(\Imagick::class)) {
+            throw $this->createNotFoundException('Imagick is not available.');
+        }
+
+        $sourcePath = $asset->getFilePath();
+        if ($sourcePath === null || $sourcePath === '' || !file_exists($sourcePath)) {
+            throw $this->createNotFoundException('Source file not found.');
+        }
+
+        $clipPathIndices = $this->findAvailableClipPathIndices($sourcePath);
+        if ($clipPathIndices === []) {
+            throw $this->createNotFoundException('No clip paths found on this image.');
+        }
+
+        $variants = [
+            ['label' => 'largest', 'index' => null],
+        ];
+
+        foreach ($clipPathIndices as $clipPathIndex) {
+            $variants[] = [
+                'label' => '#' . $clipPathIndex,
+                'index' => $clipPathIndex,
+            ];
+        }
+
+        $tiles = [];
+
+        try {
+            foreach ($variants as $variant) {
+                $tileBinary = $imageProcessor->exportFile(
+                    $sourcePath,
+                    $width,
+                    $height,
+                    $padding,
+                    'png',
+                    true,
+                    $variant['index']
+                );
+
+                if ($tileBinary === null || $tileBinary === '') {
+                    continue;
+                }
+
+                $tile = new \Imagick();
+                $tile->readImageBlob($tileBinary);
+                $tile->setImageFormat('png');
+
+                $tiles[] = [
+                    'label' => $variant['label'],
+                    'image' => $tile,
+                ];
+            }
+
+            if ($tiles === []) {
+                throw $this->createNotFoundException('Could not render clip path previews.');
+            }
+
+            $sheet = $this->buildClipPathDebugSheet($tiles, $width, $height, $extension);
+            $binary = $sheet->getImageBlob();
+
+            $response = new Response($binary);
+            $disposition = $response->headers->makeDisposition(
+                ResponseHeaderBag::DISPOSITION_INLINE,
+                $filename . '-clip-path-debug.' . $extension
+            );
+            $response->headers->set('Content-Disposition', $disposition);
+            $response->headers->set('Content-Type', $this->resolveImageContentType($extension));
+            $response->headers->set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+            $response->headers->set('X-Clip-Path-Indices', implode(',', $clipPathIndices));
+
+            $sheet->clear();
+
+            return $response;
+        } finally {
+            foreach ($tiles as $tileData) {
+                if (($tileData['image'] ?? null) instanceof \Imagick) {
+                    $tileData['image']->clear();
+                }
+            }
+        }
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function findAvailableClipPathIndices(string $sourcePath): array
+    {
+        $image = new \Imagick();
+        $indices = [];
+
+        try {
+            $image->readImage($sourcePath);
+
+            for ($i = 0; $i <= 15; $i++) {
+                $svgPathData = $image->getImageProperty("8BIM:1999,2998:#{$i}");
+                if ($svgPathData) {
+                    $indices[] = $i;
+                }
+            }
+        } catch (\ImagickException) {
+            return [];
+        } finally {
+            $image->clear();
+        }
+
+        return $indices;
+    }
+
+    /**
+     * @param array<int, array{label: string, image: \Imagick}> $tiles
+     */
+    private function buildClipPathDebugSheet(array $tiles, int $tileWidth, int $tileHeight, string $extension): \Imagick
+    {
+        $columns = min(3, count($tiles));
+        $rows = (int) ceil(count($tiles) / $columns);
+        $gutter = 24;
+        $labelHeight = 42;
+        $cellHeight = $tileHeight + $labelHeight;
+        $sheetWidth = ($columns * $tileWidth) + (($columns + 1) * $gutter);
+        $sheetHeight = ($rows * $cellHeight) + (($rows + 1) * $gutter);
+
+        $sheet = new \Imagick();
+        $sheet->newImage($sheetWidth, $sheetHeight, new \ImagickPixel('#1d1d1d'), 'png');
+
+        $draw = new \ImagickDraw();
+        $draw->setFillColor(new \ImagickPixel('#ffffff'));
+        $draw->setFont('Helvetica');
+        $draw->setFontSize(22);
+
+        foreach ($tiles as $offset => $tileData) {
+            $column = $offset % $columns;
+            $row = intdiv($offset, $columns);
+            $x = $gutter + ($column * ($tileWidth + $gutter));
+            $y = $gutter + ($row * ($cellHeight + $gutter));
+
+            $sheet->compositeImage($tileData['image'], \Imagick::COMPOSITE_OVER, $x, $y + $labelHeight);
+            $sheet->annotateImage($draw, $x, $y + 28, 0, $tileData['label']);
+        }
+
+        $sheet->setImageFormat($extension);
+
+        if ($extension === 'jpg') {
+            $sheet->setImageCompressionQuality(82);
+        }
+
+        $draw->clear();
+
+        return $sheet;
     }
 
     private function resolveImageContentType(string $extension): string

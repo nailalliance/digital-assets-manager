@@ -308,6 +308,51 @@ class PublicDownloadListControllerTest extends TestCase
         );
     }
 
+    public function testPublicImageDebugClipPathsRejectsImagesWithoutClipPaths(): void
+    {
+        if (!class_exists(\Imagick::class)) {
+            $this->markTestSkipped('Imagick is required for this test.');
+        }
+
+        $image = new \Imagick();
+        $image->newImage(20, 20, new \ImagickPixel('white'), 'png');
+        $sourcePath = $this->tempDir . '/no-clip-paths.png';
+        $image->writeImage($sourcePath);
+        $image->clear();
+
+        $asset = $this->createAsset(125, $sourcePath);
+        $controller = new TestablePublicDownloadListController(false);
+        $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
+        $cacheImageProcessor->expects($this->never())->method('exportFile');
+        $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
+        $fallbackImageProcessor->expects($this->never())->method('exportFile');
+        $cacheService = new PermalinkImageCacheService(
+            new Filesystem(),
+            $cacheImageProcessor,
+            new LockFactory(new InMemoryStore()),
+            $this->tempDir . '/cache',
+            'v1'
+        );
+
+        $this->expectException(NotFoundHttpException::class);
+        $this->expectExceptionMessage('No clip paths found on this image.');
+
+        $controller->publicImage(
+            $this->createShareLink('token-debug-clip-paths', $asset, '+30 days'),
+            $asset,
+            $cacheService,
+            $fallbackImageProcessor,
+            600,
+            600,
+            0,
+            false,
+            null,
+            'debug',
+            'png',
+            true
+        );
+    }
+
     private function createAsset(int $id, string $sourcePath): Assets
     {
         $asset = new Assets();
