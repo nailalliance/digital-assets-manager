@@ -60,6 +60,8 @@ export default class extends Controller {
         'textInspector',
         'textXInput',
         'textYInput',
+        'textWidthInput',
+        'textHeightInput',
         'fontFamilySelect',
         'fontSizeInput',
         'colorInput',
@@ -498,14 +500,17 @@ export default class extends Controller {
         this.refreshInspector();
     }
 
-    changeSelectedTextPosition(event) {
+    changeSelectedTextGeometry(event) {
         const selectedText = this.getSelectedText();
         if (!selectedText) {
             return;
         }
 
         const dimension = event.currentTarget.dataset.dimension;
-        const nextPixels = Math.round(Number.parseFloat(event.currentTarget.value || '0'));
+        const rawValue = Number.parseFloat(event.currentTarget.value || '0');
+        const nextPixels = ['width', 'height'].includes(dimension)
+            ? Math.max(1, Math.round(rawValue))
+            : Math.round(rawValue);
 
         if (!Number.isFinite(nextPixels)) {
             this.refreshInspector();
@@ -517,12 +522,16 @@ export default class extends Controller {
             selectedText.x = nextPixels / this.state.sourceBounds.width;
         } else if (dimension === 'y') {
             selectedText.y = nextPixels / this.state.sourceBounds.height;
+        } else if (dimension === 'width') {
+            selectedText.width = nextPixels / this.state.sourceBounds.width;
+        } else if (dimension === 'height') {
+            selectedText.height = nextPixels / this.state.sourceBounds.height;
         }
 
         this.clampText(selectedText);
         this.commitState(previousState);
         this.renderAll();
-        this.setStatus('Text position updated.');
+        this.setStatus(['x', 'y'].includes(dimension) ? 'Text position updated.' : 'Text box size updated.');
     }
 
     handleWorkspaceMouseDown(event) {
@@ -930,7 +939,7 @@ export default class extends Controller {
                 },
             })
             .resizable({
-                ignoreFrom: '.image-editor-handle, [contenteditable="true"]',
+                ignoreFrom: '[contenteditable="true"]',
                 edges: HANDLE_EDGE_SELECTORS,
                 listeners: {
                     start: (event) => {
@@ -957,8 +966,8 @@ export default class extends Controller {
                             height: currentRect.height + event.deltaRect.height,
                         };
 
-                        text.x = nextRect.left / metrics.scale / this.state.sourceBounds.width;
-                        text.y = nextRect.top / metrics.scale / this.state.sourceBounds.height;
+                        text.x = (nextRect.left - metrics.contentLeft) / metrics.scale / this.state.sourceBounds.width;
+                        text.y = (nextRect.top - metrics.contentTop) / metrics.scale / this.state.sourceBounds.height;
                         text.width = nextRect.width / metrics.scale / this.state.sourceBounds.width;
                         text.height = nextRect.height / metrics.scale / this.state.sourceBounds.height;
                         this.clampText(text);
@@ -1428,6 +1437,8 @@ export default class extends Controller {
             this.textInspectorTarget.classList.remove('hidden');
             this.textXInputTarget.value = String(Math.round(selectedText.x * this.state.sourceBounds.width));
             this.textYInputTarget.value = String(Math.round(selectedText.y * this.state.sourceBounds.height));
+            this.textWidthInputTarget.value = String(Math.max(1, Math.round(selectedText.width * this.state.sourceBounds.width)));
+            this.textHeightInputTarget.value = String(Math.max(1, Math.round(selectedText.height * this.state.sourceBounds.height)));
             this.fontFamilySelectTarget.value = normalizeFont(selectedText.fontFamily);
             this.fontSizeInputTarget.value = String(Math.round(selectedText.fontSize));
             this.colorInputTarget.value = normalizeColor(selectedText.color);

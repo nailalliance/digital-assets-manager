@@ -191,12 +191,24 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="image-editor-text-x" class="mb-1 block text-sm font-medium text-slate-200">X (px)</label>
-                                <input id="image-editor-text-x" type="number" step="1" data-image-editor-target="textXInput" data-action="change->image-editor#changeSelectedTextPosition" data-dimension="x" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                                <input id="image-editor-text-x" type="number" step="1" data-image-editor-target="textXInput" data-action="change->image-editor#changeSelectedTextGeometry" data-dimension="x" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
                             </div>
 
                             <div>
                                 <label for="image-editor-text-y" class="mb-1 block text-sm font-medium text-slate-200">Y (px)</label>
-                                <input id="image-editor-text-y" type="number" step="1" data-image-editor-target="textYInput" data-action="change->image-editor#changeSelectedTextPosition" data-dimension="y" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                                <input id="image-editor-text-y" type="number" step="1" data-image-editor-target="textYInput" data-action="change->image-editor#changeSelectedTextGeometry" data-dimension="y" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="image-editor-text-width" class="mb-1 block text-sm font-medium text-slate-200">Width (px)</label>
+                                <input id="image-editor-text-width" type="number" min="1" step="1" data-image-editor-target="textWidthInput" data-action="change->image-editor#changeSelectedTextGeometry" data-dimension="width" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                            </div>
+
+                            <div>
+                                <label for="image-editor-text-height" class="mb-1 block text-sm font-medium text-slate-200">Height (px)</label>
+                                <input id="image-editor-text-height" type="number" min="1" step="1" data-image-editor-target="textHeightInput" data-action="change->image-editor#changeSelectedTextGeometry" data-dimension="height" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
                             </div>
                         </div>
 
