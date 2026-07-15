@@ -37,10 +37,24 @@ class WebDownloadType extends AbstractType
                 'label' => 'Format',
                 'attr' => ['class' => 'form-select'],
             ]);
+
+        if ($options['allow_clip_path']) {
+            $builder->add('clipPathMode', ChoiceType::class, [
+                'choices' => [
+                    'Default' => 'default',
+                    'Use JPG Clip Path if Available' => 'largest',
+                ],
+                'label' => 'Clip Path',
+                'attr' => ['class' => 'form-select'],
+            ]);
+        }
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults([]);
+        $resolver->setDefaults([
+            'allow_clip_path' => false,
+        ]);
+        $resolver->setAllowedTypes('allow_clip_path', 'bool');
     }
 }

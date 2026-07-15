@@ -56,6 +56,7 @@ final class AssetController extends AbstractController
 
         $webDownloadForm = $this->createForm(WebDownloadType::class, null, [
             'action' => $this->generateUrl('asset_download_web', ['id' => $assets->getId()]),
+            'allow_clip_path' => $assets->getMimeType() === 'image/jpeg',
         ]);
 
         return $this->render('asset/index.html.twig', [
@@ -129,6 +130,8 @@ final class AssetController extends AbstractController
         $size = (int)($data['size'] ?? 1500);
         $addPadding = ($data['padding'] ?? 'no') === 'yes';
         $format = $data['format'] ?? 'webp';
+        $useLargestClipPath = $asset->getMimeType() === 'image/jpeg'
+            && ($data['clipPathMode'] ?? 'default') === 'largest';
 
         $padding = 0;
         if ($addPadding) {
@@ -146,7 +149,8 @@ final class AssetController extends AbstractController
                 $size,
                 $size,
                 $padding,
-                $format
+                $format,
+                $useLargestClipPath
             );
 
             $itemCodes = $asset->getItemCodes()->map(fn($item) => $item->getCode())->toArray();

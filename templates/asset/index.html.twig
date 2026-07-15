@@ -204,6 +204,9 @@
                                         <div>{{ form_row(webDownloadForm.size) }}</div>
                                         <div>{{ form_row(webDownloadForm.padding) }}</div>
                                         <div>{{ form_row(webDownloadForm.format) }}</div>
+                                        {% if asset.mimeType == 'image/jpeg' %}
+                                            <div>{{ form_row(webDownloadForm.clipPathMode) }}</div>
+                                        {% endif %}
                                     </div>
                                     <div>
                                         <button type="submit"
