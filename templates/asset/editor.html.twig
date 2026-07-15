@@ -155,6 +155,18 @@
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
+                                <label for="image-editor-geometry-x" class="mb-1 block text-sm font-medium text-slate-200">X (px)</label>
+                                <input id="image-editor-geometry-x" type="number" step="1" data-image-editor-target="geometryXInput" data-action="change->image-editor#changeGeometryDimension" data-dimension="x" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                            </div>
+
+                            <div>
+                                <label for="image-editor-geometry-y" class="mb-1 block text-sm font-medium text-slate-200">Y (px)</label>
+                                <input id="image-editor-geometry-y" type="number" step="1" data-image-editor-target="geometryYInput" data-action="change->image-editor#changeGeometryDimension" data-dimension="y" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
                                 <label for="image-editor-geometry-width" class="mb-1 block text-sm font-medium text-slate-200">Width (px)</label>
                                 <input id="image-editor-geometry-width" type="number" min="1" step="1" data-image-editor-target="geometryWidthInput" data-action="change->image-editor#changeGeometryDimension" data-dimension="width" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
                             </div>
@@ -174,6 +186,18 @@
                         <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Text Properties</p>
                             <p class="mt-1 text-sm text-slate-300">Selected text layers update live on the canvas.</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="image-editor-text-x" class="mb-1 block text-sm font-medium text-slate-200">X (px)</label>
+                                <input id="image-editor-text-x" type="number" step="1" data-image-editor-target="textXInput" data-action="change->image-editor#changeSelectedTextPosition" data-dimension="x" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                            </div>
+
+                            <div>
+                                <label for="image-editor-text-y" class="mb-1 block text-sm font-medium text-slate-200">Y (px)</label>
+                                <input id="image-editor-text-y" type="number" step="1" data-image-editor-target="textYInput" data-action="change->image-editor#changeSelectedTextPosition" data-dimension="y" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                            </div>
                         </div>
 
                         <div>

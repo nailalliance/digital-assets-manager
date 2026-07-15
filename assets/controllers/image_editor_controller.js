@@ -25,6 +25,7 @@ const HANDLE_EDGE_SELECTORS = {
     bottom: '.image-editor-handle-bl, .image-editor-handle-br',
 };
 const RULER_BAR_SIZE = 24;
+const RULER_GAP = 10;
 const RULER_SCREEN_STEP = 72;
 
 export default class extends Controller {
@@ -51,10 +52,14 @@ export default class extends Controller {
         'geometryInspector',
         'geometryTitle',
         'geometryDescription',
+        'geometryXInput',
+        'geometryYInput',
         'geometryWidthInput',
         'geometryHeightInput',
         'geometryHint',
         'textInspector',
+        'textXInput',
+        'textYInput',
         'fontFamilySelect',
         'fontSizeInput',
         'colorInput',
@@ -255,7 +260,8 @@ export default class extends Controller {
         }
 
         const previousState = this.cloneState(this.state);
-        const anchorPoint = this.getCropCenterPoint();
+        const imageRect = this.getBaseImageSourceRect();
+        const anchorPoint = { x: imageRect.left, y: imageRect.top };
         const nextScale = clamp(this.state.baseImage.scale + delta, MIN_IMAGE_SCALE, MAX_IMAGE_SCALE);
         this.applyImageScale(nextScale, anchorPoint);
         this.commitState(previousState);
@@ -453,7 +459,10 @@ export default class extends Controller {
         }
 
         const dimension = event.currentTarget.dataset.dimension;
-        const nextPixels = Math.max(1, Math.round(Number.parseFloat(event.currentTarget.value || '0')));
+        const rawValue = Number.parseFloat(event.currentTarget.value || '0');
+        const nextPixels = ['width', 'height'].includes(dimension)
+            ? Math.max(1, Math.round(rawValue))
+            : Math.round(rawValue);
 
         if (!Number.isFinite(nextPixels)) {
             this.refreshInspector();
@@ -463,26 +472,65 @@ export default class extends Controller {
         const previousState = this.cloneState(this.state);
 
         if (this.isCropSelected()) {
-            this.updateCropDimensionFromPixels(dimension, nextPixels);
+            if (dimension === 'x' || dimension === 'y') {
+                this.updateCropPositionFromPixels(dimension, nextPixels);
+            } else {
+                this.updateCropDimensionFromPixels(dimension, nextPixels);
+            }
             this.commitState(previousState);
             this.renderAll();
-            this.setStatus('Crop size updated.');
+            this.setStatus((dimension === 'x' || dimension === 'y') ? 'Crop position updated.' : 'Crop size updated.');
             return;
         }
 
         if (this.isBaseImageSelected()) {
-            this.updateImageDimensionFromPixels(dimension, nextPixels);
+            if (dimension === 'x' || dimension === 'y') {
+                this.updateImagePositionFromPixels(dimension, nextPixels);
+            } else {
+                this.updateImageDimensionFromPixels(dimension, nextPixels);
+            }
             this.commitState(previousState);
             this.renderAll();
-            this.setStatus('Image size updated.');
+            this.setStatus((dimension === 'x' || dimension === 'y') ? 'Image position updated.' : 'Image size updated.');
             return;
         }
 
         this.refreshInspector();
     }
 
+    changeSelectedTextPosition(event) {
+        const selectedText = this.getSelectedText();
+        if (!selectedText) {
+            return;
+        }
+
+        const dimension = event.currentTarget.dataset.dimension;
+        const nextPixels = Math.round(Number.parseFloat(event.currentTarget.value || '0'));
+
+        if (!Number.isFinite(nextPixels)) {
+            this.refreshInspector();
+            return;
+        }
+
+        const previousState = this.cloneState(this.state);
+        if (dimension === 'x') {
+            selectedText.x = nextPixels / this.state.sourceBounds.width;
+        } else if (dimension === 'y') {
+            selectedText.y = nextPixels / this.state.sourceBounds.height;
+        }
+
+        this.clampText(selectedText);
+        this.commitState(previousState);
+        this.renderAll();
+        this.setStatus('Text position updated.');
+    }
+
     handleWorkspaceMouseDown(event) {
         if (!this.state || event.button !== 0) {
+            return;
+        }
+
+        if (!event.target.closest('[data-image-editor-target="surface"]')) {
             return;
         }
 
@@ -762,8 +810,8 @@ export default class extends Controller {
                         };
 
                         this.state.crop = {
-                            x: nextRect.left / metrics.scale / sourceWidth,
-                            y: nextRect.top / metrics.scale / sourceHeight,
+                            x: (nextRect.left - metrics.contentLeft) / metrics.scale / sourceWidth,
+                            y: (nextRect.top - metrics.contentTop) / metrics.scale / sourceHeight,
                             width: nextRect.width / metrics.scale / sourceWidth,
                             height: nextRect.height / metrics.scale / sourceHeight,
                         };
@@ -1267,17 +1315,29 @@ export default class extends Controller {
     }
 
     getCropPixelDimensions() {
+        const rect = this.getCropSourceRect();
         return {
-            width: Math.max(1, Math.round(this.state.crop.width * this.state.sourceBounds.width)),
-            height: Math.max(1, Math.round(this.state.crop.height * this.state.sourceBounds.height)),
+            width: Math.max(1, Math.round(rect.width)),
+            height: Math.max(1, Math.round(rect.height)),
         };
     }
 
     getBaseImagePixelDimensions() {
+        const rect = this.getBaseImageSourceRect();
         return {
-            width: Math.max(1, Math.round(this.state.baseImage.scale * this.state.sourceBounds.width)),
-            height: Math.max(1, Math.round(this.state.baseImage.scale * this.state.sourceBounds.height)),
+            width: Math.max(1, Math.round(rect.width)),
+            height: Math.max(1, Math.round(rect.height)),
         };
+    }
+
+    updateCropPositionFromPixels(dimension, nextPixels) {
+        if (dimension === 'x') {
+            this.state.crop.x = nextPixels / this.state.sourceBounds.width;
+        } else {
+            this.state.crop.y = nextPixels / this.state.sourceBounds.height;
+        }
+
+        this.clampCrop();
     }
 
     updateCropDimensionFromPixels(dimension, nextPixels) {
@@ -1291,34 +1351,54 @@ export default class extends Controller {
     }
 
     updateImageDimensionFromPixels(dimension, nextPixels) {
+        const currentRect = this.getBaseImageSourceRect();
         const sourceLength = dimension === 'width'
             ? this.state.sourceBounds.width
             : this.state.sourceBounds.height;
         const nextScale = clamp(nextPixels / sourceLength, MIN_IMAGE_SCALE, MAX_IMAGE_SCALE);
 
-        this.state.baseImage.scale = nextScale;
+        this.setBaseImageSourceRect({
+            left: currentRect.left,
+            top: currentRect.top,
+            scale: nextScale,
+        });
+    }
+
+    updateImagePositionFromPixels(dimension, nextPixels) {
+        const currentRect = this.getBaseImageSourceRect();
+        this.setBaseImageSourceRect({
+            left: dimension === 'x' ? nextPixels : currentRect.left,
+            top: dimension === 'y' ? nextPixels : currentRect.top,
+            scale: this.state.baseImage.scale,
+        });
     }
 
     getGeometryInspectorState() {
         if (this.isCropSelected()) {
+            const rect = this.getCropSourceRect();
             const dimensions = this.getCropPixelDimensions();
             return {
                 title: 'Crop Frame',
-                description: 'Output dimensions in export pixels.',
+                description: 'Top-left position and export size in source-space pixels.',
+                x: Math.round(rect.left),
+                y: Math.round(rect.top),
                 width: dimensions.width,
                 height: dimensions.height,
-                hint: 'Resize the crop frame or type exact export dimensions here.',
+                hint: 'Resize from a handle to anchor the opposite edge, or type exact X, Y, width, and height values here.',
             };
         }
 
         if (this.isBaseImageSelected()) {
+            const rect = this.getBaseImageSourceRect();
             const dimensions = this.getBaseImagePixelDimensions();
             return {
                 title: 'Base Image',
-                description: 'Scaled image dimensions in source pixels.',
+                description: 'Top-left position and scaled size in source-space pixels.',
+                x: Math.round(rect.left),
+                y: Math.round(rect.top),
                 width: dimensions.width,
                 height: dimensions.height,
-                hint: 'Editing one value keeps the image aspect ratio locked.',
+                hint: 'Resize from a handle to anchor the opposite corner, or type exact X, Y, width, and height values here.',
             };
         }
 
@@ -1346,6 +1426,8 @@ export default class extends Controller {
             this.propertiesEmptyStateTarget.classList.add('hidden');
             this.geometryInspectorTarget.classList.add('hidden');
             this.textInspectorTarget.classList.remove('hidden');
+            this.textXInputTarget.value = String(Math.round(selectedText.x * this.state.sourceBounds.width));
+            this.textYInputTarget.value = String(Math.round(selectedText.y * this.state.sourceBounds.height));
             this.fontFamilySelectTarget.value = normalizeFont(selectedText.fontFamily);
             this.fontSizeInputTarget.value = String(Math.round(selectedText.fontSize));
             this.colorInputTarget.value = normalizeColor(selectedText.color);
@@ -1364,6 +1446,8 @@ export default class extends Controller {
             this.geometryInspectorTarget.classList.remove('hidden');
             this.geometryTitleTarget.textContent = geometryState.title;
             this.geometryDescriptionTarget.textContent = geometryState.description;
+            this.geometryXInputTarget.value = String(geometryState.x);
+            this.geometryYInputTarget.value = String(geometryState.y);
             this.geometryWidthInputTarget.value = String(geometryState.width);
             this.geometryHeightInputTarget.value = String(geometryState.height);
             this.geometryHintTarget.textContent = geometryState.hint;
@@ -1425,12 +1509,12 @@ export default class extends Controller {
 
     renderRulers() {
         const metrics = this.getSurfaceMetrics();
-        this.topRulerTarget.style.left = '0px';
+        this.topRulerTarget.style.left = `${metrics.left}px`;
         this.topRulerTarget.style.top = '0px';
         this.topRulerTarget.style.width = `${metrics.width}px`;
         this.topRulerTarget.style.height = `${RULER_BAR_SIZE}px`;
         this.leftRulerTarget.style.left = '0px';
-        this.leftRulerTarget.style.top = '0px';
+        this.leftRulerTarget.style.top = `${metrics.top}px`;
         this.leftRulerTarget.style.width = `${RULER_BAR_SIZE}px`;
         this.leftRulerTarget.style.height = `${metrics.height}px`;
 
@@ -1616,12 +1700,23 @@ export default class extends Controller {
         const nextTop = edges.top ? anchorY - scaledHeight : anchorY;
         const centerX = sourceWidth / 2;
         const centerY = sourceHeight / 2;
-        const leftSource = nextLeft / metrics.scale;
-        const topSource = nextTop / metrics.scale;
+        const leftSource = (nextLeft - metrics.contentLeft) / metrics.scale;
+        const topSource = (nextTop - metrics.contentTop) / metrics.scale;
 
         this.state.baseImage.scale = nextScale;
         this.state.baseImage.offsetX = (leftSource + ((nextScale * sourceWidth) / 2) - centerX) / sourceWidth;
         this.state.baseImage.offsetY = (topSource + ((nextScale * sourceHeight) / 2) - centerY) / sourceHeight;
+    }
+
+    setBaseImageSourceRect({ left, top, scale }) {
+        const sourceWidth = this.state.sourceBounds.width;
+        const sourceHeight = this.state.sourceBounds.height;
+        const scaledWidth = scale * sourceWidth;
+        const scaledHeight = scale * sourceHeight;
+
+        this.state.baseImage.scale = scale;
+        this.state.baseImage.offsetX = (left - ((sourceWidth - scaledWidth) / 2)) / sourceWidth;
+        this.state.baseImage.offsetY = (top - ((sourceHeight - scaledHeight) / 2)) / sourceHeight;
     }
 
     eventToSourcePoint(event) {
@@ -1696,20 +1791,23 @@ export default class extends Controller {
     getWorkspaceMetricsForSourceBounds(sourceBounds) {
         const sourceWidth = sourceBounds.width;
         const sourceHeight = sourceBounds.height;
-        const workspaceWidth = Math.max(this.workspaceTarget.clientWidth, 200);
-        const workspaceHeight = Math.max(this.workspaceTarget.clientHeight, 200);
-        const scale = Math.min(workspaceWidth / sourceWidth, workspaceHeight / sourceHeight);
+        const surfaceInset = RULER_BAR_SIZE + RULER_GAP;
+        const workspaceWidth = Math.max(this.workspaceTarget.clientWidth, surfaceInset + 160);
+        const workspaceHeight = Math.max(this.workspaceTarget.clientHeight, surfaceInset + 160);
+        const surfaceWidth = Math.max(workspaceWidth - surfaceInset, 160);
+        const surfaceHeight = Math.max(workspaceHeight - surfaceInset, 160);
+        const scale = Math.min(surfaceWidth / sourceWidth, surfaceHeight / sourceHeight);
         const contentWidth = sourceWidth * scale;
         const contentHeight = sourceHeight * scale;
 
         return {
             scale,
-            width: workspaceWidth,
-            height: workspaceHeight,
-            left: 0,
-            top: 0,
-            contentLeft: (workspaceWidth - contentWidth) / 2,
-            contentTop: (workspaceHeight - contentHeight) / 2,
+            width: surfaceWidth,
+            height: surfaceHeight,
+            left: surfaceInset,
+            top: surfaceInset,
+            contentLeft: (surfaceWidth - contentWidth) / 2,
+            contentTop: (surfaceHeight - contentHeight) / 2,
             contentWidth,
             contentHeight,
         };
@@ -1744,18 +1842,27 @@ export default class extends Controller {
     }
 
     getBaseImagePixelRect(metrics = this.getSurfaceMetrics()) {
-        const sourceWidth = this.state.sourceBounds.width;
-        const sourceHeight = this.state.sourceBounds.height;
-        const scaledWidth = this.state.baseImage.scale * sourceWidth;
-        const scaledHeight = this.state.baseImage.scale * sourceHeight;
-        const left = metrics.contentLeft + (((this.state.baseImage.offsetX * sourceWidth) + ((sourceWidth - scaledWidth) / 2)) * metrics.scale);
-        const top = metrics.contentTop + (((this.state.baseImage.offsetY * sourceHeight) + ((sourceHeight - scaledHeight) / 2)) * metrics.scale);
+        const rect = this.getBaseImageSourceRect();
 
         return {
-            left,
-            top,
-            width: scaledWidth * metrics.scale,
-            height: scaledHeight * metrics.scale,
+            left: metrics.contentLeft + (rect.left * metrics.scale),
+            top: metrics.contentTop + (rect.top * metrics.scale),
+            width: rect.width * metrics.scale,
+            height: rect.height * metrics.scale,
+        };
+    }
+
+    getBaseImageSourceRect() {
+        const sourceWidth = this.state.sourceBounds.width;
+        const sourceHeight = this.state.sourceBounds.height;
+        const width = this.state.baseImage.scale * sourceWidth;
+        const height = this.state.baseImage.scale * sourceHeight;
+
+        return {
+            left: (this.state.baseImage.offsetX * sourceWidth) + ((sourceWidth - width) / 2),
+            top: (this.state.baseImage.offsetY * sourceHeight) + ((sourceHeight - height) / 2),
+            width,
+            height,
         };
     }
 
