@@ -80,6 +80,13 @@ the server before changing Apache or PHP configuration:
 bash bin/collect_server_diagnostics.sh /var/www/html
 ```
 
+To also capture what Apache is really serving for a vhost, pass the hostname as
+the third argument:
+
+```bash
+bash bin/collect_server_diagnostics.sh /var/www/html /var/www/html/var/diagnostics mynailalliancedigitalassets.com
+```
+
 The script captures:
 
 1. Active Apache modules and vhost handler configuration.

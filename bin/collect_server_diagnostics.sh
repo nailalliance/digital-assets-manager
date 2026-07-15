@@ -4,6 +4,7 @@ set -u
 
 APP_DIR="${1:-/var/www/html}"
 OUT_DIR="${2:-$APP_DIR/var/diagnostics}"
+HOST_NAME="${3:-}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT_FILE="$OUT_DIR/server-diagnostics-$TIMESTAMP.txt"
 
@@ -58,6 +59,9 @@ run_section "Default PHP CLI" php -v
 run_section "PHP 8.3 CLI" php8.3 -v
 run_section "PHP 8.4 CLI" php8.4 -v
 
+run_shell_section "PHP 8.4 FPM PHP.INI Highlights" "php-fpm8.4 -i | egrep 'Server API|Loaded Configuration File|memory_limit|post_max_size|upload_max_filesize|max_execution_time|max_input_time|session.save_path|session.save_handler|session.cookie_'"
+run_shell_section "PHP 8.4 FPM Pool Config" "sudo sed -n '1,240p' /etc/php/8.4/fpm/pool.d/www.conf"
+
 run_section "Default imagick" php --ri imagick
 run_section "PHP 8.3 imagick" php8.3 --ri imagick
 run_section "PHP 8.4 imagick" php8.4 --ri imagick
@@ -69,6 +73,7 @@ run_shell_section "Env Files" "cd \"$APP_DIR\" && find . -maxdepth 1 \\( -name '
 run_shell_section "Writable Paths" "cd \"$APP_DIR\" && ls -ld var var/cache var/log public/build files-web-cache 2>/dev/null"
 
 run_shell_section "Symfony About Prod" "cd \"$APP_DIR\" && php bin/console about --env=prod"
+run_shell_section "Symfony About Prod (PHP 8.4 CLI)" "cd \"$APP_DIR\" && php8.4 bin/console about --env=prod"
 run_shell_section "Symfony Router Login/Public Image" "cd \"$APP_DIR\" && php bin/console debug:router --env=prod | egrep 'app_login|public_image|share'"
 run_shell_section "Symfony Container Env Hints" "cd \"$APP_DIR\" && php bin/console debug:container --env-vars --env=prod"
 
@@ -82,6 +87,11 @@ run_shell_section "Journal Apache Recent" "sudo journalctl -u apache2 -n 200 --n
 run_shell_section "Journal PHP 8.4 FPM Recent" "sudo journalctl -u php8.4-fpm -n 200 --no-pager"
 
 run_shell_section "Recent PHPInfo Marker Files" "find /var/www -maxdepth 3 -type f \\( -name '_phpinfo.php' -o -name 'phpinfo.php' \\) -ls"
+
+if [ -n "$HOST_NAME" ]; then
+    run_shell_section "Web Probe Headers" "curl -skI --resolve \"$HOST_NAME:443:127.0.0.1\" \"https://$HOST_NAME/\""
+    run_shell_section "Web Probe PHPInfo" "curl -sk --resolve \"$HOST_NAME:443:127.0.0.1\" \"https://$HOST_NAME/_phpinfo.php\" | egrep -m 25 'PHP Version|Server API|Loaded Configuration File|imagick|ImageMagick|memory_limit|post_max_size|upload_max_filesize|max_execution_time|max_input_time'"
+fi
 
 {
     printf '\n========== NEXT STEP ==========\n'
