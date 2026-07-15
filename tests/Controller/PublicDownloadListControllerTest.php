@@ -353,6 +353,61 @@ class PublicDownloadListControllerTest extends TestCase
         );
     }
 
+    public function testPublicImageDebugClipPathsJsonReturnsPathMetadata(): void
+    {
+        if (!class_exists(\Imagick::class)) {
+            $this->markTestSkipped('Imagick is required for this test.');
+        }
+
+        $sampleAssetPath = dirname(__DIR__, 2) . '/files/e/n/ENT-GelLacquer-headshothoney-bottle-c4.jpg';
+        if (!is_file($sampleAssetPath)) {
+            $this->markTestSkipped('Sample clip path asset is not available.');
+        }
+
+        $asset = $this->createAsset(126, $sampleAssetPath);
+        $controller = new TestablePublicDownloadListController(false);
+        $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
+        $cacheImageProcessor->expects($this->never())->method('exportFile');
+        $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
+        $fallbackImageProcessor->expects($this->never())->method('exportFile');
+        $cacheService = new PermalinkImageCacheService(
+            new Filesystem(),
+            $cacheImageProcessor,
+            new LockFactory(new InMemoryStore()),
+            $this->tempDir . '/cache',
+            'v1'
+        );
+
+        $response = $controller->publicImage(
+            $this->createShareLink('token-debug-clip-paths-json', $asset, '+30 days'),
+            $asset,
+            $cacheService,
+            $fallbackImageProcessor,
+            0,
+            0,
+            0,
+            false,
+            null,
+            'debug',
+            'json',
+            false,
+            true
+        );
+
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame('application/json', $response->headers->get('Content-Type'));
+        $this->assertSame(126, $payload['assetId']);
+        $this->assertArrayHasKey('imageBoundaries', $payload);
+        $this->assertGreaterThan(0, $payload['imageBoundaries']['width']);
+        $this->assertGreaterThan(0, $payload['imageBoundaries']['height']);
+        $this->assertIsArray($payload['paths']);
+        $this->assertNotSame([], $payload['paths']);
+        $this->assertArrayHasKey('svgPathData', $payload['paths'][0]);
+        $this->assertArrayHasKey('pathCodes', $payload['paths'][0]);
+        $this->assertArrayHasKey('boundaries', $payload['paths'][0]);
+    }
+
     private function createAsset(int $id, string $sourcePath): Assets
     {
         $asset = new Assets();

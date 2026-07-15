@@ -153,8 +153,10 @@ class PublicDownloadListController extends AbstractController
         return new BinaryFileResponse($thumbnailPath);
     }
 
-    #[Route('/share/{token}/image/{assetId}/debug-clip-paths/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_debug_clip_paths_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => false, 'clipPathIndex' => null, 'debugClipPaths' => true])]
-    #[Route('/share/{token}/image/{assetId}/debug-clip-paths/{width}x{height}/{filename}.{extension}', name: 'public_image_debug_clip_paths', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => false, 'clipPathIndex' => null, 'debugClipPaths' => true])]
+    #[Route('/share/{token}/image/{assetId}/debug-clip-paths/{filename}.json', name: 'public_image_debug_clip_paths_json_named', requirements: ['assetId' => '\d+'], defaults: ['width' => 0, 'height' => 0, 'padding' => 0, 'useLargestClipPath' => false, 'clipPathIndex' => null, 'extension' => 'json', 'debugClipPaths' => false, 'debugClipPathsJson' => true])]
+    #[Route('/share/{token}/image/{assetId}/debug-clip-paths.json', name: 'public_image_debug_clip_paths_json', requirements: ['assetId' => '\d+'], defaults: ['width' => 0, 'height' => 0, 'padding' => 0, 'filename' => 'clip-paths', 'useLargestClipPath' => false, 'clipPathIndex' => null, 'extension' => 'json', 'debugClipPaths' => false, 'debugClipPathsJson' => true])]
+    #[Route('/share/{token}/image/{assetId}/debug-clip-paths/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_debug_clip_paths_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => false, 'clipPathIndex' => null, 'debugClipPaths' => true, 'debugClipPathsJson' => false])]
+    #[Route('/share/{token}/image/{assetId}/debug-clip-paths/{width}x{height}/{filename}.{extension}', name: 'public_image_debug_clip_paths', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => false, 'clipPathIndex' => null, 'debugClipPaths' => true, 'debugClipPathsJson' => false])]
     #[Route('/share/{token}/image/{assetId}/use-clip-path/{pathIndex}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_clip_path_index_padded', requirements: ['assetId' => '\d+', 'pathIndex' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true])]
     #[Route('/share/{token}/image/{assetId}/use-clip-path/{pathIndex}/{width}x{height}/{filename}.{extension}', name: 'public_image_clip_path_index', requirements: ['assetId' => '\d+', 'pathIndex' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true])]
     #[Route('/share/{token}/image/{assetId}/use-largest-clip-path/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_largest_clip_path_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true, 'clipPathIndex' => null])]
@@ -175,7 +177,8 @@ class PublicDownloadListController extends AbstractController
         ?int $clipPathIndex,
         string $filename,
         string $extension,
-        bool $debugClipPaths = false
+        bool $debugClipPaths = false,
+        bool $debugClipPathsJson = false
     ): Response {
         if (!$this->isGranted('IS_AUTHENTICATED_FULLY')) {
             if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
@@ -204,6 +207,10 @@ class PublicDownloadListController extends AbstractController
 
         if (!$sourcePath || !file_exists($sourcePath)) {
             throw $this->createNotFoundException('Source file not found.');
+        }
+
+        if ($debugClipPathsJson) {
+            return $this->createClipPathDebugJsonResponse($asset, $filename);
         }
 
         if ($debugClipPaths) {
@@ -342,6 +349,69 @@ class PublicDownloadListController extends AbstractController
                 }
             }
         }
+    }
+
+    private function createClipPathDebugJsonResponse(Assets $asset, string $filename): Response
+    {
+        if (!class_exists(\Imagick::class)) {
+            throw $this->createNotFoundException('Imagick is not available.');
+        }
+
+        $sourcePath = $asset->getFilePath();
+        if ($sourcePath === null || $sourcePath === '' || !file_exists($sourcePath)) {
+            throw $this->createNotFoundException('Source file not found.');
+        }
+
+        $debugSource = $this->loadClipPathDebugSource($sourcePath);
+        if ($debugSource === null || $debugSource['clipPaths'] === []) {
+            throw $this->createNotFoundException('No clip paths found on this image.');
+        }
+
+        $largestClipPathIndex = $this->findLargestClipPathIndex($debugSource['clipPaths']);
+        $paths = [];
+
+        foreach ($debugSource['clipPaths'] as $clipPathIndex => $svgPathData) {
+            $pathCodes = $this->extractClipPathPathDataStrings($svgPathData);
+            $paths[] = [
+                'index' => $clipPathIndex,
+                'isLargestByBoundingBox' => $clipPathIndex === $largestClipPathIndex,
+                'svgPathData' => $svgPathData,
+                'pathCode' => $pathCodes === [] ? null : implode("\n\n", $pathCodes),
+                'pathCodes' => $pathCodes,
+                'boundaries' => $this->extractClipPathBounds($svgPathData),
+            ];
+        }
+
+        $payload = [
+            'assetId' => $asset->getId(),
+            'largestClipPathIndex' => $largestClipPathIndex,
+            'imageBoundaries' => [
+                'minX' => 0.0,
+                'minY' => 0.0,
+                'maxX' => max(0.0, (float) $debugSource['width'] - 1),
+                'maxY' => max(0.0, (float) $debugSource['height'] - 1),
+                'width' => (float) $debugSource['width'],
+                'height' => (float) $debugSource['height'],
+                'area' => (float) ($debugSource['width'] * $debugSource['height']),
+            ],
+            'paths' => $paths,
+        ];
+
+        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            throw new \RuntimeException('Could not encode clip path debug payload.');
+        }
+
+        $response = new Response($json);
+        $disposition = $response->headers->makeDisposition(
+            ResponseHeaderBag::DISPOSITION_INLINE,
+            $filename . '-clip-path-debug.json'
+        );
+        $response->headers->set('Content-Disposition', $disposition);
+        $response->headers->set('Content-Type', 'application/json');
+        $response->headers->set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+
+        return $response;
     }
 
     /**
@@ -584,11 +654,14 @@ class PublicDownloadListController extends AbstractController
     }
 
     /**
-     * @return array{width: float, height: float, area: float}|null
+     * @return array{minX: float, minY: float, maxX: float, maxY: float, width: float, height: float, area: float}|null
      */
     private function extractClipPathBounds(string $pathData): ?array
     {
-        if (preg_match('/d="([^"]+)"/', $pathData, $matches)) {
+        $pathDataStrings = $this->extractClipPathPathDataStrings($pathData);
+        if ($pathDataStrings !== []) {
+            $pathData = implode(' ', $pathDataStrings);
+        } elseif (preg_match('/d="([^"]+)"/', $pathData, $matches)) {
             $pathData = $matches[1];
         }
 
@@ -632,6 +705,10 @@ class PublicDownloadListController extends AbstractController
         $height = max(0.0, $maxY - $minY);
 
         return [
+            'minX' => $minX,
+            'minY' => $minY,
+            'maxX' => $maxX,
+            'maxY' => $maxY,
             'width' => $width,
             'height' => $height,
             'area' => $width * $height,
