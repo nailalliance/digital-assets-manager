@@ -18,6 +18,12 @@ const MIN_IMAGE_SCALE = 0.2;
 const MAX_IMAGE_SCALE = 4;
 const IMAGE_SCALE_STEP = 0.12;
 const DEFAULT_TEXT = 'Edit text';
+const HANDLE_EDGE_SELECTORS = {
+    left: '.image-editor-handle-tl, .image-editor-handle-bl',
+    right: '.image-editor-handle-tr, .image-editor-handle-br',
+    top: '.image-editor-handle-tl, .image-editor-handle-tr',
+    bottom: '.image-editor-handle-bl, .image-editor-handle-br',
+};
 
 export default class extends Controller {
     static targets = [
@@ -25,6 +31,7 @@ export default class extends Controller {
         'surface',
         'canvas',
         'overlay',
+        'imageBox',
         'cropBox',
         'textLayer',
         'loadingState',
@@ -92,6 +99,7 @@ export default class extends Controller {
         this.workspaceTarget.addEventListener('click', this.boundHandleWorkspaceClick);
         this.workspaceTarget.addEventListener('wheel', this.boundHandleWheel, { passive: false });
 
+        this.initializeImageInteraction();
         this.initializeCropInteraction();
         this.loadImage();
     }
@@ -104,6 +112,7 @@ export default class extends Controller {
         this.workspaceTarget.removeEventListener('wheel', this.boundHandleWheel);
         this.stopImagePan();
         this.clearWheelCommitTimer();
+        interact(this.imageBoxTarget).unset();
         interact(this.cropBoxTarget).unset();
         this.textLayerTarget.querySelectorAll('.image-editor-text').forEach((element) => interact(element).unset());
     }
@@ -119,7 +128,7 @@ export default class extends Controller {
             this.initialState = this.cloneState(this.state);
             this.loadingStateTarget.classList.add('hidden');
             this.renderAll(true);
-            this.setStatus('Select mode lets you drag the image and use the mouse wheel to zoom.', 'success');
+            this.setStatus('Select mode lets you drag the image and resize it from the corner handles or with Image +/-.', 'success');
         };
         image.onerror = () => {
             this.loadingStateTarget.textContent = 'The image could not be loaded.';
@@ -171,7 +180,7 @@ export default class extends Controller {
             } else if (this.activeTool === 'text') {
                 this.setStatus('Click anywhere on the image to add a new text layer.');
             } else {
-                this.setStatus('Drag the image to reposition it and use the mouse wheel to zoom.');
+                this.setStatus('Drag the image to reposition it, or resize it from the corner handles.');
             }
         }
 
@@ -433,7 +442,11 @@ export default class extends Controller {
             return;
         }
 
-        if (event.target.closest('.image-editor-text') || event.target.closest('[data-image-editor-target="cropBox"]')) {
+        if (
+            event.target.closest('.image-editor-text')
+            || event.target.closest('[data-image-editor-target="cropBox"]')
+            || event.target.closest('[data-image-editor-target="imageBox"]')
+        ) {
             return;
         }
 
@@ -497,6 +510,7 @@ export default class extends Controller {
         this.state.baseImage.offsetX += deltaX;
         this.state.baseImage.offsetY += deltaY;
         this.renderPreview();
+        this.renderImageBox();
         this.updateImageScaleLabel();
     }
 
@@ -526,27 +540,76 @@ export default class extends Controller {
         if (!this.state || !this.image) {
             return;
         }
+    }
 
-        event.preventDefault();
+    initializeImageInteraction() {
+        interact(this.imageBoxTarget)
+            .draggable({
+                ignoreFrom: '.image-editor-handle',
+                listeners: {
+                    start: (event) => {
+                        if (this.activeTool !== 'select') {
+                            event.interaction.stop();
+                            return;
+                        }
 
-        const sourcePoint = this.eventToSourcePoint(event) ?? this.getCropCenterPoint();
-        const direction = event.deltaY < 0 ? 1 : -1;
-        const nextScale = clamp(this.state.baseImage.scale + (direction * 0.05), MIN_IMAGE_SCALE, MAX_IMAGE_SCALE);
+                        this.selectBaseImage();
+                        this.beginTransaction();
+                    },
+                    move: (event) => {
+                        if (this.activeTool !== 'select') {
+                            return;
+                        }
 
-        if (nextScale === this.state.baseImage.scale) {
-            return;
-        }
+                        const metrics = this.getSurfaceMetrics();
+                        this.state.baseImage.offsetX += event.dx / metrics.scale / this.state.sourceBounds.width;
+                        this.state.baseImage.offsetY += event.dy / metrics.scale / this.state.sourceBounds.height;
+                        this.renderPreview();
+                        this.renderImageBox();
+                    },
+                    end: () => {
+                        this.finishTransaction();
+                        this.setStatus('Image repositioned.');
+                    },
+                },
+            })
+            .resizable({
+                edges: HANDLE_EDGE_SELECTORS,
+                listeners: {
+                    start: (event) => {
+                        if (this.activeTool !== 'select') {
+                            event.interaction.stop();
+                            return;
+                        }
 
-        this.beginTransaction();
-        this.applyImageScale(nextScale, sourcePoint);
-        this.renderPreview();
-        this.updateImageScaleLabel();
+                        this.selectBaseImage();
+                        this.beginTransaction();
+                    },
+                    move: (event) => {
+                        if (this.activeTool !== 'select') {
+                            return;
+                        }
 
-        clearTimeout(this.wheelCommitTimer);
-        this.wheelCommitTimer = setTimeout(() => {
-            this.finishTransaction();
-            this.setStatus('Image scale updated.');
-        }, 180);
+                        const metrics = this.getSurfaceMetrics();
+                        const currentRect = this.getBaseImagePixelRect(metrics);
+                        const nextRect = {
+                            left: currentRect.left + event.deltaRect.left,
+                            top: currentRect.top + event.deltaRect.top,
+                            width: currentRect.width + event.deltaRect.width,
+                            height: currentRect.height + event.deltaRect.height,
+                        };
+
+                        this.applyBaseImageResize(nextRect, event.edges, currentRect, metrics);
+                        this.renderPreview();
+                        this.renderImageBox();
+                        this.updateImageScaleLabel();
+                    },
+                    end: () => {
+                        this.finishTransaction();
+                        this.setStatus('Image resized.');
+                    },
+                },
+            });
     }
 
     handleResize() {
@@ -598,6 +661,7 @@ export default class extends Controller {
     initializeCropInteraction() {
         interact(this.cropBoxTarget)
             .draggable({
+                ignoreFrom: '.image-editor-handle',
                 listeners: {
                     start: (event) => {
                         if (this.activeTool !== 'crop') {
@@ -627,7 +691,7 @@ export default class extends Controller {
                 },
             })
             .resizable({
-                edges: { left: true, right: true, top: true, bottom: true },
+                edges: HANDLE_EDGE_SELECTORS,
                 listeners: {
                     start: (event) => {
                         if (this.activeTool !== 'crop') {
@@ -744,7 +808,7 @@ export default class extends Controller {
 
         interact(element)
             .draggable({
-                ignoreFrom: '[contenteditable="true"]',
+                ignoreFrom: '.image-editor-handle, [contenteditable="true"]',
                 listeners: {
                     start: (event) => {
                         if (this.activeTool !== 'select') {
@@ -773,8 +837,8 @@ export default class extends Controller {
                 },
             })
             .resizable({
-                ignoreFrom: '[contenteditable="true"]',
-                edges: { left: true, right: true, top: true, bottom: true },
+                ignoreFrom: '.image-editor-handle, [contenteditable="true"]',
+                edges: HANDLE_EDGE_SELECTORS,
                 listeners: {
                     start: (event) => {
                         if (this.activeTool !== 'select') {
@@ -852,6 +916,7 @@ export default class extends Controller {
         }
         this.refreshInspector();
         this.renderLayers();
+        this.renderImageBox();
         this.syncTextElements();
         this.updateSelectionSummary();
     }
@@ -864,6 +929,7 @@ export default class extends Controller {
         this.getSurfaceMetrics(forceLayout);
         this.updateSurfaceLayout();
         this.renderPreview();
+        this.renderImageBox();
         this.renderCropBox();
         this.syncTextElements();
         this.refreshInspector();
@@ -923,6 +989,16 @@ export default class extends Controller {
         this.cropBoxTarget.style.width = `${cropRect.width}px`;
         this.cropBoxTarget.style.height = `${cropRect.height}px`;
         this.cropBoxTarget.classList.toggle('is-inactive', this.activeTool !== 'crop');
+    }
+
+    renderImageBox() {
+        const imageRect = this.getBaseImagePixelRect();
+        const isVisible = this.activeTool === 'select' && !this.selectedTextId;
+        this.imageBoxTarget.style.left = `${imageRect.left}px`;
+        this.imageBoxTarget.style.top = `${imageRect.top}px`;
+        this.imageBoxTarget.style.width = `${imageRect.width}px`;
+        this.imageBoxTarget.style.height = `${imageRect.height}px`;
+        this.imageBoxTarget.classList.toggle('hidden', !isVisible);
     }
 
     syncTextElements() {
@@ -1152,7 +1228,7 @@ export default class extends Controller {
 
         return {
             title: 'Base image selected',
-            message: 'Use Select mode to pan or zoom the image, or choose a text layer from Layers to edit its properties.',
+            message: 'Use Select mode to drag the image or resize it from the corner handles, or choose a text layer from Layers to edit its properties.',
         };
     }
 
@@ -1363,6 +1439,33 @@ export default class extends Controller {
         this.state.baseImage.offsetY = nextOffsetY / sourceHeight;
     }
 
+    applyBaseImageResize(nextRect, edges, currentRect, metrics) {
+        const sourceWidth = this.state.sourceBounds.width;
+        const sourceHeight = this.state.sourceBounds.height;
+        const nextScale = clamp(
+            Math.max(
+                nextRect.width / metrics.scale / sourceWidth,
+                nextRect.height / metrics.scale / sourceHeight
+            ),
+            MIN_IMAGE_SCALE,
+            MAX_IMAGE_SCALE
+        );
+        const scaledWidth = nextScale * sourceWidth * metrics.scale;
+        const scaledHeight = nextScale * sourceHeight * metrics.scale;
+        const anchorX = edges.left ? currentRect.left + currentRect.width : currentRect.left;
+        const anchorY = edges.top ? currentRect.top + currentRect.height : currentRect.top;
+        const nextLeft = edges.left ? anchorX - scaledWidth : anchorX;
+        const nextTop = edges.top ? anchorY - scaledHeight : anchorY;
+        const centerX = sourceWidth / 2;
+        const centerY = sourceHeight / 2;
+        const leftSource = nextLeft / metrics.scale;
+        const topSource = nextTop / metrics.scale;
+
+        this.state.baseImage.scale = nextScale;
+        this.state.baseImage.offsetX = (leftSource + ((nextScale * sourceWidth) / 2) - centerX) / sourceWidth;
+        this.state.baseImage.offsetY = (topSource + ((nextScale * sourceHeight) / 2) - centerY) / sourceHeight;
+    }
+
     eventToSourcePoint(event) {
         const surfaceRect = this.surfaceTarget.getBoundingClientRect();
         const relativeX = event.clientX - surfaceRect.left;
@@ -1376,6 +1479,10 @@ export default class extends Controller {
             x: relativeX / this.surfaceMetrics.scale,
             y: relativeY / this.surfaceMetrics.scale,
         };
+    }
+
+    selectBaseImage() {
+        this.selectText(null);
     }
 
     clampCrop() {
@@ -1433,6 +1540,22 @@ export default class extends Controller {
             top: this.state.crop.y * this.state.sourceBounds.height * metrics.scale,
             width: this.state.crop.width * this.state.sourceBounds.width * metrics.scale,
             height: this.state.crop.height * this.state.sourceBounds.height * metrics.scale,
+        };
+    }
+
+    getBaseImagePixelRect(metrics = this.getSurfaceMetrics()) {
+        const sourceWidth = this.state.sourceBounds.width;
+        const sourceHeight = this.state.sourceBounds.height;
+        const scaledWidth = this.state.baseImage.scale * sourceWidth;
+        const scaledHeight = this.state.baseImage.scale * sourceHeight;
+        const left = ((this.state.baseImage.offsetX * sourceWidth) + ((sourceWidth - scaledWidth) / 2)) * metrics.scale;
+        const top = ((this.state.baseImage.offsetY * sourceHeight) + ((sourceHeight - scaledHeight) / 2)) * metrics.scale;
+
+        return {
+            left,
+            top,
+            width: scaledWidth * metrics.scale,
+            height: scaledHeight * metrics.scale,
         };
     }
 

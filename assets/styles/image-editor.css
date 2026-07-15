@@ -92,11 +92,32 @@
     border: 2px solid #2563eb;
     box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.48);
     cursor: move;
+    z-index: 2;
 }
 
 .image-editor-crop-box.is-inactive {
     border-style: dashed;
     border-color: #60a5fa;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+.image-editor-crop-box.is-inactive .image-editor-handle {
+    opacity: 0;
+}
+
+.image-editor-base-image-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1.5px solid rgba(226, 232, 240, 0.85);
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25);
+    cursor: move;
+    z-index: 1;
+}
+
+.image-editor-base-image-box .image-editor-handle {
+    border-color: #e2e8f0;
+    background: #0f172a;
 }
 
 .image-editor-text {
@@ -113,6 +134,7 @@
     word-break: break-word;
     outline: none;
     line-height: 1.2;
+    z-index: 3;
 }
 
 .image-editor-text.is-selected {
@@ -137,7 +159,18 @@
     border: 2px solid #2563eb;
     border-radius: 999px;
     background: white;
-    pointer-events: none;
+    pointer-events: auto;
+    z-index: 1;
+}
+
+.image-editor-handle-tl,
+.image-editor-handle-br {
+    cursor: nwse-resize;
+}
+
+.image-editor-handle-tr,
+.image-editor-handle-bl {
+    cursor: nesw-resize;
 }
 
 .image-editor-text .image-editor-handle {
