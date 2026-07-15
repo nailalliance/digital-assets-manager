@@ -105,6 +105,8 @@ export default class extends Controller {
         this.isCreatingCrop = false;
         this.cropCreationStart = null;
         this.cropCreationMoved = false;
+        this.isDraggingCrop = false;
+        this.cropDragState = null;
         this.cropResizeAspectRatio = null;
         this.isShiftKeyPressed = false;
         this.suppressNextWorkspaceClick = false;
@@ -126,6 +128,8 @@ export default class extends Controller {
         this.boundHandleImagePanEnd = this.handleImagePanEnd.bind(this);
         this.boundHandleCropCreationMove = this.handleCropCreationMove.bind(this);
         this.boundHandleCropCreationEnd = this.handleCropCreationEnd.bind(this);
+        this.boundHandleCropDragMove = this.handleCropDragMove.bind(this);
+        this.boundHandleCropDragEnd = this.handleCropDragEnd.bind(this);
         this.boundHandleWorkspaceMouseDown = this.handleWorkspaceMouseDown.bind(this);
         this.boundHandleWorkspaceClick = this.handleWorkspaceClick.bind(this);
         this.boundHandleWheel = this.handleWheel.bind(this);
@@ -151,6 +155,7 @@ export default class extends Controller {
         this.workspaceTarget.removeEventListener('wheel', this.boundHandleWheel);
         this.stopImagePan();
         this.stopCropCreation();
+        this.stopCropDrag();
         this.clearWheelCommitTimer();
         interact(this.imageBoxTarget).unset();
         interact(this.cropBoxTarget).unset();
@@ -603,9 +608,20 @@ export default class extends Controller {
 
         if (
             event.target.closest('.image-editor-text')
-            || event.target.closest('[data-image-editor-target="cropBox"]')
             || event.target.closest('[data-image-editor-target="imageBox"]')
         ) {
+            return;
+        }
+
+        if (event.target.closest('[data-image-editor-target="cropBox"]')) {
+            if (
+                this.activeTool === 'crop'
+                && this.hasCropFrame()
+                && !event.target.closest('.image-editor-handle')
+            ) {
+                this.beginCropDrag(event);
+            }
+
             return;
         }
 
@@ -801,6 +817,70 @@ export default class extends Controller {
         document.removeEventListener('mouseup', this.boundHandleCropCreationEnd);
     }
 
+    beginCropDrag(event) {
+        this.beginTransaction();
+        this.isDraggingCrop = true;
+        this.cropDragState = {
+            clientX: event.clientX,
+            clientY: event.clientY,
+            moved: false,
+        };
+
+        document.addEventListener('mousemove', this.boundHandleCropDragMove);
+        document.addEventListener('mouseup', this.boundHandleCropDragEnd);
+    }
+
+    handleCropDragMove(event) {
+        if (!this.isDraggingCrop || !this.cropDragState || !this.hasCropFrame()) {
+            return;
+        }
+
+        const metrics = this.getSurfaceMetrics();
+        const currentRect = this.getCropSourceRect();
+        const deltaX = (event.clientX - this.cropDragState.clientX) / metrics.scale;
+        const deltaY = (event.clientY - this.cropDragState.clientY) / metrics.scale;
+
+        this.cropDragState.clientX = event.clientX;
+        this.cropDragState.clientY = event.clientY;
+        this.cropDragState.moved = this.cropDragState.moved || Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0;
+
+        this.state.crop = this.buildCropStateFromSourceRect(
+            this.normalizeCropSourceRect(
+                this.applyCropMoveSnapping({
+                    left: currentRect.left + deltaX,
+                    top: currentRect.top + deltaY,
+                    width: currentRect.width,
+                    height: currentRect.height,
+                }, metrics)
+            )
+        );
+        this.renderCropBox();
+        this.refreshInspector();
+        this.updateCropSummary();
+    }
+
+    handleCropDragEnd() {
+        if (!this.isDraggingCrop) {
+            return;
+        }
+
+        const moved = Boolean(this.cropDragState?.moved);
+        this.stopCropDrag();
+        this.finishTransaction();
+
+        if (moved) {
+            this.suppressNextWorkspaceClick = true;
+            this.setStatus('Crop frame repositioned.');
+        }
+    }
+
+    stopCropDrag() {
+        this.isDraggingCrop = false;
+        this.cropDragState = null;
+        document.removeEventListener('mousemove', this.boundHandleCropDragMove);
+        document.removeEventListener('mouseup', this.boundHandleCropDragEnd);
+    }
+
     handleWheel(event) {
         if (!this.state || !this.image) {
             return;
@@ -943,43 +1023,6 @@ export default class extends Controller {
 
     initializeCropInteraction() {
         interact(this.cropBoxTarget)
-            .draggable({
-                ignoreFrom: '.image-editor-handle',
-                listeners: {
-                    start: (event) => {
-                        if (this.activeTool !== 'crop' || !this.hasCropFrame()) {
-                            event.interaction.stop();
-                            return;
-                        }
-
-                        this.beginTransaction();
-                    },
-                    move: (event) => {
-                        if (this.activeTool !== 'crop' || !this.hasCropFrame()) {
-                            return;
-                        }
-
-                        const metrics = this.getSurfaceMetrics();
-                        const currentRect = this.getCropSourceRect();
-                        const nextRect = this.applyCropMoveSnapping({
-                            left: currentRect.left + (event.dx / metrics.scale),
-                            top: currentRect.top + (event.dy / metrics.scale),
-                            width: currentRect.width,
-                            height: currentRect.height,
-                        }, metrics);
-
-                        this.state.crop = this.buildCropStateFromSourceRect(
-                            this.normalizeCropSourceRect(nextRect)
-                        );
-                        this.renderCropBox();
-                        this.refreshInspector();
-                        this.updateCropSummary();
-                    },
-                    end: () => {
-                        this.finishTransaction();
-                    },
-                },
-            })
             .resizable({
                 edges: HANDLE_EDGE_SELECTORS,
                 listeners: {
