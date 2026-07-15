@@ -188,7 +188,7 @@ export default class extends Controller {
             if (this.activeTool === 'crop') {
                 this.setStatus('Drag or resize the crop frame to change the export area.');
             } else if (this.activeTool === 'text') {
-                this.setStatus('Click anywhere on the image to add a new text layer.');
+                this.setStatus('Click anywhere on the canvas to add a new text layer.');
             } else {
                 this.setStatus('Drag the image to reposition it, or resize it from the corner handles.');
             }
@@ -788,8 +788,8 @@ export default class extends Controller {
         const textLayer = {
             id: createTextId(),
             text: DEFAULT_TEXT,
-            x: clamp((sourcePoint.x / sourceWidth) - (width / 2), 0, 1 - width),
-            y: clamp((sourcePoint.y / sourceHeight) - (height / 2), 0, 1 - height),
+            x: (sourcePoint.x / sourceWidth) - (width / 2),
+            y: (sourcePoint.y / sourceHeight) - (height / 2),
             width,
             height,
             fontFamily: SUPPORTED_FONTS[0],
@@ -800,6 +800,7 @@ export default class extends Controller {
             textAlign: 'left',
         };
 
+        this.clampText(textLayer);
         this.state.texts.push(textLayer);
         this.selectedTextId = textLayer.id;
         this.editingTextId = null;
@@ -1001,6 +1002,7 @@ export default class extends Controller {
         context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
         context.clearRect(0, 0, width, height);
         context.save();
+        context.translate(metrics.contentLeft, metrics.contentTop);
         context.scale(metrics.scale, metrics.scale);
         this.drawBaseImage(context);
         context.restore();
@@ -1423,23 +1425,20 @@ export default class extends Controller {
 
     renderRulers() {
         const metrics = this.getSurfaceMetrics();
-        const topOffset = Math.max(metrics.top - RULER_BAR_SIZE - 4, 4);
-        const leftOffset = Math.max(metrics.left - RULER_BAR_SIZE - 4, 4);
-
-        this.topRulerTarget.style.left = `${metrics.left}px`;
-        this.topRulerTarget.style.top = `${topOffset}px`;
+        this.topRulerTarget.style.left = '0px';
+        this.topRulerTarget.style.top = '0px';
         this.topRulerTarget.style.width = `${metrics.width}px`;
         this.topRulerTarget.style.height = `${RULER_BAR_SIZE}px`;
-        this.leftRulerTarget.style.left = `${leftOffset}px`;
-        this.leftRulerTarget.style.top = `${metrics.top}px`;
+        this.leftRulerTarget.style.left = '0px';
+        this.leftRulerTarget.style.top = '0px';
         this.leftRulerTarget.style.width = `${RULER_BAR_SIZE}px`;
         this.leftRulerTarget.style.height = `${metrics.height}px`;
 
-        this.populateRuler(this.topRulerTarget, this.state.sourceBounds.width, metrics.scale, 'horizontal');
-        this.populateRuler(this.leftRulerTarget, this.state.sourceBounds.height, metrics.scale, 'vertical');
+        this.populateRuler(this.topRulerTarget, this.state.sourceBounds.width, metrics.scale, 'horizontal', metrics.contentLeft);
+        this.populateRuler(this.leftRulerTarget, this.state.sourceBounds.height, metrics.scale, 'vertical', metrics.contentTop);
     }
 
-    populateRuler(container, sourceLength, scale, orientation) {
+    populateRuler(container, sourceLength, scale, orientation, offset) {
         container.innerHTML = '';
 
         const stepValue = getRulerStepValue(scale);
@@ -1447,26 +1446,26 @@ export default class extends Controller {
         const renderedValues = new Set();
 
         for (let value = 0; value <= sourceLength; value += stepValue) {
-            fragment.appendChild(this.buildRulerTick(value, scale, orientation));
+            fragment.appendChild(this.buildRulerTick(value, scale, orientation, offset));
             renderedValues.add(value);
         }
 
         if (!renderedValues.has(sourceLength)) {
-            fragment.appendChild(this.buildRulerTick(sourceLength, scale, orientation, true));
+            fragment.appendChild(this.buildRulerTick(sourceLength, scale, orientation, offset, true));
         }
 
         container.appendChild(fragment);
     }
 
-    buildRulerTick(value, scale, orientation, isTerminal = false) {
+    buildRulerTick(value, scale, orientation, offset, isTerminal = false) {
         const tick = document.createElement('div');
         tick.className = `image-editor-ruler-tick image-editor-ruler-tick-${orientation}`;
-        const offset = Math.round(value * scale);
+        const tickOffset = Math.round(offset + (value * scale));
 
         if (orientation === 'horizontal') {
-            tick.style.left = `${offset}px`;
+            tick.style.left = `${tickOffset}px`;
         } else {
-            tick.style.top = `${offset}px`;
+            tick.style.top = `${tickOffset}px`;
         }
 
         if (isTerminal) {
@@ -1482,21 +1481,6 @@ export default class extends Controller {
     }
 
     renderExportCanvas() {
-        const sourceCanvas = document.createElement('canvas');
-        sourceCanvas.width = this.state.sourceBounds.width;
-        sourceCanvas.height = this.state.sourceBounds.height;
-        const sourceContext = sourceCanvas.getContext('2d');
-
-        if (this.getOutputMimeType() === 'image/jpeg') {
-            sourceContext.fillStyle = '#ffffff';
-            sourceContext.fillRect(0, 0, sourceCanvas.width, sourceCanvas.height);
-        } else {
-            sourceContext.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
-        }
-
-        this.drawBaseImage(sourceContext);
-        this.drawTextLayersToCanvas(sourceContext);
-
         const cropRect = this.getCropSourceRect();
         const exportCanvas = document.createElement('canvas');
         exportCanvas.width = Math.max(1, Math.round(cropRect.width));
@@ -1510,17 +1494,11 @@ export default class extends Controller {
             exportContext.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
         }
 
-        exportContext.drawImage(
-            sourceCanvas,
-            cropRect.left,
-            cropRect.top,
-            cropRect.width,
-            cropRect.height,
-            0,
-            0,
-            exportCanvas.width,
-            exportCanvas.height
-        );
+        exportContext.save();
+        exportContext.translate(-cropRect.left, -cropRect.top);
+        this.drawBaseImage(exportContext);
+        this.drawTextLayersToCanvas(exportContext);
+        exportContext.restore();
 
         return {
             canvas: exportCanvas,
@@ -1656,8 +1634,8 @@ export default class extends Controller {
         }
 
         return {
-            x: relativeX / this.surfaceMetrics.scale,
-            y: relativeY / this.surfaceMetrics.scale,
+            x: (relativeX - this.surfaceMetrics.contentLeft) / this.surfaceMetrics.scale,
+            y: (relativeY - this.surfaceMetrics.contentTop) / this.surfaceMetrics.scale,
         };
     }
 
@@ -1666,22 +1644,47 @@ export default class extends Controller {
     }
 
     clampCrop() {
-        const minWidth = Math.max(40 / this.state.sourceBounds.width, 0.05);
-        const minHeight = Math.max(40 / this.state.sourceBounds.height, 0.05);
+        const sourceWidth = this.state.sourceBounds.width;
+        const sourceHeight = this.state.sourceBounds.height;
+        const workspaceBounds = this.getWorkspaceBoundsInSourceSpace();
+        const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, 40);
+        const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, 40);
+        let width = this.state.crop.width * sourceWidth;
+        let height = this.state.crop.height * sourceHeight;
+        let left = this.state.crop.x * sourceWidth;
+        let top = this.state.crop.y * sourceHeight;
 
-        this.state.crop.width = clamp(this.state.crop.width, minWidth, 1);
-        this.state.crop.height = clamp(this.state.crop.height, minHeight, 1);
-        this.state.crop.x = clamp(this.state.crop.x, 0, 1 - this.state.crop.width);
-        this.state.crop.y = clamp(this.state.crop.y, 0, 1 - this.state.crop.height);
+        width = clamp(width, 40, maxWidth);
+        height = clamp(height, 40, maxHeight);
+        left = clamp(left, workspaceBounds.left, workspaceBounds.right - width);
+        top = clamp(top, workspaceBounds.top, workspaceBounds.bottom - height);
+
+        this.state.crop.width = width / sourceWidth;
+        this.state.crop.height = height / sourceHeight;
+        this.state.crop.x = left / sourceWidth;
+        this.state.crop.y = top / sourceHeight;
     }
 
     clampText(text) {
-        const minWidth = Math.max(40 / this.state.sourceBounds.width, 0.04);
-        const minHeight = Math.max(40 / this.state.sourceBounds.height, 0.04);
-        text.width = clamp(text.width, minWidth, 1);
-        text.height = clamp(text.height, minHeight, 1);
-        text.x = clamp(text.x, 0, 1 - text.width);
-        text.y = clamp(text.y, 0, 1 - text.height);
+        const sourceWidth = this.state.sourceBounds.width;
+        const sourceHeight = this.state.sourceBounds.height;
+        const workspaceBounds = this.getWorkspaceBoundsInSourceSpace();
+        const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, 40);
+        const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, 40);
+        let width = text.width * sourceWidth;
+        let height = text.height * sourceHeight;
+        let left = text.x * sourceWidth;
+        let top = text.y * sourceHeight;
+
+        width = clamp(width, 40, maxWidth);
+        height = clamp(height, 40, maxHeight);
+        left = clamp(left, workspaceBounds.left, workspaceBounds.right - width);
+        top = clamp(top, workspaceBounds.top, workspaceBounds.bottom - height);
+
+        text.width = width / sourceWidth;
+        text.height = height / sourceHeight;
+        text.x = left / sourceWidth;
+        text.y = top / sourceHeight;
         text.fontSize = clamp(text.fontSize, 8, this.state.sourceBounds.height);
         text.fontFamily = normalizeFont(text.fontFamily);
         text.color = normalizeColor(text.color);
@@ -1690,34 +1693,51 @@ export default class extends Controller {
         text.textAlign = normalizeTextAlign(text.textAlign);
     }
 
+    getWorkspaceMetricsForSourceBounds(sourceBounds) {
+        const sourceWidth = sourceBounds.width;
+        const sourceHeight = sourceBounds.height;
+        const workspaceWidth = Math.max(this.workspaceTarget.clientWidth, 200);
+        const workspaceHeight = Math.max(this.workspaceTarget.clientHeight, 200);
+        const scale = Math.min(workspaceWidth / sourceWidth, workspaceHeight / sourceHeight);
+        const contentWidth = sourceWidth * scale;
+        const contentHeight = sourceHeight * scale;
+
+        return {
+            scale,
+            width: workspaceWidth,
+            height: workspaceHeight,
+            left: 0,
+            top: 0,
+            contentLeft: (workspaceWidth - contentWidth) / 2,
+            contentTop: (workspaceHeight - contentHeight) / 2,
+            contentWidth,
+            contentHeight,
+        };
+    }
+
     getSurfaceMetrics(force = false) {
         if (this.surfaceMetrics && !force) {
             return this.surfaceMetrics;
         }
 
-        const sourceWidth = this.state.sourceBounds.width;
-        const sourceHeight = this.state.sourceBounds.height;
-        const workspaceWidth = Math.max(this.workspaceTarget.clientWidth - 32, 200);
-        const workspaceHeight = Math.max(this.workspaceTarget.clientHeight - 32, 200);
-        const scale = Math.min(workspaceWidth / sourceWidth, workspaceHeight / sourceHeight);
-        const width = sourceWidth * scale;
-        const height = sourceHeight * scale;
-
-        this.surfaceMetrics = {
-            scale,
-            width,
-            height,
-            left: (this.workspaceTarget.clientWidth - width) / 2,
-            top: (this.workspaceTarget.clientHeight - height) / 2,
-        };
+        this.surfaceMetrics = this.getWorkspaceMetricsForSourceBounds(this.state.sourceBounds);
 
         return this.surfaceMetrics;
     }
 
+    getWorkspaceBoundsInSourceSpace(metrics = this.getSurfaceMetrics()) {
+        return {
+            left: -metrics.contentLeft / metrics.scale,
+            top: -metrics.contentTop / metrics.scale,
+            right: (metrics.width - metrics.contentLeft) / metrics.scale,
+            bottom: (metrics.height - metrics.contentTop) / metrics.scale,
+        };
+    }
+
     getCropPixelRect(metrics = this.getSurfaceMetrics()) {
         return {
-            left: this.state.crop.x * this.state.sourceBounds.width * metrics.scale,
-            top: this.state.crop.y * this.state.sourceBounds.height * metrics.scale,
+            left: metrics.contentLeft + (this.state.crop.x * this.state.sourceBounds.width * metrics.scale),
+            top: metrics.contentTop + (this.state.crop.y * this.state.sourceBounds.height * metrics.scale),
             width: this.state.crop.width * this.state.sourceBounds.width * metrics.scale,
             height: this.state.crop.height * this.state.sourceBounds.height * metrics.scale,
         };
@@ -1728,8 +1748,8 @@ export default class extends Controller {
         const sourceHeight = this.state.sourceBounds.height;
         const scaledWidth = this.state.baseImage.scale * sourceWidth;
         const scaledHeight = this.state.baseImage.scale * sourceHeight;
-        const left = ((this.state.baseImage.offsetX * sourceWidth) + ((sourceWidth - scaledWidth) / 2)) * metrics.scale;
-        const top = ((this.state.baseImage.offsetY * sourceHeight) + ((sourceHeight - scaledHeight) / 2)) * metrics.scale;
+        const left = metrics.contentLeft + (((this.state.baseImage.offsetX * sourceWidth) + ((sourceWidth - scaledWidth) / 2)) * metrics.scale);
+        const top = metrics.contentTop + (((this.state.baseImage.offsetY * sourceHeight) + ((sourceHeight - scaledHeight) / 2)) * metrics.scale);
 
         return {
             left,
@@ -1741,8 +1761,8 @@ export default class extends Controller {
 
     getTextPixelRect(textLayer, metrics = this.getSurfaceMetrics()) {
         return {
-            left: textLayer.x * this.state.sourceBounds.width * metrics.scale,
-            top: textLayer.y * this.state.sourceBounds.height * metrics.scale,
+            left: metrics.contentLeft + (textLayer.x * this.state.sourceBounds.width * metrics.scale),
+            top: metrics.contentTop + (textLayer.y * this.state.sourceBounds.height * metrics.scale),
             width: Math.max(textLayer.width * this.state.sourceBounds.width * metrics.scale, 24),
             height: Math.max(textLayer.height * this.state.sourceBounds.height * metrics.scale, 24),
         };
@@ -1836,21 +1856,44 @@ export default class extends Controller {
     }
 
     clampStateCopy(state) {
-        const minCropWidth = Math.max(40 / state.sourceBounds.width, 0.05);
-        const minCropHeight = Math.max(40 / state.sourceBounds.height, 0.05);
+        const sourceWidth = state.sourceBounds.width;
+        const sourceHeight = state.sourceBounds.height;
+        const metrics = this.getWorkspaceMetricsForSourceBounds(state.sourceBounds);
+        const workspaceBounds = this.getWorkspaceBoundsInSourceSpace(metrics);
+        const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, 40);
+        const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, 40);
+        let cropWidth = Number.isFinite(state.crop.width) ? state.crop.width * sourceWidth : sourceWidth;
+        let cropHeight = Number.isFinite(state.crop.height) ? state.crop.height * sourceHeight : sourceHeight;
+        let cropLeft = Number.isFinite(state.crop.x) ? state.crop.x * sourceWidth : 0;
+        let cropTop = Number.isFinite(state.crop.y) ? state.crop.y * sourceHeight : 0;
 
-        state.crop.width = clamp(state.crop.width, minCropWidth, 1);
-        state.crop.height = clamp(state.crop.height, minCropHeight, 1);
-        state.crop.x = clamp(state.crop.x, 0, 1 - state.crop.width);
-        state.crop.y = clamp(state.crop.y, 0, 1 - state.crop.height);
+        cropWidth = clamp(cropWidth, 40, maxWidth);
+        cropHeight = clamp(cropHeight, 40, maxHeight);
+        cropLeft = clamp(cropLeft, workspaceBounds.left, workspaceBounds.right - cropWidth);
+        cropTop = clamp(cropTop, workspaceBounds.top, workspaceBounds.bottom - cropHeight);
+
+        state.crop.width = cropWidth / sourceWidth;
+        state.crop.height = cropHeight / sourceHeight;
+        state.crop.x = cropLeft / sourceWidth;
+        state.crop.y = cropTop / sourceHeight;
         state.baseImage.scale = clamp(state.baseImage.scale, MIN_IMAGE_SCALE, MAX_IMAGE_SCALE);
         state.baseImage.offsetX = Number.isFinite(state.baseImage.offsetX) ? state.baseImage.offsetX : 0;
         state.baseImage.offsetY = Number.isFinite(state.baseImage.offsetY) ? state.baseImage.offsetY : 0;
         state.texts.forEach((text) => {
-            text.width = clamp(text.width, Math.max(40 / state.sourceBounds.width, 0.04), 1);
-            text.height = clamp(text.height, Math.max(40 / state.sourceBounds.height, 0.04), 1);
-            text.x = clamp(text.x, 0, 1 - text.width);
-            text.y = clamp(text.y, 0, 1 - text.height);
+            let width = Number.isFinite(text.width) ? text.width * sourceWidth : 40;
+            let height = Number.isFinite(text.height) ? text.height * sourceHeight : 40;
+            let left = Number.isFinite(text.x) ? text.x * sourceWidth : 0;
+            let top = Number.isFinite(text.y) ? text.y * sourceHeight : 0;
+
+            width = clamp(width, 40, maxWidth);
+            height = clamp(height, 40, maxHeight);
+            left = clamp(left, workspaceBounds.left, workspaceBounds.right - width);
+            top = clamp(top, workspaceBounds.top, workspaceBounds.bottom - height);
+
+            text.width = width / sourceWidth;
+            text.height = height / sourceHeight;
+            text.x = left / sourceWidth;
+            text.y = top / sourceHeight;
         });
     }
 
