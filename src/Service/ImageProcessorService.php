@@ -144,6 +144,7 @@ class ImageProcessorService
             // Apply mogrify-inspired optimizations for high quality exports
             if ($legendText === null) {
                 $image->trimImage(0); // Equivalent to -trim
+                $image->setImagePage(0, 0, 0, 0);
                 $image->unsharpMaskImage(0.25, 0.08, 8.3, 0.045);
             }
 
@@ -225,6 +226,8 @@ class ImageProcessorService
 
             $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
             $image->compositeImage($mask, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
+            $image->setImageBackgroundColor(new \ImagickPixel('white'));
+            $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_BACKGROUND);
         } catch (\ImagickException) {
             return;
         } finally {

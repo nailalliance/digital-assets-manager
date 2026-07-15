@@ -37,6 +37,9 @@ class ImageProcessorServiceTest extends TestCase
         $insidePixel = $image->getImagePixelColor(100, 100)->getColor(true);
 
         $this->assertLessThan(0.1, $outsidePixel['a']);
+        $this->assertGreaterThan(0.9, $outsidePixel['r']);
+        $this->assertGreaterThan(0.9, $outsidePixel['g']);
+        $this->assertGreaterThan(0.9, $outsidePixel['b']);
         $this->assertGreaterThan(0.9, $insidePixel['a']);
 
         $draw->clear();
