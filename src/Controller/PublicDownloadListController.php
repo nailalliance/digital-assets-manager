@@ -427,22 +427,28 @@ class PublicDownloadListController extends AbstractController
         int $targetHeight,
         int $padding
     ): ?\Imagick {
-        $overlaySvg = $this->buildClipPathOverlaySvg($svgPathData, $sourceWidth, $sourceHeight);
-        if ($overlaySvg === null) {
+        $maskSvg = $this->buildClipPathMaskSvg($svgPathData, $sourceWidth, $sourceHeight);
+        if ($maskSvg === null) {
             return null;
         }
 
-        $overlay = new \Imagick();
+        $mask = new \Imagick();
 
         try {
-            $overlay->setBackgroundColor(new \ImagickPixel('transparent'));
-            $overlay->readImageBlob($overlaySvg);
-            $overlay->setImageFormat('png');
+            $mask->setBackgroundColor(new \ImagickPixel('black'));
+            $mask->readImageBlob($maskSvg);
+            $mask->setImageMatte(false);
 
-            if ($overlay->getImageWidth() !== $sourceWidth || $overlay->getImageHeight() !== $sourceHeight) {
-                $overlay->scaleImage($sourceWidth, $sourceHeight);
+            if ($mask->getImageWidth() !== $sourceWidth || $mask->getImageHeight() !== $sourceHeight) {
+                $mask->scaleImage($sourceWidth, $sourceHeight);
             }
 
+            $mask->evaluateImage(\Imagick::EVALUATE_MULTIPLY, 0.16);
+
+            $overlay = new \Imagick();
+            $overlay->newImage($sourceWidth, $sourceHeight, new \ImagickPixel('#00ff00'), 'png');
+            $overlay->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
+            $overlay->compositeImage($mask, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
             $overlay->thumbnailImage($targetWidth - ($padding * 2), $targetHeight - ($padding * 2), true, true);
 
             $canvas = new \Imagick();
@@ -457,15 +463,15 @@ class PublicDownloadListController extends AbstractController
         } catch (\ImagickException) {
             return null;
         } finally {
-            $overlay->clear();
+            $mask->clear();
         }
     }
 
-    private function buildClipPathOverlaySvg(string $svgPathData, int $imageWidth, int $imageHeight): ?string
+    private function buildClipPathMaskSvg(string $svgPathData, int $imageWidth, int $imageHeight): ?string
     {
         $document = new \DOMDocument();
         if (@$document->loadXML($svgPathData) === false) {
-            return $this->buildClipPathOverlaySvgFromPathDataStrings(
+            return $this->buildClipPathMaskSvgFromPathDataStrings(
                 $this->extractClipPathPathDataStrings($svgPathData),
                 $imageWidth,
                 $imageHeight
@@ -479,11 +485,8 @@ class PublicDownloadListController extends AbstractController
 
         $svg->setAttribute('width', (string) $imageWidth);
         $svg->setAttribute('height', (string) $imageHeight);
-        if (!$svg->hasAttribute('viewBox')) {
-            $svg->setAttribute('viewBox', sprintf('0 0 %d %d', $imageWidth, $imageHeight));
-        }
+        $svg->setAttribute('viewBox', sprintf('0 0 %d %d', $imageWidth, $imageHeight));
 
-        $strokeWidth = $this->resolveClipPathDebugStrokeWidth($imageWidth, $imageHeight);
         $xpath = new \DOMXPath($document);
         /** @var \DOMNodeList<\DOMElement> $elements */
         $elements = $xpath->query('//*');
@@ -491,6 +494,7 @@ class PublicDownloadListController extends AbstractController
             return null;
         }
 
+        $elementsToRemove = [];
         foreach ($elements as $element) {
             $tagName = strtolower($element->localName);
 
@@ -499,24 +503,28 @@ class PublicDownloadListController extends AbstractController
             }
 
             if ($tagName !== 'path') {
-                $element->parentNode?->removeChild($element);
+                $elementsToRemove[] = $element;
                 continue;
             }
 
-            $element->setAttribute('fill', '#00ff00');
-            $element->setAttribute('fill-opacity', '0.14');
-            $element->setAttribute('stroke', '#00ff00');
-            $element->setAttribute('stroke-opacity', '0.95');
-            $element->setAttribute('stroke-width', $strokeWidth);
-            $element->setAttribute('stroke-linejoin', 'round');
-            $element->setAttribute('stroke-linecap', 'round');
-            $element->setAttribute(
-                'style',
-                sprintf(
-                    'fill:#00ff00;fill-opacity:0.14;stroke:#00ff00;stroke-opacity:0.95;stroke-width:%s;stroke-linejoin:round;stroke-linecap:round',
-                    $strokeWidth
-                )
-            );
+            $element->setAttribute('fill', '#ffffff');
+            $element->setAttribute('stroke', 'none');
+            $element->setAttribute('style', 'fill:#ffffff;stroke:none');
+        }
+
+        foreach ($elementsToRemove as $elementToRemove) {
+            $elementToRemove->parentNode?->removeChild($elementToRemove);
+        }
+
+        $backgroundRect = $document->createElement('rect');
+        $backgroundRect->setAttribute('width', '100%');
+        $backgroundRect->setAttribute('height', '100%');
+        $backgroundRect->setAttribute('fill', '#000000');
+
+        if ($svg->firstChild !== null) {
+            $svg->insertBefore($backgroundRect, $svg->firstChild);
+        } else {
+            $svg->appendChild($backgroundRect);
         }
 
         return $document->saveXML();
@@ -525,7 +533,7 @@ class PublicDownloadListController extends AbstractController
     /**
      * @param list<string> $pathDataStrings
      */
-    private function buildClipPathOverlaySvgFromPathDataStrings(array $pathDataStrings, int $imageWidth, int $imageHeight): ?string
+    private function buildClipPathMaskSvgFromPathDataStrings(array $pathDataStrings, int $imageWidth, int $imageHeight): ?string
     {
         if ($pathDataStrings === []) {
             return null;
@@ -539,17 +547,17 @@ class PublicDownloadListController extends AbstractController
         $svg->setAttribute('viewBox', sprintf('0 0 %d %d', $imageWidth, $imageHeight));
         $document->appendChild($svg);
 
-        $strokeWidth = $this->resolveClipPathDebugStrokeWidth($imageWidth, $imageHeight);
+        $backgroundRect = $document->createElement('rect');
+        $backgroundRect->setAttribute('width', '100%');
+        $backgroundRect->setAttribute('height', '100%');
+        $backgroundRect->setAttribute('fill', '#000000');
+        $svg->appendChild($backgroundRect);
+
         foreach ($pathDataStrings as $pathData) {
             $path = $document->createElement('path');
             $path->setAttribute('d', $pathData);
-            $path->setAttribute('fill', '#00ff00');
-            $path->setAttribute('fill-opacity', '0.14');
-            $path->setAttribute('stroke', '#00ff00');
-            $path->setAttribute('stroke-opacity', '0.95');
-            $path->setAttribute('stroke-width', $strokeWidth);
-            $path->setAttribute('stroke-linejoin', 'round');
-            $path->setAttribute('stroke-linecap', 'round');
+            $path->setAttribute('fill', '#ffffff');
+            $path->setAttribute('stroke', 'none');
             $svg->appendChild($path);
         }
 
@@ -566,11 +574,6 @@ class PublicDownloadListController extends AbstractController
         }
 
         return array_values(array_filter($matches[1] ?? [], static fn (string $pathData): bool => $pathData !== ''));
-    }
-
-    private function resolveClipPathDebugStrokeWidth(int $imageWidth, int $imageHeight): string
-    {
-        return (string) max(8, (int) round(max($imageWidth, $imageHeight) / 120));
     }
 
     private function estimateClipPathBoundingBoxArea(string $svgPathData): ?float
