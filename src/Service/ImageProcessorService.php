@@ -198,15 +198,19 @@ class ImageProcessorService
 
     private function applyLargestClipPathIfAvailable(\Imagick $image): void
     {
-        $svgPathData = $this->findLargestClipPathSvg($image);
-        if ($svgPathData === null) {
+        $pathData = $this->findLargestClipPathData($image);
+        if ($pathData === null) {
             return;
         }
 
         $mask = new \Imagick();
 
         try {
-            $maskSvg = $this->normalizeClipPathSvg($svgPathData);
+            $maskSvg = $this->buildClipPathMaskSvg(
+                $pathData,
+                $image->getImageWidth(),
+                $image->getImageHeight()
+            );
 
             $mask->setBackgroundColor(new \ImagickPixel('black'));
             $mask->readImageBlob($maskSvg);
@@ -228,9 +232,9 @@ class ImageProcessorService
         }
     }
 
-    private function findLargestClipPathSvg(\Imagick $image): ?string
+    private function findLargestClipPathData(\Imagick $image): ?string
     {
-        $bestPathSvg = null;
+        $bestPathData = null;
         $maxBoxArea = 0.0;
 
         for ($i = 0; $i <= 15; $i++) {
@@ -239,25 +243,35 @@ class ImageProcessorService
                 continue;
             }
 
-            $area = $this->estimateClipPathBoundingBoxArea($svgPathData);
+            $pathData = $this->extractClipPathData($svgPathData);
+            if ($pathData === null) {
+                continue;
+            }
+
+            $area = $this->estimateClipPathBoundingBoxArea($pathData);
             if ($area === null || $area <= $maxBoxArea) {
                 continue;
             }
 
             $maxBoxArea = $area;
-            $bestPathSvg = $svgPathData;
+            $bestPathData = $pathData;
         }
 
-        return $bestPathSvg;
+        return $bestPathData;
     }
 
-    private function estimateClipPathBoundingBoxArea(string $svgPathData): ?float
+    private function extractClipPathData(string $svgPathData): ?string
     {
         if (!preg_match('/d="([^"]+)"/', $svgPathData, $matches)) {
             return null;
         }
 
-        preg_match_all('/[-+]?[0-9]*\.?[0-9]+/', $matches[1], $coords);
+        return $matches[1];
+    }
+
+    private function estimateClipPathBoundingBoxArea(string $pathData): ?float
+    {
+        preg_match_all('/[-+]?[0-9]*\.?[0-9]+/', $pathData, $coords);
         $numbers = $coords[0] ?? [];
 
         if (count($numbers) < 4) {
@@ -293,11 +307,15 @@ class ImageProcessorService
         return ($maxX - $minX) * ($maxY - $minY);
     }
 
-    private function normalizeClipPathSvg(string $svgPathData): string
+    private function buildClipPathMaskSvg(string $pathData, int $width, int $height): string
     {
-        $svgPathData = preg_replace('/fill\s*:\s*#[0-9A-Fa-f]{3,6}/', 'fill:#FFFFFF', $svgPathData) ?? $svgPathData;
-        $svgPathData = preg_replace('/fill="[^"]*"/', 'fill="#FFFFFF"', $svgPathData) ?? $svgPathData;
+        $escapedPathData = \htmlspecialchars($pathData, \ENT_QUOTES | \ENT_XML1);
 
-        return $svgPathData;
+        return sprintf(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="%1$d" height="%2$d" viewBox="0 0 %1$d %2$d"><rect width="100%%" height="100%%" fill="#000000"/><path d="%3$s" fill="#FFFFFF" fill-rule="evenodd" stroke="none"/></svg>',
+            $width,
+            $height,
+            $escapedPathData
+        );
     }
 }

@@ -10,6 +10,8 @@ use Symfony\Component\Lock\LockFactory;
 
 final class PermalinkImageCacheService
 {
+    private const LARGEST_CLIP_PATH_CACHE_TOKEN = 'lcpv2';
+
     private readonly string $permalinkCacheDir;
 
     public function __construct(
@@ -89,7 +91,7 @@ final class PermalinkImageCacheService
 
     private function buildCachePath(int $assetId, int $width, int $height, int $padding, string $format, bool $useLargestClipPath): string
     {
-        $clipPathSegment = $useLargestClipPath ? '-lcp' : '';
+        $clipPathSegment = $useLargestClipPath ? '-' . self::LARGEST_CLIP_PATH_CACHE_TOKEN : '';
 
         return sprintf(
             '%s/%d/%dx%d-p%d%s-%s.%s',
@@ -113,7 +115,7 @@ final class PermalinkImageCacheService
             $height,
             $padding,
             $format,
-            $useLargestClipPath ? 'lcp' : 'standard',
+            $useLargestClipPath ? self::LARGEST_CLIP_PATH_CACHE_TOKEN : 'standard',
             $this->cacheVersion
         );
     }
