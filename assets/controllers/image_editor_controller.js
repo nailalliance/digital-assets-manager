@@ -1478,6 +1478,7 @@ export default class extends Controller {
         context.translate(metrics.contentLeft, metrics.contentTop);
         context.scale(metrics.scale, metrics.scale);
         this.drawBaseImage(context);
+        this.drawTextLayersToCanvas(context, { skipTextId: this.editingTextId });
         context.restore();
     }
 
@@ -1566,11 +1567,14 @@ export default class extends Controller {
         element.style.fontWeight = resolveTextFontWeight(textLayer, this.customFontFacesByKey, this.getAvailableFontFamilies());
         element.style.fontStyle = resolveTextFontStyle(textLayer, this.customFontFacesByKey, this.getAvailableFontFamilies());
         element.style.color = textLayer.color;
+        element.style.lineHeight = '1.2';
         element.style.textAlign = textLayer.textAlign;
         element.classList.toggle('is-selected', this.selectedTextId === textLayer.id);
         element.classList.toggle('is-editing', this.editingTextId === textLayer.id);
         if (contentElement) {
             contentElement.setAttribute('contenteditable', this.editingTextId === textLayer.id ? 'true' : 'false');
+            contentElement.style.opacity = this.editingTextId === textLayer.id ? '1' : '0';
+            contentElement.style.caretColor = textLayer.color;
 
             if (this.editingTextId !== textLayer.id && contentElement.innerText !== textLayer.text) {
                 contentElement.textContent = textLayer.text;
@@ -2104,8 +2108,12 @@ export default class extends Controller {
         };
     }
 
-    drawTextLayersToCanvas(context) {
+    drawTextLayersToCanvas(context, { skipTextId = null } = {}) {
         this.state.texts.forEach((textLayer) => {
+            if (skipTextId && textLayer.id === skipTextId) {
+                return;
+            }
+
             const x = textLayer.x * this.state.sourceBounds.width;
             const y = textLayer.y * this.state.sourceBounds.height;
             const width = Math.max(textLayer.width * this.state.sourceBounds.width, 1);
