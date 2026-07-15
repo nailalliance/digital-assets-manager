@@ -17,7 +17,10 @@ const HISTORY_LIMIT = 50;
 const MIN_IMAGE_SCALE = 0.2;
 const MAX_IMAGE_SCALE = 4;
 const IMAGE_SCALE_STEP = 0.12;
+const MIN_GEOMETRY_SIZE = 40;
 const DEFAULT_TEXT = 'Edit text';
+const CROP_SNAP_SCREEN_THRESHOLD = 14;
+const CROP_DRAW_MIN_SCREEN_DISTANCE = 6;
 const HANDLE_EDGE_SELECTORS = {
     left: '.image-editor-handle-tl, .image-editor-handle-bl',
     right: '.image-editor-handle-tr, .image-editor-handle-br',
@@ -99,6 +102,11 @@ export default class extends Controller {
         this.initialState = null;
         this.isPanningImage = false;
         this.imagePanStart = null;
+        this.isCreatingCrop = false;
+        this.cropCreationStart = null;
+        this.cropCreationMoved = false;
+        this.cropResizeAspectRatio = null;
+        this.isShiftKeyPressed = false;
         this.suppressNextWorkspaceClick = false;
         this.wheelCommitTimer = null;
         this.toolButtons = Array.from(this.element.querySelectorAll('[data-tool]'));
@@ -113,14 +121,18 @@ export default class extends Controller {
 
         this.boundHandleResize = this.handleResize.bind(this);
         this.boundHandleKeyDown = this.handleKeyDown.bind(this);
+        this.boundHandleKeyUp = this.handleKeyUp.bind(this);
         this.boundHandleImagePanMove = this.handleImagePanMove.bind(this);
         this.boundHandleImagePanEnd = this.handleImagePanEnd.bind(this);
+        this.boundHandleCropCreationMove = this.handleCropCreationMove.bind(this);
+        this.boundHandleCropCreationEnd = this.handleCropCreationEnd.bind(this);
         this.boundHandleWorkspaceMouseDown = this.handleWorkspaceMouseDown.bind(this);
         this.boundHandleWorkspaceClick = this.handleWorkspaceClick.bind(this);
         this.boundHandleWheel = this.handleWheel.bind(this);
 
         window.addEventListener('resize', this.boundHandleResize);
         document.addEventListener('keydown', this.boundHandleKeyDown);
+        document.addEventListener('keyup', this.boundHandleKeyUp);
         this.workspaceTarget.addEventListener('mousedown', this.boundHandleWorkspaceMouseDown);
         this.workspaceTarget.addEventListener('click', this.boundHandleWorkspaceClick);
         this.workspaceTarget.addEventListener('wheel', this.boundHandleWheel, { passive: false });
@@ -133,10 +145,12 @@ export default class extends Controller {
     disconnect() {
         window.removeEventListener('resize', this.boundHandleResize);
         document.removeEventListener('keydown', this.boundHandleKeyDown);
+        document.removeEventListener('keyup', this.boundHandleKeyUp);
         this.workspaceTarget.removeEventListener('mousedown', this.boundHandleWorkspaceMouseDown);
         this.workspaceTarget.removeEventListener('click', this.boundHandleWorkspaceClick);
         this.workspaceTarget.removeEventListener('wheel', this.boundHandleWheel);
         this.stopImagePan();
+        this.stopCropCreation();
         this.clearWheelCommitTimer();
         interact(this.imageBoxTarget).unset();
         interact(this.cropBoxTarget).unset();
@@ -204,12 +218,7 @@ export default class extends Controller {
                 width: this.image.naturalWidth,
                 height: this.image.naturalHeight,
             },
-            crop: {
-                x: 0,
-                y: 0,
-                width: 1,
-                height: 1,
-            },
+            crop: null,
             baseImage: {
                 scale: 1,
                 offsetX: 0,
@@ -236,7 +245,11 @@ export default class extends Controller {
 
         if (updateStatus) {
             if (this.activeTool === 'crop') {
-                this.setStatus('Drag or resize the crop frame to change the export area.');
+                this.setStatus(
+                    this.hasCropFrame()
+                        ? 'Drag or resize the crop frame to change the export area. Hold Shift while resizing to lock the aspect ratio.'
+                        : 'Click and drag on the canvas to draw a crop frame. Exporting without one uses the full image.'
+                );
             } else if (this.activeTool === 'text') {
                 this.setStatus('Click anywhere on the canvas to add a new text layer.');
             } else {
@@ -596,6 +609,21 @@ export default class extends Controller {
             return;
         }
 
+        if (this.activeTool === 'crop') {
+            this.selectText(null);
+
+            if (!this.hasCropFrame()) {
+                const sourcePoint = this.eventToSourcePoint(event);
+                if (!sourcePoint) {
+                    return;
+                }
+
+                this.beginCropCreation(sourcePoint);
+            }
+
+            return;
+        }
+
         if (this.activeTool !== 'select') {
             this.selectText(null);
             return;
@@ -681,6 +709,96 @@ export default class extends Controller {
         this.imagePanStart = null;
         document.removeEventListener('mousemove', this.boundHandleImagePanMove);
         document.removeEventListener('mouseup', this.boundHandleImagePanEnd);
+    }
+
+    beginCropCreation(sourcePoint) {
+        const sourceWidth = this.state.sourceBounds.width;
+        const sourceHeight = this.state.sourceBounds.height;
+
+        this.beginTransaction();
+        this.isCreatingCrop = true;
+        this.cropCreationStart = sourcePoint;
+        this.cropCreationMoved = false;
+        this.state.crop = {
+            x: sourcePoint.x / sourceWidth,
+            y: sourcePoint.y / sourceHeight,
+            width: 0,
+            height: 0,
+        };
+
+        document.addEventListener('mousemove', this.boundHandleCropCreationMove);
+        document.addEventListener('mouseup', this.boundHandleCropCreationEnd);
+        this.renderCropBox();
+        this.refreshInspector();
+        this.updateCropSummary();
+    }
+
+    handleCropCreationMove(event) {
+        if (!this.isCreatingCrop || !this.cropCreationStart) {
+            return;
+        }
+
+        const sourcePoint = this.clientToSourcePoint(event.clientX, event.clientY, { clampToSurface: true });
+        if (!sourcePoint) {
+            return;
+        }
+
+        this.cropCreationMoved = this.cropCreationMoved
+            || Math.abs(sourcePoint.x - this.cropCreationStart.x) > 0
+            || Math.abs(sourcePoint.y - this.cropCreationStart.y) > 0;
+
+        this.state.crop = this.buildCropStateFromSourceRect({
+            left: Math.min(this.cropCreationStart.x, sourcePoint.x),
+            top: Math.min(this.cropCreationStart.y, sourcePoint.y),
+            width: Math.abs(sourcePoint.x - this.cropCreationStart.x),
+            height: Math.abs(sourcePoint.y - this.cropCreationStart.y),
+        });
+
+        this.renderCropBox();
+        this.refreshInspector();
+        this.updateCropSummary();
+    }
+
+    handleCropCreationEnd(event) {
+        if (!this.isCreatingCrop || !this.cropCreationStart) {
+            return;
+        }
+
+        const sourcePoint = this.clientToSourcePoint(event.clientX, event.clientY, { clampToSurface: true }) ?? this.cropCreationStart;
+        const draftRect = {
+            left: Math.min(this.cropCreationStart.x, sourcePoint.x),
+            top: Math.min(this.cropCreationStart.y, sourcePoint.y),
+            width: Math.abs(sourcePoint.x - this.cropCreationStart.x),
+            height: Math.abs(sourcePoint.y - this.cropCreationStart.y),
+        };
+        const minimumSourceDistance = CROP_DRAW_MIN_SCREEN_DISTANCE / this.getSurfaceMetrics().scale;
+        const cropCreationMoved = this.cropCreationMoved;
+        const hasVisibleSize = Math.max(draftRect.width, draftRect.height) >= minimumSourceDistance;
+
+        this.stopCropCreation();
+
+        if (!cropCreationMoved || !hasVisibleSize) {
+            this.state.crop = null;
+            this.finishTransaction();
+            this.renderAll();
+            this.setStatus('Click and drag on the canvas to draw a crop frame.');
+            return;
+        }
+
+        this.state.crop = this.buildCropStateFromSourceRect(
+            this.normalizeCropSourceRect(draftRect, { snapMode: 'resize' })
+        );
+        this.finishTransaction();
+        this.suppressNextWorkspaceClick = true;
+        this.setStatus('Crop frame created.');
+    }
+
+    stopCropCreation() {
+        this.isCreatingCrop = false;
+        this.cropCreationStart = null;
+        this.cropCreationMoved = false;
+        document.removeEventListener('mousemove', this.boundHandleCropCreationMove);
+        document.removeEventListener('mouseup', this.boundHandleCropCreationEnd);
     }
 
     handleWheel(event) {
@@ -770,6 +888,10 @@ export default class extends Controller {
     }
 
     handleKeyDown(event) {
+        if (event.key === 'Shift') {
+            this.isShiftKeyPressed = true;
+        }
+
         const activeElement = document.activeElement;
         const isFormField = activeElement instanceof HTMLElement && (
             activeElement.isContentEditable ||
@@ -804,6 +926,18 @@ export default class extends Controller {
         if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectedTextId) {
             event.preventDefault();
             this.deleteSelectedText();
+            return;
+        }
+
+        if ((event.key === 'Delete' || event.key === 'Backspace') && this.isCropSelected()) {
+            event.preventDefault();
+            this.removeCropFrame();
+        }
+    }
+
+    handleKeyUp(event) {
+        if (event.key === 'Shift') {
+            this.isShiftKeyPressed = false;
         }
     }
 
@@ -813,7 +947,7 @@ export default class extends Controller {
                 ignoreFrom: '.image-editor-handle',
                 listeners: {
                     start: (event) => {
-                        if (this.activeTool !== 'crop') {
+                        if (this.activeTool !== 'crop' || !this.hasCropFrame()) {
                             event.interaction.stop();
                             return;
                         }
@@ -821,16 +955,22 @@ export default class extends Controller {
                         this.beginTransaction();
                     },
                     move: (event) => {
-                        if (this.activeTool !== 'crop') {
+                        if (this.activeTool !== 'crop' || !this.hasCropFrame()) {
                             return;
                         }
 
                         const metrics = this.getSurfaceMetrics();
-                        const deltaX = event.dx / metrics.scale / this.state.sourceBounds.width;
-                        const deltaY = event.dy / metrics.scale / this.state.sourceBounds.height;
-                        this.state.crop.x += deltaX;
-                        this.state.crop.y += deltaY;
-                        this.clampCrop();
+                        const currentRect = this.getCropSourceRect();
+                        const nextRect = this.applyCropMoveSnapping({
+                            left: currentRect.left + (event.dx / metrics.scale),
+                            top: currentRect.top + (event.dy / metrics.scale),
+                            width: currentRect.width,
+                            height: currentRect.height,
+                        }, metrics);
+
+                        this.state.crop = this.buildCropStateFromSourceRect(
+                            this.normalizeCropSourceRect(nextRect)
+                        );
                         this.renderCropBox();
                         this.refreshInspector();
                         this.updateCropSummary();
@@ -844,21 +984,23 @@ export default class extends Controller {
                 edges: HANDLE_EDGE_SELECTORS,
                 listeners: {
                     start: (event) => {
-                        if (this.activeTool !== 'crop') {
+                        if (this.activeTool !== 'crop' || !this.hasCropFrame()) {
                             event.interaction.stop();
                             return;
                         }
 
+                        const cropRect = this.getCropSourceRect();
+                        this.cropResizeAspectRatio = cropRect.width > 0 && cropRect.height > 0
+                            ? cropRect.width / cropRect.height
+                            : null;
                         this.beginTransaction();
                     },
                     move: (event) => {
-                        if (this.activeTool !== 'crop') {
+                        if (this.activeTool !== 'crop' || !this.hasCropFrame()) {
                             return;
                         }
 
                         const metrics = this.getSurfaceMetrics();
-                        const sourceWidth = this.state.sourceBounds.width;
-                        const sourceHeight = this.state.sourceBounds.height;
                         const currentRect = this.getCropPixelRect(metrics);
                         const nextRect = {
                             left: currentRect.left + event.deltaRect.left,
@@ -867,19 +1009,20 @@ export default class extends Controller {
                             height: currentRect.height + event.deltaRect.height,
                         };
 
-                        this.state.crop = {
-                            x: (nextRect.left - metrics.contentLeft) / metrics.scale / sourceWidth,
-                            y: (nextRect.top - metrics.contentTop) / metrics.scale / sourceHeight,
-                            width: nextRect.width / metrics.scale / sourceWidth,
-                            height: nextRect.height / metrics.scale / sourceHeight,
-                        };
-
-                        this.clampCrop();
+                        this.state.crop = this.buildCropStateFromSourceRect(
+                            this.applyCropResizeConstraints(
+                                this.pixelRectToSourceRect(nextRect, metrics),
+                                this.getCropSourceRect(),
+                                event.edges,
+                                metrics
+                            )
+                        );
                         this.renderCropBox();
                         this.refreshInspector();
                         this.updateCropSummary();
                     },
                     end: () => {
+                        this.cropResizeAspectRatio = null;
                         this.finishTransaction();
                     },
                 },
@@ -1146,6 +1289,13 @@ export default class extends Controller {
 
     renderCropBox() {
         const cropRect = this.getCropPixelRect();
+        if (!cropRect) {
+            this.cropBoxTarget.classList.add('hidden');
+            this.cropBoxTarget.classList.remove('is-inactive');
+            return;
+        }
+
+        this.cropBoxTarget.classList.remove('hidden');
         this.cropBoxTarget.style.left = `${cropRect.left}px`;
         this.cropBoxTarget.style.top = `${cropRect.top}px`;
         this.cropBoxTarget.style.width = `${cropRect.width}px`;
@@ -1214,15 +1364,18 @@ export default class extends Controller {
     }
 
     renderLayers() {
-        const totalLayers = this.state.texts.length + 2;
+        const totalLayers = this.state.texts.length + 1 + (this.hasCropFrame() ? 1 : 0);
         this.layerCountTarget.textContent = `${totalLayers} ${totalLayers === 1 ? 'layer' : 'layers'}`;
         this.layersListTarget.innerHTML = '';
 
         const layers = [
             ...this.state.texts.map((text, index) => ({ type: 'text', text, index })).reverse(),
-            { type: 'crop' },
             { type: 'image' },
         ];
+
+        if (this.hasCropFrame()) {
+            layers.splice(this.state.texts.length, 0, { type: 'crop' });
+        }
 
         layers.forEach((layer) => {
             this.layersListTarget.appendChild(this.buildLayerRow(layer));
@@ -1276,6 +1429,13 @@ export default class extends Controller {
                 this.createLayerAction('↑', 'Bring Forward', layer.index >= this.state.texts.length - 1, () => this.moveTextLayer(layer.text.id, 1)),
                 this.createLayerAction('↓', 'Send Backward', layer.index <= 0, () => this.moveTextLayer(layer.text.id, -1)),
                 this.createLayerAction('×', 'Delete Layer', false, () => this.deleteTextLayerById(layer.text.id))
+            );
+            row.appendChild(actions);
+        } else if (layer.type === 'crop') {
+            const actions = document.createElement('div');
+            actions.className = 'image-editor-layer-actions';
+            actions.append(
+                this.createLayerAction('×', 'Remove Crop Frame', false, () => this.removeCropFrame())
             );
             row.appendChild(actions);
         }
@@ -1351,6 +1511,18 @@ export default class extends Controller {
         this.setStatus(`Deleted ${truncateText(textLayer.text || 'text layer', 24)}.`);
     }
 
+    removeCropFrame() {
+        if (!this.hasCropFrame()) {
+            return;
+        }
+
+        const previousState = this.cloneState(this.state);
+        this.state.crop = null;
+        this.commitState(previousState);
+        this.renderAll(true);
+        this.setStatus('Crop frame removed. Exporting now uses the full image.');
+    }
+
     getLayerTitle(layer) {
         if (layer.type === 'image') {
             return 'Base image';
@@ -1369,15 +1541,22 @@ export default class extends Controller {
         }
 
         if (layer.type === 'crop') {
-            return `${Math.round(this.state.crop.width * 100)}% × ${Math.round(this.state.crop.height * 100)}% export area`;
+            const rect = this.getCropSourceRect();
+            return rect
+                ? `${Math.round((rect.width / this.state.sourceBounds.width) * 100)}% × ${Math.round((rect.height / this.state.sourceBounds.height) * 100)}% export area`
+                : 'No crop frame';
         }
 
         const fontSize = Math.round(layer.text.fontSize);
         return `${layer.text.fontFamily} • ${fontSize}px`;
     }
 
+    hasCropFrame() {
+        return Boolean(this.state?.crop);
+    }
+
     isCropSelected() {
-        return this.activeTool === 'crop' && !this.selectedTextId;
+        return this.activeTool === 'crop' && this.hasCropFrame() && !this.selectedTextId;
     }
 
     isBaseImageSelected() {
@@ -1386,6 +1565,13 @@ export default class extends Controller {
 
     getCropPixelDimensions() {
         const rect = this.getCropSourceRect();
+        if (!rect) {
+            return {
+                width: this.state.sourceBounds.width,
+                height: this.state.sourceBounds.height,
+            };
+        }
+
         return {
             width: Math.max(1, Math.round(rect.width)),
             height: Math.max(1, Math.round(rect.height)),
@@ -1401,6 +1587,10 @@ export default class extends Controller {
     }
 
     updateCropPositionFromPixels(dimension, nextPixels) {
+        if (!this.hasCropFrame()) {
+            return;
+        }
+
         if (dimension === 'x') {
             this.state.crop.x = this.displayToSourceX(nextPixels) / this.state.sourceBounds.width;
         } else {
@@ -1411,6 +1601,10 @@ export default class extends Controller {
     }
 
     updateCropDimensionFromPixels(dimension, nextPixels) {
+        if (!this.hasCropFrame()) {
+            return;
+        }
+
         if (dimension === 'width') {
             this.state.crop.width = nextPixels / this.state.sourceBounds.width;
         } else {
@@ -1446,6 +1640,9 @@ export default class extends Controller {
     getGeometryInspectorState() {
         if (this.isCropSelected()) {
             const rect = this.getCropSourceRect();
+            if (!rect) {
+                return null;
+            }
             const displayRect = this.getDisplayRectFromSourceRect(rect);
             const dimensions = this.getCropPixelDimensions();
             return {
@@ -1482,6 +1679,13 @@ export default class extends Controller {
             return {
                 title: 'Add a text layer',
                 message: 'Click anywhere on the canvas to add a new text layer, then select it to edit its properties.',
+            };
+        }
+
+        if (this.activeTool === 'crop' && !this.hasCropFrame()) {
+            return {
+                title: 'Draw a crop frame',
+                message: 'Click and drag anywhere on the canvas to create a crop frame. If you skip crop, exports use the full image.',
             };
         }
 
@@ -1546,7 +1750,7 @@ export default class extends Controller {
         }
 
         if (this.activeTool === 'crop') {
-            this.selectionSummaryTarget.textContent = 'Crop frame selected';
+            this.selectionSummaryTarget.textContent = this.hasCropFrame() ? 'Crop frame selected' : 'Crop tool active';
             return;
         }
 
@@ -1556,8 +1760,14 @@ export default class extends Controller {
     }
 
     updateCropSummary() {
-        const widthPercent = Math.round(this.state.crop.width * 100);
-        const heightPercent = Math.round(this.state.crop.height * 100);
+        if (!this.hasCropFrame()) {
+            this.cropSummaryTarget.textContent = 'Crop: none';
+            return;
+        }
+
+        const rect = this.getCropSourceRect();
+        const widthPercent = Math.round((rect.width / this.state.sourceBounds.width) * 100);
+        const heightPercent = Math.round((rect.height / this.state.sourceBounds.height) * 100);
         this.cropSummaryTarget.textContent = `Crop: ${widthPercent}% × ${heightPercent}%`;
     }
 
@@ -1647,7 +1857,7 @@ export default class extends Controller {
     }
 
     renderExportCanvas() {
-        const cropRect = this.getCropSourceRect();
+        const cropRect = this.getExportSourceRect();
         const exportCanvas = document.createElement('canvas');
         exportCanvas.width = Math.max(1, Math.round(cropRect.width));
         exportCanvas.height = Math.max(1, Math.round(cropRect.height));
@@ -1802,17 +2012,25 @@ export default class extends Controller {
     }
 
     eventToSourcePoint(event) {
-        const surfaceRect = this.surfaceTarget.getBoundingClientRect();
-        const relativeX = event.clientX - surfaceRect.left;
-        const relativeY = event.clientY - surfaceRect.top;
+        return this.clientToSourcePoint(event.clientX, event.clientY);
+    }
 
-        if (relativeX < 0 || relativeY < 0 || relativeX > surfaceRect.width || relativeY > surfaceRect.height) {
+    clientToSourcePoint(clientX, clientY, { clampToSurface = false } = {}) {
+        const metrics = this.getSurfaceMetrics();
+        const surfaceRect = this.surfaceTarget.getBoundingClientRect();
+        let relativeX = clientX - surfaceRect.left;
+        let relativeY = clientY - surfaceRect.top;
+
+        if (clampToSurface) {
+            relativeX = clamp(relativeX, 0, surfaceRect.width);
+            relativeY = clamp(relativeY, 0, surfaceRect.height);
+        } else if (relativeX < 0 || relativeY < 0 || relativeX > surfaceRect.width || relativeY > surfaceRect.height) {
             return null;
         }
 
         return {
-            x: (relativeX - this.surfaceMetrics.contentLeft) / this.surfaceMetrics.scale,
-            y: (relativeY - this.surfaceMetrics.contentTop) / this.surfaceMetrics.scale,
+            x: (relativeX - metrics.contentLeft) / metrics.scale,
+            y: (relativeY - metrics.contentTop) / metrics.scale,
         };
     }
 
@@ -1821,25 +2039,41 @@ export default class extends Controller {
     }
 
     clampCrop() {
+        if (!this.hasCropFrame()) {
+            return;
+        }
+
+        this.state.crop = this.buildCropStateFromSourceRect(
+            this.normalizeCropSourceRect(this.getCropSourceRect())
+        );
+    }
+
+    normalizeCropSourceRect(rect, { metrics = this.getSurfaceMetrics(), minimumSize = MIN_GEOMETRY_SIZE, snapMode = 'none' } = {}) {
         const sourceWidth = this.state.sourceBounds.width;
         const sourceHeight = this.state.sourceBounds.height;
-        const workspaceBounds = this.getWorkspaceBoundsInSourceSpace();
-        const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, 40);
-        const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, 40);
-        let width = this.state.crop.width * sourceWidth;
-        let height = this.state.crop.height * sourceHeight;
-        let left = this.state.crop.x * sourceWidth;
-        let top = this.state.crop.y * sourceHeight;
+        const workspaceBounds = this.getWorkspaceBoundsInSourceSpace(metrics);
+        const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, minimumSize);
+        const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, minimumSize);
+        let width = rect.width;
+        let height = rect.height;
+        let left = rect.left;
+        let top = rect.top;
 
-        width = clamp(width, 40, maxWidth);
-        height = clamp(height, 40, maxHeight);
+        if (snapMode === 'move') {
+            ({ left, top, width, height } = this.applyCropMoveSnapping({ left, top, width, height }, metrics));
+        }
+
+        width = clamp(width, minimumSize, maxWidth);
+        height = clamp(height, minimumSize, maxHeight);
         left = clamp(left, workspaceBounds.left, workspaceBounds.right - width);
         top = clamp(top, workspaceBounds.top, workspaceBounds.bottom - height);
 
-        this.state.crop.width = width / sourceWidth;
-        this.state.crop.height = height / sourceHeight;
-        this.state.crop.x = left / sourceWidth;
-        this.state.crop.y = top / sourceHeight;
+        return {
+            left,
+            top,
+            width: Math.min(width, sourceWidth * 4),
+            height: Math.min(height, sourceHeight * 4),
+        };
     }
 
     clampText(text) {
@@ -1943,6 +2177,10 @@ export default class extends Controller {
     }
 
     getCropPixelRect(metrics = this.getSurfaceMetrics()) {
+        if (!this.hasCropFrame()) {
+            return null;
+        }
+
         return {
             left: metrics.contentLeft + (this.state.crop.x * this.state.sourceBounds.width * metrics.scale),
             top: metrics.contentTop + (this.state.crop.y * this.state.sourceBounds.height * metrics.scale),
@@ -1996,6 +2234,10 @@ export default class extends Controller {
     }
 
     getCropSourceRect() {
+        if (!this.hasCropFrame()) {
+            return null;
+        }
+
         return {
             left: this.state.crop.x * this.state.sourceBounds.width,
             top: this.state.crop.y * this.state.sourceBounds.height,
@@ -2004,8 +2246,17 @@ export default class extends Controller {
         };
     }
 
+    getExportSourceRect() {
+        return this.getCropSourceRect() ?? {
+            left: 0,
+            top: 0,
+            width: this.state.sourceBounds.width,
+            height: this.state.sourceBounds.height,
+        };
+    }
+
     getCropCenterPoint() {
-        const cropRect = this.getCropSourceRect();
+        const cropRect = this.getExportSourceRect();
         return {
             x: cropRect.left + (cropRect.width / 2),
             y: cropRect.top + (cropRect.height / 2),
@@ -2033,7 +2284,7 @@ export default class extends Controller {
             throw new Error('Only version 1 editor scripts can be applied.');
         }
 
-        if (!parsedScript.crop || !parsedScript.baseImage || !Array.isArray(parsedScript.texts)) {
+        if (!parsedScript.baseImage || !Array.isArray(parsedScript.texts)) {
             throw new Error('The script is missing one or more required fields.');
         }
 
@@ -2047,12 +2298,14 @@ export default class extends Controller {
                 width: this.state.sourceBounds.width,
                 height: this.state.sourceBounds.height,
             },
-            crop: {
-                x: Number(parsedScript.crop.x),
-                y: Number(parsedScript.crop.y),
-                width: Number(parsedScript.crop.width),
-                height: Number(parsedScript.crop.height),
-            },
+            crop: parsedScript.crop && typeof parsedScript.crop === 'object'
+                ? {
+                    x: Number(parsedScript.crop.x),
+                    y: Number(parsedScript.crop.y),
+                    width: Number(parsedScript.crop.width),
+                    height: Number(parsedScript.crop.height),
+                }
+                : null,
             baseImage: {
                 scale: clamp(Number(parsedScript.baseImage.scale), MIN_IMAGE_SCALE, MAX_IMAGE_SCALE),
                 offsetX: Number(parsedScript.baseImage.offsetX),
@@ -2074,7 +2327,12 @@ export default class extends Controller {
             })),
         };
 
-        if (!Number.isFinite(nextState.crop.x) || !Number.isFinite(nextState.crop.y) || !Number.isFinite(nextState.crop.width) || !Number.isFinite(nextState.crop.height)) {
+        if (nextState.crop && (
+            !Number.isFinite(nextState.crop.x)
+            || !Number.isFinite(nextState.crop.y)
+            || !Number.isFinite(nextState.crop.width)
+            || !Number.isFinite(nextState.crop.height)
+        )) {
             throw new Error('The script crop values are invalid.');
         }
 
@@ -2089,31 +2347,33 @@ export default class extends Controller {
         const workspaceBounds = this.getWorkspaceBoundsInSourceSpace(metrics);
         const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, 40);
         const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, 40);
-        let cropWidth = Number.isFinite(state.crop.width) ? state.crop.width * sourceWidth : sourceWidth;
-        let cropHeight = Number.isFinite(state.crop.height) ? state.crop.height * sourceHeight : sourceHeight;
-        let cropLeft = Number.isFinite(state.crop.x) ? state.crop.x * sourceWidth : 0;
-        let cropTop = Number.isFinite(state.crop.y) ? state.crop.y * sourceHeight : 0;
+        if (state.crop) {
+            let cropWidth = Number.isFinite(state.crop.width) ? state.crop.width * sourceWidth : sourceWidth;
+            let cropHeight = Number.isFinite(state.crop.height) ? state.crop.height * sourceHeight : sourceHeight;
+            let cropLeft = Number.isFinite(state.crop.x) ? state.crop.x * sourceWidth : 0;
+            let cropTop = Number.isFinite(state.crop.y) ? state.crop.y * sourceHeight : 0;
 
-        cropWidth = clamp(cropWidth, 40, maxWidth);
-        cropHeight = clamp(cropHeight, 40, maxHeight);
-        cropLeft = clamp(cropLeft, workspaceBounds.left, workspaceBounds.right - cropWidth);
-        cropTop = clamp(cropTop, workspaceBounds.top, workspaceBounds.bottom - cropHeight);
+            cropWidth = clamp(cropWidth, MIN_GEOMETRY_SIZE, maxWidth);
+            cropHeight = clamp(cropHeight, MIN_GEOMETRY_SIZE, maxHeight);
+            cropLeft = clamp(cropLeft, workspaceBounds.left, workspaceBounds.right - cropWidth);
+            cropTop = clamp(cropTop, workspaceBounds.top, workspaceBounds.bottom - cropHeight);
 
-        state.crop.width = cropWidth / sourceWidth;
-        state.crop.height = cropHeight / sourceHeight;
-        state.crop.x = cropLeft / sourceWidth;
-        state.crop.y = cropTop / sourceHeight;
+            state.crop.width = cropWidth / sourceWidth;
+            state.crop.height = cropHeight / sourceHeight;
+            state.crop.x = cropLeft / sourceWidth;
+            state.crop.y = cropTop / sourceHeight;
+        }
         state.baseImage.scale = clamp(state.baseImage.scale, MIN_IMAGE_SCALE, MAX_IMAGE_SCALE);
         state.baseImage.offsetX = Number.isFinite(state.baseImage.offsetX) ? state.baseImage.offsetX : 0;
         state.baseImage.offsetY = Number.isFinite(state.baseImage.offsetY) ? state.baseImage.offsetY : 0;
         state.texts.forEach((text) => {
-            let width = Number.isFinite(text.width) ? text.width * sourceWidth : 40;
-            let height = Number.isFinite(text.height) ? text.height * sourceHeight : 40;
+            let width = Number.isFinite(text.width) ? text.width * sourceWidth : MIN_GEOMETRY_SIZE;
+            let height = Number.isFinite(text.height) ? text.height * sourceHeight : MIN_GEOMETRY_SIZE;
             let left = Number.isFinite(text.x) ? text.x * sourceWidth : 0;
             let top = Number.isFinite(text.y) ? text.y * sourceHeight : 0;
 
-            width = clamp(width, 40, maxWidth);
-            height = clamp(height, 40, maxHeight);
+            width = clamp(width, MIN_GEOMETRY_SIZE, maxWidth);
+            height = clamp(height, MIN_GEOMETRY_SIZE, maxHeight);
             left = clamp(left, workspaceBounds.left, workspaceBounds.right - width);
             top = clamp(top, workspaceBounds.top, workspaceBounds.bottom - height);
 
@@ -2122,6 +2382,105 @@ export default class extends Controller {
             text.x = left / sourceWidth;
             text.y = top / sourceHeight;
         });
+    }
+
+    pixelRectToSourceRect(rect, metrics = this.getSurfaceMetrics()) {
+        return {
+            left: (rect.left - metrics.contentLeft) / metrics.scale,
+            top: (rect.top - metrics.contentTop) / metrics.scale,
+            width: rect.width / metrics.scale,
+            height: rect.height / metrics.scale,
+        };
+    }
+
+    buildCropStateFromSourceRect(rect) {
+        return {
+            x: rect.left / this.state.sourceBounds.width,
+            y: rect.top / this.state.sourceBounds.height,
+            width: rect.width / this.state.sourceBounds.width,
+            height: rect.height / this.state.sourceBounds.height,
+        };
+    }
+
+    applyCropMoveSnapping(rect, metrics = this.getSurfaceMetrics()) {
+        const baseImageRect = this.getBaseImageSourceRect();
+        const threshold = CROP_SNAP_SCREEN_THRESHOLD / metrics.scale;
+        const rectRight = rect.left + rect.width;
+        const rectBottom = rect.top + rect.height;
+        const baseRight = baseImageRect.left + baseImageRect.width;
+        const baseBottom = baseImageRect.top + baseImageRect.height;
+        const horizontalOffsets = [];
+        const verticalOffsets = [];
+
+        if (Math.abs(rect.left - baseImageRect.left) <= threshold) {
+            horizontalOffsets.push(baseImageRect.left - rect.left);
+        }
+        if (Math.abs(rectRight - baseRight) <= threshold) {
+            horizontalOffsets.push(baseRight - rectRight);
+        }
+        if (Math.abs(rect.top - baseImageRect.top) <= threshold) {
+            verticalOffsets.push(baseImageRect.top - rect.top);
+        }
+        if (Math.abs(rectBottom - baseBottom) <= threshold) {
+            verticalOffsets.push(baseBottom - rectBottom);
+        }
+
+        const horizontalOffset = pickClosestOffset(horizontalOffsets);
+        const verticalOffset = pickClosestOffset(verticalOffsets);
+
+        return {
+            left: rect.left + horizontalOffset,
+            top: rect.top + verticalOffset,
+            width: rect.width,
+            height: rect.height,
+        };
+    }
+
+    applyCropResizeConstraints(nextRect, currentRect, edges, metrics = this.getSurfaceMetrics()) {
+        const baseImageRect = this.getBaseImageSourceRect();
+        const threshold = CROP_SNAP_SCREEN_THRESHOLD / metrics.scale;
+        const anchorX = edges.left ? currentRect.left + currentRect.width : currentRect.left;
+        const anchorY = edges.top ? currentRect.top + currentRect.height : currentRect.top;
+        let left = edges.left ? nextRect.left : currentRect.left;
+        let top = edges.top ? nextRect.top : currentRect.top;
+        let right = edges.right ? nextRect.left + nextRect.width : currentRect.left + currentRect.width;
+        let bottom = edges.bottom ? nextRect.top + nextRect.height : currentRect.top + currentRect.height;
+
+        if (this.isShiftKeyPressed && this.cropResizeAspectRatio) {
+            let width = Math.max(MIN_GEOMETRY_SIZE, Math.abs(right - anchorX));
+            let height = Math.max(MIN_GEOMETRY_SIZE, Math.abs(bottom - anchorY));
+
+            if ((width / height) > this.cropResizeAspectRatio) {
+                height = width / this.cropResizeAspectRatio;
+            } else {
+                width = height * this.cropResizeAspectRatio;
+            }
+
+            left = edges.left ? anchorX - width : anchorX;
+            right = edges.left ? anchorX : anchorX + width;
+            top = edges.top ? anchorY - height : anchorY;
+            bottom = edges.top ? anchorY : anchorY + height;
+        }
+
+        if (edges.left && Math.abs(left - baseImageRect.left) <= threshold) {
+            left = baseImageRect.left;
+        }
+        if (edges.right && Math.abs(right - (baseImageRect.left + baseImageRect.width)) <= threshold) {
+            right = baseImageRect.left + baseImageRect.width;
+        }
+        if (edges.top && Math.abs(top - baseImageRect.top) <= threshold) {
+            top = baseImageRect.top;
+        }
+        if (edges.bottom && Math.abs(bottom - (baseImageRect.top + baseImageRect.height)) <= threshold) {
+            bottom = baseImageRect.top + baseImageRect.height;
+        }
+
+        return this.normalizeCropSourceRect({
+            left: Math.min(left, right),
+            top: Math.min(top, bottom),
+            width: Math.abs(right - left),
+            height: Math.abs(bottom - top),
+        }, { metrics });
     }
 
     getOutputMimeType() {

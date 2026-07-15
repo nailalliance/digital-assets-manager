@@ -105,4 +105,73 @@ class CanvasEditorScriptRendererTest extends TestCase
             $filesystem->remove($projectDir);
         }
     }
+
+    public function testParseScriptAllowsNullCrop(): void
+    {
+        $renderer = $this->createRenderer();
+
+        $parsedScript = $renderer->parseScript(json_encode([
+            'version' => 1,
+            'sourceBounds' => [
+                'width' => 4160,
+                'height' => 6240,
+            ],
+            'crop' => null,
+            'baseImage' => [
+                'scale' => 1,
+                'offsetX' => 0,
+                'offsetY' => 0,
+            ],
+            'texts' => [],
+        ], \JSON_THROW_ON_ERROR));
+
+        $this->assertArrayHasKey('crop', $parsedScript);
+        $this->assertNull($parsedScript['crop']);
+    }
+
+    public function testBuildRenderableStateUsesFullSourceBoundsWhenCropIsMissing(): void
+    {
+        $renderer = $this->createRenderer();
+        $buildRenderableState = \Closure::bind(
+            function (array $parsedScript, int $sourceWidth, int $sourceHeight): array {
+                return $this->buildRenderableState($parsedScript, $sourceWidth, $sourceHeight);
+            },
+            $renderer,
+            CanvasEditorScriptRenderer::class
+        );
+
+        $normalizedState = $buildRenderableState([
+            'version' => 1,
+            'sourceBounds' => [
+                'width' => 4160,
+                'height' => 6240,
+            ],
+            'crop' => null,
+            'baseImage' => [
+                'scale' => 1,
+                'offsetX' => 0,
+                'offsetY' => 0,
+            ],
+            'texts' => [],
+        ], 4160, 6240);
+
+        $this->assertSame([
+            'left' => 0.0,
+            'top' => 0.0,
+            'width' => 4160.0,
+            'height' => 6240.0,
+        ], $normalizedState['crop']);
+    }
+
+    private function createRenderer(): CanvasEditorScriptRenderer
+    {
+        $filesystem = $this->createMock(Filesystem::class);
+        $parameterBag = $this->createMock(ParameterBagInterface::class);
+        $parameterBag
+            ->method('get')
+            ->with('kernel.project_dir')
+            ->willReturn('/project');
+
+        return new CanvasEditorScriptRenderer($filesystem, $parameterBag);
+    }
 }

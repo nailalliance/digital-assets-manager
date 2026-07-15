@@ -66,12 +66,15 @@ final class CanvasEditorScriptRenderer
         }
 
         if (
-            !isset($parsedScript['crop'], $parsedScript['baseImage'], $parsedScript['texts'])
-            || !is_array($parsedScript['crop'])
+            !isset($parsedScript['baseImage'], $parsedScript['texts'])
             || !is_array($parsedScript['baseImage'])
             || !is_array($parsedScript['texts'])
         ) {
             throw new \InvalidArgumentException('The script is missing one or more required fields.');
+        }
+
+        if (array_key_exists('crop', $parsedScript) && $parsedScript['crop'] !== null && !is_array($parsedScript['crop'])) {
+            throw new \InvalidArgumentException('The script crop values are invalid.');
         }
 
         return $parsedScript;
@@ -249,17 +252,31 @@ final class CanvasEditorScriptRenderer
             ? $sourceHeight / $scriptSourceHeight
             : 1.0;
 
-        $cropX = $this->toFiniteFloat($parsedScript['crop']['x'] ?? null);
-        $cropY = $this->toFiniteFloat($parsedScript['crop']['y'] ?? null);
-        $cropWidth = $this->toFiniteFloat($parsedScript['crop']['width'] ?? null);
-        $cropHeight = $this->toFiniteFloat($parsedScript['crop']['height'] ?? null);
+        $cropLeft = 0.0;
+        $cropTop = 0.0;
+        $cropPixelWidth = (float) $sourceWidth;
+        $cropPixelHeight = (float) $sourceHeight;
+        $rawCrop = $parsedScript['crop'] ?? null;
 
-        if ($cropX === null || $cropY === null || $cropWidth === null || $cropHeight === null) {
-            throw new \InvalidArgumentException('The script crop values are invalid.');
+        if (is_array($rawCrop)) {
+            $cropX = $this->toFiniteFloat($rawCrop['x'] ?? null);
+            $cropY = $this->toFiniteFloat($rawCrop['y'] ?? null);
+            $cropWidth = $this->toFiniteFloat($rawCrop['width'] ?? null);
+            $cropHeight = $this->toFiniteFloat($rawCrop['height'] ?? null);
+
+            if ($cropX === null || $cropY === null || $cropWidth === null || $cropHeight === null) {
+                throw new \InvalidArgumentException('The script crop values are invalid.');
+            }
+
+            $cropLeft = $cropX * $sourceWidth;
+            $cropTop = $cropY * $sourceHeight;
+            $cropPixelWidth = max($cropWidth * $sourceWidth, self::MIN_GEOMETRY_SIZE);
+            $cropPixelHeight = max($cropHeight * $sourceHeight, self::MIN_GEOMETRY_SIZE);
         }
 
-        $cropPixelWidth = min(max($cropWidth * $sourceWidth, self::MIN_GEOMETRY_SIZE), self::MAX_OUTPUT_DIMENSION);
-        $cropPixelHeight = min(max($cropHeight * $sourceHeight, self::MIN_GEOMETRY_SIZE), self::MAX_OUTPUT_DIMENSION);
+        if ($cropPixelWidth > self::MAX_OUTPUT_DIMENSION || $cropPixelHeight > self::MAX_OUTPUT_DIMENSION) {
+            throw new \InvalidArgumentException('The script crop area is too large to render safely.');
+        }
 
         if (($cropPixelWidth * $cropPixelHeight) > self::MAX_OUTPUT_PIXELS) {
             throw new \InvalidArgumentException('The script crop area is too large to render safely.');
@@ -297,8 +314,8 @@ final class CanvasEditorScriptRenderer
 
         return [
             'crop' => [
-                'left' => $cropX * $sourceWidth,
-                'top' => $cropY * $sourceHeight,
+                'left' => $cropLeft,
+                'top' => $cropTop,
                 'width' => $cropPixelWidth,
                 'height' => $cropPixelHeight,
             ],
