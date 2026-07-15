@@ -218,7 +218,7 @@ class ImageProcessorService
         $mask = new \Imagick();
 
         try {
-            $maskSvg = str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
+            $maskSvg = $this->buildMaskSvgFromOriginalBlob($svgPathData);
             $mask->setBackgroundColor(new \ImagickPixel('black'));
             $mask->readImageBlob($maskSvg);
             $mask->setImageMatte(false);
@@ -267,6 +267,76 @@ class ImageProcessorService
         $bounds = $this->extractClipPathBounds($pathData);
 
         return $bounds['area'] ?? null;
+    }
+
+    private function buildMaskSvgFromOriginalBlob(string $svgPathData): string
+    {
+        $document = new \DOMDocument();
+        if (@$document->loadXML($svgPathData) === false) {
+            return str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
+        }
+
+        $svg = $document->documentElement;
+        if (!$svg instanceof \DOMElement) {
+            return str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
+        }
+
+        $xpath = new \DOMXPath($document);
+        /** @var \DOMNodeList<\DOMElement> $elements */
+        $elements = $xpath->query('//*');
+        if ($elements === false) {
+            return str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
+        }
+
+        $elementsToRemove = [];
+        foreach ($elements as $element) {
+            if ($element->tagName === 'rect') {
+                $elementsToRemove[] = $element;
+                continue;
+            }
+
+            if ($element->tagName === 'svg') {
+                continue;
+            }
+
+            $this->normalizeSvgElementForMask($element);
+        }
+
+        foreach ($elementsToRemove as $elementToRemove) {
+            $elementToRemove->parentNode?->removeChild($elementToRemove);
+        }
+
+        $backgroundRect = $document->createElement('rect');
+        $backgroundRect->setAttribute('width', '100%');
+        $backgroundRect->setAttribute('height', '100%');
+        $backgroundRect->setAttribute('fill', '#000000');
+
+        if ($svg->firstChild !== null) {
+            $svg->insertBefore($backgroundRect, $svg->firstChild);
+        } else {
+            $svg->appendChild($backgroundRect);
+        }
+
+        return $document->saveXML($svg) ?: str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
+    }
+
+    private function normalizeSvgElementForMask(\DOMElement $element): void
+    {
+        if ($element->hasAttribute('fill')) {
+            $element->setAttribute('fill', '#FFFFFF');
+        } else {
+            $element->setAttribute('fill', '#FFFFFF');
+        }
+
+        if ($element->hasAttribute('style')) {
+            $style = preg_replace('/fill\s*:\s*[^;"]+/i', 'fill:#FFFFFF', $element->getAttribute('style')) ?? $element->getAttribute('style');
+            if (!preg_match('/fill\s*:/i', $style)) {
+                $style = rtrim($style, ';');
+                $style .= ($style === '' ? '' : ';') . 'fill:#FFFFFF';
+            }
+
+            $element->setAttribute('style', $style);
+        }
     }
 
     private function resolveCanvasBackgroundColor(?string $legendText, bool $useLargestClipPath): string

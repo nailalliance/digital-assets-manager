@@ -26,7 +26,7 @@ class ImageProcessorServiceTest extends TestCase
 
         $image->setImageProperty(
             '8BIM:1999,2998:#0',
-            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><path d="M 50 50 L 150 50 L 150 150 L 50 150 Z" style="fill:#000000;stroke:none"/></svg>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#000000"/><path d="M 50 50 L 150 50 L 150 150 L 50 150 Z" style="fill:#000000;stroke:none"/></svg>'
         );
 
         $method = new \ReflectionMethod(ImageProcessorService::class, 'applyLargestClipPathIfAvailable');
