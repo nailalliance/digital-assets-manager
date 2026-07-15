@@ -39,6 +39,7 @@ final class CanvasEditorScriptRenderer
     public function __construct(
         private readonly Filesystem $filesystem,
         ParameterBagInterface $parameterBag,
+        private readonly ?EditorFontCatalog $editorFontCatalog = null,
     ) {
         $this->projectDir = rtrim((string) $parameterBag->get('kernel.project_dir'), '/');
     }
@@ -495,6 +496,10 @@ final class CanvasEditorScriptRenderer
 
     private function normalizeFont(?string $fontFamily): string
     {
+        if ($this->editorFontCatalog !== null) {
+            return $this->editorFontCatalog->normalizeFontFamily($fontFamily);
+        }
+
         return in_array($fontFamily, self::SUPPORTED_FONTS, true) ? $fontFamily : self::SUPPORTED_FONTS[0];
     }
 
@@ -512,6 +517,11 @@ final class CanvasEditorScriptRenderer
 
     private function resolveFontReference(string $fontFamily, string $fontWeight, string $fontStyle): string
     {
+        $customFontReference = $this->editorFontCatalog?->resolveFontFile($fontFamily, $fontWeight, $fontStyle);
+        if (is_string($customFontReference) && $customFontReference !== '' && $this->filesystem->exists($customFontReference)) {
+            return $customFontReference;
+        }
+
         $candidates = match ($fontFamily) {
             'Arial' => $this->fontCandidatesFromVariantMap([
                 'normal|normal' => [
@@ -579,17 +589,12 @@ final class CanvasEditorScriptRenderer
             default => [],
         };
 
-        $fallbackCandidates = [
-            $this->projectDir . '/public/standard_fonts/' . match ([$fontWeight, $fontStyle]) {
-                ['bold', 'italic'] => 'LiberationSans-BoldItalic.ttf',
-                ['bold', 'normal'] => 'LiberationSans-Bold.ttf',
-                ['normal', 'italic'] => 'LiberationSans-Italic.ttf',
-                default => 'LiberationSans-Regular.ttf',
-            },
-            $this->projectDir . '/public/standard_fonts/LiberationSans-Regular.ttf',
-        ];
-
-        foreach (array_merge($candidates, $fallbackCandidates, [$fontFamily]) as $candidate) {
+        foreach (array_merge(
+            $candidates,
+            $this->resolveBundledFontFallbackCandidates($fontFamily, $fontWeight, $fontStyle),
+            $this->resolveGenericFontCandidates($fontFamily),
+            [$fontFamily]
+        ) as $candidate) {
             if (!is_string($candidate) || $candidate === '') {
                 continue;
             }
@@ -600,6 +605,49 @@ final class CanvasEditorScriptRenderer
         }
 
         return $fontFamily;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveBundledFontFallbackCandidates(string $fontFamily, string $fontWeight, string $fontStyle): array
+    {
+        $fontDirectory = $this->projectDir . '/public/standard_fonts';
+
+        return match ($fontFamily) {
+            'Courier New' => $this->fontCandidatesFromVariantMap([
+                'normal|normal' => [$fontDirectory . '/FoxitFixed.pfb'],
+                'bold|normal' => [$fontDirectory . '/FoxitFixedBold.pfb'],
+                'normal|italic' => [$fontDirectory . '/FoxitFixedItalic.pfb'],
+                'bold|italic' => [$fontDirectory . '/FoxitFixedBoldItalic.pfb'],
+            ], $fontWeight, $fontStyle),
+            'Georgia', 'Times New Roman' => $this->fontCandidatesFromVariantMap([
+                'normal|normal' => [$fontDirectory . '/FoxitSerif.pfb'],
+                'bold|normal' => [$fontDirectory . '/FoxitSerifBold.pfb'],
+                'normal|italic' => [$fontDirectory . '/FoxitSerifItalic.pfb'],
+                'bold|italic' => [$fontDirectory . '/FoxitSerifBoldItalic.pfb'],
+            ], $fontWeight, $fontStyle),
+            default => $this->fontCandidatesFromVariantMap([
+                'normal|normal' => [$fontDirectory . '/LiberationSans-Regular.ttf'],
+                'bold|normal' => [$fontDirectory . '/LiberationSans-Bold.ttf'],
+                'normal|italic' => [$fontDirectory . '/LiberationSans-Italic.ttf'],
+                'bold|italic' => [$fontDirectory . '/LiberationSans-BoldItalic.ttf'],
+            ], $fontWeight, $fontStyle),
+        };
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveGenericFontCandidates(string $fontFamily): array
+    {
+        return match ($fontFamily) {
+            'Courier New' => ['Courier', 'monospace'],
+            'Georgia', 'Times New Roman' => ['Times-Roman', 'Times', 'serif'],
+            'Impact' => ['Impact', 'Arial Black', 'sans-serif'],
+            'Helvetica' => ['Helvetica', 'Arial', 'sans-serif'],
+            default => ['Arial', 'Helvetica', 'sans-serif'],
+        };
     }
 
     /**

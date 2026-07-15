@@ -4,6 +4,7 @@ namespace App\Tests\Controller;
 
 use App\Controller\AssetController;
 use App\Entity\Assets\Assets;
+use App\Service\EditorFontCatalog;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -46,7 +47,10 @@ class AssetControllerTest extends KernelTestCase
     public function testEditorRendersForSupportedImages(): void
     {
         $controller = $this->createController();
-        $response = $controller->editor($this->createAsset(91, 'image/webp'));
+        $response = $controller->editor(
+            $this->createAsset(91, 'image/webp'),
+            static::getContainer()->get(EditorFontCatalog::class)
+        );
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertStringContainsString('data-controller="image-editor"', $response->getContent());
@@ -60,7 +64,10 @@ class AssetControllerTest extends KernelTestCase
         $request->setSession(new Session(new MockArraySessionStorage()));
         static::getContainer()->get('request_stack')->push($request);
 
-        $response = $controller->editor($this->createAsset(105, 'application/pdf'));
+        $response = $controller->editor(
+            $this->createAsset(105, 'application/pdf'),
+            static::getContainer()->get(EditorFontCatalog::class)
+        );
 
         $this->assertSame(302, $response->getStatusCode());
         $this->assertSame('/assets/105', $response->headers->get('Location'));

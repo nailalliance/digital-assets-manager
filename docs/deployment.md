@@ -40,6 +40,14 @@ Tus upload changes are especially sensitive to stale bundles because the client
 must send the exact headers expected by the stateless upload firewall. If upload
 behavior changes, always rebuild `public/build/` before deploy.
 
+## Canvas editor fonts
+
+Canvas editor fonts are discovered at runtime from `assets/fonts/`. Adding or
+removing only `.ttf` or `.otf` files there does not require a Webpack rebuild,
+but those files do need to be deployed with the rest of the application.
+
+See `docs/editor_fonts.md` for naming and setup instructions.
+
 ## Direct share cleanup
 
 Multi-file direct shares now keep a short-lived upload session while files are

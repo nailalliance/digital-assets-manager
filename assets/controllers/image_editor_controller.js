@@ -81,6 +81,7 @@ export default class extends Controller {
         imageUrl: String,
         assetName: String,
         mimeType: String,
+        customFonts: Array,
     };
 
     connect() {
@@ -101,6 +102,14 @@ export default class extends Controller {
         this.suppressNextWorkspaceClick = false;
         this.wheelCommitTimer = null;
         this.toolButtons = Array.from(this.element.querySelectorAll('[data-tool]'));
+        this.availableFontFamilies = this.readAvailableFontFamilies();
+        this.customFontFaces = this.hasCustomFontsValue ? normalizeCustomFonts(this.customFontsValue) : [];
+        this.customFontLoadPromise = this.loadCustomFonts()
+            .finally(() => {
+                if (this.state) {
+                    this.renderAll(true);
+                }
+            });
 
         this.boundHandleResize = this.handleResize.bind(this);
         this.boundHandleKeyDown = this.handleKeyDown.bind(this);
@@ -152,6 +161,40 @@ export default class extends Controller {
             this.setStatus('The image could not be loaded into the editor.', 'error');
         };
         image.src = this.imageUrlValue;
+    }
+
+    readAvailableFontFamilies() {
+        return Array.from(this.fontFamilySelectTarget.options)
+            .map((option) => option.value.trim())
+            .filter((family, index, families) => family !== '' && families.indexOf(family) === index);
+    }
+
+    getAvailableFontFamilies() {
+        return this.availableFontFamilies.length > 0 ? this.availableFontFamilies : SUPPORTED_FONTS;
+    }
+
+    async loadCustomFonts() {
+        if (this.customFontFaces.length === 0 || !('FontFace' in window) || !document.fonts) {
+            return;
+        }
+
+        await Promise.all(this.customFontFaces.map(async (fontFace) => {
+            try {
+                const browserFontFace = new FontFace(
+                    fontFace.family,
+                    buildBrowserFontSource(fontFace),
+                    {
+                        style: fontFace.style,
+                        weight: fontFace.weight,
+                    }
+                );
+
+                const loadedFace = await browserFontFace.load();
+                document.fonts.add(loadedFace);
+            } catch (error) {
+                console.warn(`Editor font "${fontFace.family}" could not be loaded from ${fontFace.url}.`, error);
+            }
+        }));
     }
 
     buildInitialState() {
@@ -368,10 +411,12 @@ export default class extends Controller {
         }
     }
 
-    downloadImage() {
+    async downloadImage() {
         if (!this.image || !this.state) {
             return;
         }
+
+        await this.customFontLoadPromise;
 
         const output = this.renderExportCanvas();
 
@@ -407,7 +452,7 @@ export default class extends Controller {
         const previousState = this.cloneState(this.state);
 
         if (property === 'fontFamily') {
-            selectedText[property] = normalizeFont(nextValue);
+            selectedText[property] = normalizeFont(nextValue, this.getAvailableFontFamilies());
         } else if (property === 'color') {
             selectedText[property] = normalizeColor(nextValue);
         } else {
@@ -854,7 +899,7 @@ export default class extends Controller {
             y: (sourcePoint.y / sourceHeight) - (height / 2),
             width,
             height,
-            fontFamily: SUPPORTED_FONTS[0],
+            fontFamily: this.getAvailableFontFamilies()[0] ?? SUPPORTED_FONTS[0],
             fontSize: clamp(sourceHeight * 0.06, 24, 96),
             color: '#111827',
             fontWeight: 'normal',
@@ -1151,7 +1196,7 @@ export default class extends Controller {
         element.style.top = `${textRect.top}px`;
         element.style.width = `${textRect.width}px`;
         element.style.height = `${textRect.height}px`;
-        element.style.fontFamily = buildCssFontFamily(textLayer.fontFamily);
+        element.style.fontFamily = buildCssFontFamily(textLayer.fontFamily, this.getAvailableFontFamilies());
         element.style.fontSize = `${Math.max(textLayer.fontSize * this.surfaceMetrics.scale, 12)}px`;
         element.style.fontWeight = textLayer.fontWeight;
         element.style.fontStyle = textLayer.fontStyle;
@@ -1459,7 +1504,7 @@ export default class extends Controller {
             this.textYInputTarget.value = String(Math.round(displayRect.y));
             this.textWidthInputTarget.value = String(Math.max(1, Math.round(displayRect.width)));
             this.textHeightInputTarget.value = String(Math.max(1, Math.round(displayRect.height)));
-            this.fontFamilySelectTarget.value = normalizeFont(selectedText.fontFamily);
+            this.fontFamilySelectTarget.value = normalizeFont(selectedText.fontFamily, this.getAvailableFontFamilies());
             this.fontSizeInputTarget.value = String(Math.round(selectedText.fontSize));
             this.colorInputTarget.value = normalizeColor(selectedText.color);
             toggleActiveFormat(this.boldButtonTarget, selectedText.fontWeight === 'bold');
@@ -1642,7 +1687,7 @@ export default class extends Controller {
             context.fillStyle = textLayer.color;
             context.textBaseline = 'top';
             context.textAlign = textLayer.textAlign;
-            context.font = buildCanvasFont(textLayer);
+            context.font = buildCanvasFont(textLayer, this.getAvailableFontFamilies());
 
             const lines = wrapTextLines(context, textLayer.text, width);
             const lineHeight = textLayer.fontSize * 1.2;
@@ -1818,7 +1863,7 @@ export default class extends Controller {
         text.x = left / sourceWidth;
         text.y = top / sourceHeight;
         text.fontSize = clamp(text.fontSize, 8, this.state.sourceBounds.height);
-        text.fontFamily = normalizeFont(text.fontFamily);
+        text.fontFamily = normalizeFont(text.fontFamily, this.getAvailableFontFamilies());
         text.color = normalizeColor(text.color);
         text.fontWeight = text.fontWeight === 'bold' ? 'bold' : 'normal';
         text.fontStyle = text.fontStyle === 'italic' ? 'italic' : 'normal';
@@ -2020,7 +2065,7 @@ export default class extends Controller {
                 y: Number(text.y),
                 width: Number(text.width),
                 height: Number(text.height),
-                fontFamily: normalizeFont(text.fontFamily),
+                fontFamily: normalizeFont(text.fontFamily, this.getAvailableFontFamilies()),
                 fontSize: clamp(Number(text.fontSize) * sourceHeightRatio, 8, this.state.sourceBounds.height),
                 color: normalizeColor(text.color),
                 fontWeight: text.fontWeight === 'bold' ? 'bold' : 'normal',
@@ -2107,21 +2152,39 @@ export default class extends Controller {
     }
 }
 
-function buildCanvasFont(textLayer) {
+function buildCanvasFont(textLayer, availableFontFamilies = SUPPORTED_FONTS) {
     const weight = textLayer.fontWeight === 'bold' ? 'bold' : 'normal';
     const style = textLayer.fontStyle === 'italic' ? 'italic' : 'normal';
-    const family = textLayer.fontFamily.includes(' ')
-        ? `"${textLayer.fontFamily}"`
-        : textLayer.fontFamily;
+    const family = buildFontFamilyStack(textLayer.fontFamily, availableFontFamilies).join(', ');
 
     return `${style} ${weight} ${textLayer.fontSize}px ${family}`;
 }
 
-function buildCssFontFamily(fontFamily) {
-    const normalizedFont = normalizeFont(fontFamily);
-    return normalizedFont.includes(' ')
-        ? `"${normalizedFont}", sans-serif`
-        : `${normalizedFont}, sans-serif`;
+function buildCssFontFamily(fontFamily, availableFontFamilies = SUPPORTED_FONTS) {
+    return buildFontFamilyStack(fontFamily, availableFontFamilies).join(', ');
+}
+
+function buildFontFamilyStack(fontFamily, availableFontFamilies = SUPPORTED_FONTS) {
+    const normalizedFont = normalizeFont(fontFamily, availableFontFamilies);
+
+    switch (normalizedFont) {
+    case 'Courier New':
+        return ['"Courier New"', 'Courier', 'monospace'];
+    case 'Georgia':
+        return ['Georgia', '"Times New Roman"', 'serif'];
+    case 'Times New Roman':
+        return ['"Times New Roman"', 'Georgia', 'serif'];
+    case 'Impact':
+        return ['Impact', '"Arial Black"', 'sans-serif'];
+    case 'Helvetica':
+        return ['Helvetica', 'Arial', 'sans-serif'];
+    case 'Trebuchet MS':
+        return ['"Trebuchet MS"', 'Arial', 'sans-serif'];
+    default:
+        return normalizedFont.includes(' ')
+            ? [`"${normalizedFont}"`, 'Arial', 'sans-serif']
+            : [normalizedFont, 'Arial', 'sans-serif'];
+    }
 }
 
 function wrapTextLines(context, rawText, maxWidth) {
@@ -2192,8 +2255,29 @@ function truncateText(text, limit) {
     return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }
 
-function normalizeFont(fontFamily) {
-    return SUPPORTED_FONTS.includes(fontFamily) ? fontFamily : SUPPORTED_FONTS[0];
+function normalizeFont(fontFamily, availableFontFamilies = SUPPORTED_FONTS) {
+    return availableFontFamilies.includes(fontFamily) ? fontFamily : availableFontFamilies[0] ?? SUPPORTED_FONTS[0];
+}
+
+function normalizeCustomFonts(customFonts) {
+    if (!Array.isArray(customFonts)) {
+        return [];
+    }
+
+    return customFonts
+        .filter((fontFace) => fontFace && typeof fontFace === 'object')
+        .map((fontFace) => ({
+            family: typeof fontFace.family === 'string' ? fontFace.family : SUPPORTED_FONTS[0],
+            weight: typeof fontFace.weight === 'string' ? fontFace.weight : '400',
+            style: fontFace.style === 'italic' ? 'italic' : 'normal',
+            format: typeof fontFace.format === 'string' ? fontFace.format : 'truetype',
+            url: typeof fontFace.url === 'string' ? fontFace.url : '',
+        }))
+        .filter((fontFace) => fontFace.url !== '');
+}
+
+function buildBrowserFontSource(fontFace) {
+    return `url("${fontFace.url}") format("${fontFace.format}")`;
 }
 
 function normalizeColor(color) {

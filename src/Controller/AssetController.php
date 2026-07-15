@@ -8,10 +8,12 @@ use App\Entity\Assets\AssetVersionTypeEnum;
 use App\Entity\User;
 use App\Form\WebDownloadType;
 use App\Security\Voter\AssetVoter;
+use App\Service\EditorFontCatalog;
 use App\Service\ImageProcessorService;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -68,7 +70,7 @@ final class AssetController extends AbstractController
 
     #[Route('/assets/{id}/editor', name: 'app_asset_editor', methods: ['GET'])]
     #[IsGranted(AssetVoter::VIEW, subject: 'asset')]
-    public function editor(Assets $asset): Response
+    public function editor(Assets $asset, EditorFontCatalog $editorFontCatalog): Response
     {
         if (!$this->canEditImage($asset)) {
             $this->addFlash('warning', 'This asset type is not supported by the canvas editor yet.');
@@ -78,7 +80,39 @@ final class AssetController extends AbstractController
 
         return $this->render('asset/editor.html.twig', [
             'asset' => $asset,
+            'fontFamilies' => $editorFontCatalog->getSelectableFontFamilies(),
+            'customFonts' => array_map(
+                fn (array $fontFace): array => [
+                    'key' => $fontFace['key'],
+                    'family' => $fontFace['family'],
+                    'weight' => $fontFace['weight'],
+                    'style' => $fontFace['style'],
+                    'format' => $fontFace['cssFormat'],
+                    'url' => $this->generateUrl('app_asset_editor_font', ['fontKey' => $fontFace['key']]),
+                ],
+                $editorFontCatalog->getCustomFontFaces()
+            ),
         ]);
+    }
+
+    #[Route('/assets/editor/fonts/{fontKey}', name: 'app_asset_editor_font', methods: ['GET'])]
+    public function editorFont(string $fontKey, EditorFontCatalog $editorFontCatalog): BinaryFileResponse
+    {
+        $fontFace = $editorFontCatalog->findFontFaceByKey($fontKey);
+        if ($fontFace === null) {
+            throw $this->createNotFoundException('Editor font not found.');
+        }
+
+        $response = new BinaryFileResponse($fontFace['path']);
+        $response->headers->set('Content-Type', $fontFace['mimeType']);
+        $response->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_INLINE,
+            basename($fontFace['relativePath'])
+        );
+        $response->setAutoEtag();
+        $response->setAutoLastModified();
+
+        return $response;
     }
 
     /**
