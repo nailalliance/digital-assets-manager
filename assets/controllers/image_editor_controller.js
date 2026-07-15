@@ -612,6 +612,7 @@ export default class extends Controller {
         this.state.baseImage.offsetY += deltaY;
         this.renderPreview();
         this.renderImageBox();
+        this.refreshInspector();
         this.updateImageScaleLabel();
     }
 
@@ -667,6 +668,7 @@ export default class extends Controller {
                         this.state.baseImage.offsetY += event.dy / metrics.scale / this.state.sourceBounds.height;
                         this.renderPreview();
                         this.renderImageBox();
+                        this.refreshInspector();
                     },
                     end: () => {
                         this.finishTransaction();
@@ -703,6 +705,7 @@ export default class extends Controller {
                         this.applyBaseImageResize(nextRect, event.edges, currentRect, metrics);
                         this.renderPreview();
                         this.renderImageBox();
+                        this.refreshInspector();
                         this.updateImageScaleLabel();
                     },
                     end: () => {
@@ -784,6 +787,7 @@ export default class extends Controller {
                         this.state.crop.y += deltaY;
                         this.clampCrop();
                         this.renderCropBox();
+                        this.refreshInspector();
                         this.updateCropSummary();
                     },
                     end: () => {
@@ -827,6 +831,7 @@ export default class extends Controller {
 
                         this.clampCrop();
                         this.renderCropBox();
+                        this.refreshInspector();
                         this.updateCropSummary();
                     },
                     end: () => {
@@ -937,6 +942,7 @@ export default class extends Controller {
                         text.y += event.dy / metrics.scale / this.state.sourceBounds.height;
                         this.clampText(text);
                         this.syncTextElements();
+                        this.refreshInspector();
                     },
                     end: () => {
                         this.finishTransaction();
@@ -977,6 +983,7 @@ export default class extends Controller {
                         text.height = nextRect.height / metrics.scale / this.state.sourceBounds.height;
                         this.clampText(text);
                         this.syncTextElements();
+                        this.refreshInspector();
                     },
                     end: () => {
                         this.finishTransaction();
