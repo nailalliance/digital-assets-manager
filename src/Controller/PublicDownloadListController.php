@@ -261,43 +261,53 @@ class PublicDownloadListController extends AbstractController
             throw $this->createNotFoundException('Source file not found.');
         }
 
-        $clipPathIndices = $this->findAvailableClipPathIndices($sourcePath);
-        if ($clipPathIndices === []) {
+        $debugSource = $this->loadClipPathDebugSource($sourcePath);
+        if ($debugSource === null || $debugSource['clipPaths'] === []) {
             throw $this->createNotFoundException('No clip paths found on this image.');
         }
 
-        $variants = [
-            ['label' => 'largest', 'index' => null],
-        ];
+        $variants = [];
+        $largestClipPathIndex = $this->findLargestClipPathIndex($debugSource['clipPaths']);
 
-        foreach ($clipPathIndices as $clipPathIndex) {
+        if ($largestClipPathIndex !== null) {
             $variants[] = [
-                'label' => '#' . $clipPathIndex,
-                'index' => $clipPathIndex,
+                'label' => 'largest',
+                'svgPathData' => $debugSource['clipPaths'][$largestClipPathIndex],
             ];
         }
+
+        foreach ($debugSource['clipPaths'] as $clipPathIndex => $svgPathData) {
+            $variants[] = [
+                'label' => '#' . $clipPathIndex,
+                'svgPathData' => $svgPathData,
+            ];
+        }
+
+        $baseTile = $this->createClipPathDebugBaseTile($sourcePath, $width, $height, $padding);
+        $baseTileBlob = $baseTile->getImageBlob();
+        $baseTile->clear();
 
         $tiles = [];
 
         try {
             foreach ($variants as $variant) {
-                $tileBinary = $imageProcessor->exportFile(
-                    $sourcePath,
+                $tile = new \Imagick();
+                $tile->readImageBlob($baseTileBlob);
+                $tile->setImageFormat('png');
+
+                $overlay = $this->createClipPathDebugOverlayTile(
+                    $variant['svgPathData'],
+                    $debugSource['width'],
+                    $debugSource['height'],
                     $width,
                     $height,
-                    $padding,
-                    'png',
-                    true,
-                    $variant['index']
+                    $padding
                 );
 
-                if ($tileBinary === null || $tileBinary === '') {
-                    continue;
+                if ($overlay instanceof \Imagick) {
+                    $tile->compositeImage($overlay, \Imagick::COMPOSITE_OVER, 0, 0);
+                    $overlay->clear();
                 }
-
-                $tile = new \Imagick();
-                $tile->readImageBlob($tileBinary);
-                $tile->setImageFormat('png');
 
                 $tiles[] = [
                     'label' => $variant['label'],
@@ -320,7 +330,7 @@ class PublicDownloadListController extends AbstractController
             $response->headers->set('Content-Disposition', $disposition);
             $response->headers->set('Content-Type', $this->resolveImageContentType($extension));
             $response->headers->set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-            $response->headers->set('X-Clip-Path-Indices', implode(',', $clipPathIndices));
+            $response->headers->set('X-Clip-Path-Indices', implode(',', array_keys($debugSource['clipPaths'])));
 
             $sheet->clear();
 
@@ -335,29 +345,294 @@ class PublicDownloadListController extends AbstractController
     }
 
     /**
-     * @return list<int>
+     * @return array{width: int, height: int, clipPaths: array<int, string>}|null
      */
-    private function findAvailableClipPathIndices(string $sourcePath): array
+    private function loadClipPathDebugSource(string $sourcePath): ?array
     {
         $image = new \Imagick();
-        $indices = [];
 
         try {
             $image->readImage($sourcePath);
 
+            $clipPaths = [];
             for ($i = 0; $i <= 15; $i++) {
                 $svgPathData = $image->getImageProperty("8BIM:1999,2998:#{$i}");
                 if ($svgPathData) {
-                    $indices[] = $i;
+                    $clipPaths[$i] = $svgPathData;
                 }
             }
+
+            return [
+                'width' => $image->getImageWidth(),
+                'height' => $image->getImageHeight(),
+                'clipPaths' => $clipPaths,
+            ];
         } catch (\ImagickException) {
-            return [];
+            return null;
         } finally {
             $image->clear();
         }
+    }
 
-        return $indices;
+    /**
+     * @param array<int, string> $clipPaths
+     */
+    private function findLargestClipPathIndex(array $clipPaths): ?int
+    {
+        $largestBoundingBoxArea = 0.0;
+        $bestClipPathIndex = null;
+
+        foreach ($clipPaths as $clipPathIndex => $svgPathData) {
+            $boundingBoxArea = $this->estimateClipPathBoundingBoxArea($svgPathData);
+            if ($boundingBoxArea === null || $boundingBoxArea <= $largestBoundingBoxArea) {
+                continue;
+            }
+
+            $largestBoundingBoxArea = $boundingBoxArea;
+            $bestClipPathIndex = $clipPathIndex;
+        }
+
+        return $bestClipPathIndex;
+    }
+
+    private function createClipPathDebugBaseTile(string $sourcePath, int $targetWidth, int $targetHeight, int $padding): \Imagick
+    {
+        $image = new \Imagick();
+        $image->readImage($sourcePath);
+
+        if ($image->getImageColorspace() === \Imagick::COLORSPACE_CMYK) {
+            $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
+        }
+
+        $image->thumbnailImage($targetWidth - ($padding * 2), $targetHeight - ($padding * 2), true, true);
+
+        $canvas = new \Imagick();
+        $canvas->newImage($targetWidth, $targetHeight, new \ImagickPixel('white'), 'png');
+
+        $x = (int) (($targetWidth - $image->getImageWidth()) / 2);
+        $y = (int) (($targetHeight - $image->getImageHeight()) / 2);
+        $canvas->compositeImage($image, \Imagick::COMPOSITE_OVER, $x, $y);
+        $canvas->setImageFormat('png');
+
+        $image->clear();
+
+        return $canvas;
+    }
+
+    private function createClipPathDebugOverlayTile(
+        string $svgPathData,
+        int $sourceWidth,
+        int $sourceHeight,
+        int $targetWidth,
+        int $targetHeight,
+        int $padding
+    ): ?\Imagick {
+        $overlaySvg = $this->buildClipPathOverlaySvg($svgPathData, $sourceWidth, $sourceHeight);
+        if ($overlaySvg === null) {
+            return null;
+        }
+
+        $overlay = new \Imagick();
+
+        try {
+            $overlay->setBackgroundColor(new \ImagickPixel('transparent'));
+            $overlay->readImageBlob($overlaySvg);
+            $overlay->setImageFormat('png');
+
+            if ($overlay->getImageWidth() !== $sourceWidth || $overlay->getImageHeight() !== $sourceHeight) {
+                $overlay->scaleImage($sourceWidth, $sourceHeight);
+            }
+
+            $overlay->thumbnailImage($targetWidth - ($padding * 2), $targetHeight - ($padding * 2), true, true);
+
+            $canvas = new \Imagick();
+            $canvas->newImage($targetWidth, $targetHeight, new \ImagickPixel('transparent'), 'png');
+
+            $x = (int) (($targetWidth - $overlay->getImageWidth()) / 2);
+            $y = (int) (($targetHeight - $overlay->getImageHeight()) / 2);
+            $canvas->compositeImage($overlay, \Imagick::COMPOSITE_OVER, $x, $y);
+            $canvas->setImageFormat('png');
+
+            return $canvas;
+        } catch (\ImagickException) {
+            return null;
+        } finally {
+            $overlay->clear();
+        }
+    }
+
+    private function buildClipPathOverlaySvg(string $svgPathData, int $imageWidth, int $imageHeight): ?string
+    {
+        $document = new \DOMDocument();
+        if (@$document->loadXML($svgPathData) === false) {
+            return $this->buildClipPathOverlaySvgFromPathDataStrings(
+                $this->extractClipPathPathDataStrings($svgPathData),
+                $imageWidth,
+                $imageHeight
+            );
+        }
+
+        $svg = $document->documentElement;
+        if (!$svg instanceof \DOMElement) {
+            return null;
+        }
+
+        $svg->setAttribute('width', (string) $imageWidth);
+        $svg->setAttribute('height', (string) $imageHeight);
+        if (!$svg->hasAttribute('viewBox')) {
+            $svg->setAttribute('viewBox', sprintf('0 0 %d %d', $imageWidth, $imageHeight));
+        }
+
+        $strokeWidth = $this->resolveClipPathDebugStrokeWidth($imageWidth, $imageHeight);
+        $xpath = new \DOMXPath($document);
+        /** @var \DOMNodeList<\DOMElement> $elements */
+        $elements = $xpath->query('//*');
+        if ($elements === false) {
+            return null;
+        }
+
+        foreach ($elements as $element) {
+            $tagName = strtolower($element->localName);
+
+            if ($tagName === 'svg' || $tagName === 'g') {
+                continue;
+            }
+
+            if ($tagName !== 'path') {
+                $element->parentNode?->removeChild($element);
+                continue;
+            }
+
+            $element->setAttribute('fill', '#00ff00');
+            $element->setAttribute('fill-opacity', '0.14');
+            $element->setAttribute('stroke', '#00ff00');
+            $element->setAttribute('stroke-opacity', '0.95');
+            $element->setAttribute('stroke-width', $strokeWidth);
+            $element->setAttribute('stroke-linejoin', 'round');
+            $element->setAttribute('stroke-linecap', 'round');
+            $element->setAttribute(
+                'style',
+                sprintf(
+                    'fill:#00ff00;fill-opacity:0.14;stroke:#00ff00;stroke-opacity:0.95;stroke-width:%s;stroke-linejoin:round;stroke-linecap:round',
+                    $strokeWidth
+                )
+            );
+        }
+
+        return $document->saveXML();
+    }
+
+    /**
+     * @param list<string> $pathDataStrings
+     */
+    private function buildClipPathOverlaySvgFromPathDataStrings(array $pathDataStrings, int $imageWidth, int $imageHeight): ?string
+    {
+        if ($pathDataStrings === []) {
+            return null;
+        }
+
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $svg = $document->createElement('svg');
+        $svg->setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        $svg->setAttribute('width', (string) $imageWidth);
+        $svg->setAttribute('height', (string) $imageHeight);
+        $svg->setAttribute('viewBox', sprintf('0 0 %d %d', $imageWidth, $imageHeight));
+        $document->appendChild($svg);
+
+        $strokeWidth = $this->resolveClipPathDebugStrokeWidth($imageWidth, $imageHeight);
+        foreach ($pathDataStrings as $pathData) {
+            $path = $document->createElement('path');
+            $path->setAttribute('d', $pathData);
+            $path->setAttribute('fill', '#00ff00');
+            $path->setAttribute('fill-opacity', '0.14');
+            $path->setAttribute('stroke', '#00ff00');
+            $path->setAttribute('stroke-opacity', '0.95');
+            $path->setAttribute('stroke-width', $strokeWidth);
+            $path->setAttribute('stroke-linejoin', 'round');
+            $path->setAttribute('stroke-linecap', 'round');
+            $svg->appendChild($path);
+        }
+
+        return $document->saveXML();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractClipPathPathDataStrings(string $svgPathData): array
+    {
+        if (!preg_match_all('/<path[^>]*\sd="([^"]+)"/i', $svgPathData, $matches)) {
+            return [];
+        }
+
+        return array_values(array_filter($matches[1] ?? [], static fn (string $pathData): bool => $pathData !== ''));
+    }
+
+    private function resolveClipPathDebugStrokeWidth(int $imageWidth, int $imageHeight): string
+    {
+        return (string) max(8, (int) round(max($imageWidth, $imageHeight) / 120));
+    }
+
+    private function estimateClipPathBoundingBoxArea(string $svgPathData): ?float
+    {
+        $bounds = $this->extractClipPathBounds($svgPathData);
+
+        return $bounds['area'] ?? null;
+    }
+
+    /**
+     * @return array{width: float, height: float, area: float}|null
+     */
+    private function extractClipPathBounds(string $pathData): ?array
+    {
+        if (preg_match('/d="([^"]+)"/', $pathData, $matches)) {
+            $pathData = $matches[1];
+        }
+
+        preg_match_all('/[-+]?[0-9]*\.?[0-9]+/', $pathData, $coords);
+        $numbers = $coords[0] ?? [];
+
+        if (count($numbers) < 4) {
+            return null;
+        }
+
+        $minX = $maxX = (float) $numbers[0];
+        $minY = $maxY = (float) $numbers[1];
+        $count = count($numbers);
+
+        for ($i = 0; $i < $count; $i += 2) {
+            if (!isset($numbers[$i + 1])) {
+                break;
+            }
+
+            $x = (float) $numbers[$i];
+            $y = (float) $numbers[$i + 1];
+
+            if ($x < $minX) {
+                $minX = $x;
+            }
+
+            if ($x > $maxX) {
+                $maxX = $x;
+            }
+
+            if ($y < $minY) {
+                $minY = $y;
+            }
+
+            if ($y > $maxY) {
+                $maxY = $y;
+            }
+        }
+
+        $width = max(0.0, $maxX - $minX);
+        $height = max(0.0, $maxY - $minY);
+
+        return [
+            'width' => $width,
+            'height' => $height,
+            'area' => $width * $height,
+        ];
     }
 
     /**
