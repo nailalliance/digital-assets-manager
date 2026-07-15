@@ -873,6 +873,11 @@ export default class extends Controller {
         element.dataset.textId = textLayer.id;
         element.spellcheck = false;
 
+        const contentElement = document.createElement('div');
+        contentElement.className = 'image-editor-text-content';
+        contentElement.spellcheck = false;
+        element.appendChild(contentElement);
+
         const handles = ['tl', 'tr', 'bl', 'br'];
         handles.forEach((handle) => {
             const handleElement = document.createElement('span');
@@ -895,14 +900,14 @@ export default class extends Controller {
             this.enterTextEditing(textLayer.id);
         });
 
-        element.addEventListener('input', (event) => {
+        contentElement.addEventListener('input', (event) => {
             const targetText = this.findTextById(textLayer.id);
             if (targetText) {
                 targetText.text = event.currentTarget.innerText;
             }
         });
 
-        element.addEventListener('blur', () => {
+        contentElement.addEventListener('blur', () => {
             if (this.editingTextId === textLayer.id) {
                 this.exitTextEditing();
             }
@@ -984,7 +989,8 @@ export default class extends Controller {
 
     enterTextEditing(textId) {
         const textElement = this.textLayerTarget.querySelector(`[data-text-id="${textId}"]`);
-        if (!textElement) {
+        const contentElement = textElement?.querySelector('.image-editor-text-content');
+        if (!textElement || !contentElement) {
             return;
         }
 
@@ -992,8 +998,8 @@ export default class extends Controller {
         this.textEditSnapshot = this.cloneState(this.state);
         this.editingTextId = textId;
         this.syncTextElements();
-        textElement.focus();
-        placeCursorAtEnd(textElement);
+        contentElement.focus();
+        placeCursorAtEnd(contentElement);
         this.setStatus('Editing text layer.');
     }
 
@@ -1132,6 +1138,7 @@ export default class extends Controller {
     }
 
     updateTextElement(element, textLayer) {
+        const contentElement = element.querySelector('.image-editor-text-content');
         const textRect = this.getTextPixelRect(textLayer);
         element.style.left = `${textRect.left}px`;
         element.style.top = `${textRect.top}px`;
@@ -1145,10 +1152,12 @@ export default class extends Controller {
         element.style.textAlign = textLayer.textAlign;
         element.classList.toggle('is-selected', this.selectedTextId === textLayer.id);
         element.classList.toggle('is-editing', this.editingTextId === textLayer.id);
-        element.setAttribute('contenteditable', this.editingTextId === textLayer.id ? 'true' : 'false');
+        if (contentElement) {
+            contentElement.setAttribute('contenteditable', this.editingTextId === textLayer.id ? 'true' : 'false');
 
-        if (this.editingTextId !== textLayer.id && element.innerText !== textLayer.text) {
-            element.textContent = textLayer.text;
+            if (this.editingTextId !== textLayer.id && contentElement.innerText !== textLayer.text) {
+                contentElement.textContent = textLayer.text;
+            }
         }
     }
 
