@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ["modal", "widthInput", "heightInput", "paddingInput", "extensionInput", "csvButtonContainer", "expiryNotice", "expiryText"];
+    static targets = ["modal", "widthInput", "heightInput", "paddingInput", "extensionInput", "clipPathModeInput", "csvButtonContainer", "expiryNotice", "expiryText"];
     static values = {
         baseUrl: String,
         shareEndpoint: String,
@@ -28,6 +28,7 @@ export default class extends Controller {
         const height = this.heightInputTarget.value;
         const padding = Number(this.paddingInputTarget.value || 0);
         const extension = this.extensionInputTarget.value;
+        const clipPathMode = this.hasClipPathModeInputTarget ? this.clipPathModeInputTarget.value : 'default';
 
         if (!width || !height) {
             alert('Please enter both width and height.');
@@ -54,12 +55,13 @@ export default class extends Controller {
         this.updateExpirationNotice(shareDetails.expirationDate);
 
         imageAssets.forEach(assetElement => {
-            const { assetId, filename, sku, assetName } = assetElement.dataset;
+            const { assetId, filename, sku, assetName, mimeType } = assetElement.dataset;
             const token = assetElement.dataset.token || shareDetails.token;
             const permalinkContainer = assetElement.querySelector('.permalink-container');
             const extensionIndex = filename.lastIndexOf('.');
             const cleanFilename = extensionIndex > 0 ? filename.substring(0, extensionIndex) : filename;
-            const inputId = `permalink-${assetId}-${width}x${height}-${padding}-${extension}`;
+            const useLargestClipPath = clipPathMode === 'largest' && mimeType === 'image/jpeg';
+            const inputId = `permalink-${assetId}-${width}x${height}-${padding}-${extension}-${clipPathMode}`;
 
             if (!token || !permalinkContainer) {
                 return;
@@ -67,7 +69,11 @@ export default class extends Controller {
 
             assetElement.dataset.token = token;
 
-            let relativeUrl = `/share/${token}/image/${assetId}/${width}x${height}/`;
+            let relativeUrl = `/share/${token}/image/${assetId}/`;
+            if (useLargestClipPath) {
+                relativeUrl += 'use-clip-path/largest/';
+            }
+            relativeUrl += `${width}x${height}/`;
             if (padding > 0) {
                 relativeUrl += `${padding}/`;
             }
