@@ -299,6 +299,7 @@ final class CanvasEditorScriptRenderer
                 'top' => ($textTop ?? 0.0) * $sourceHeight,
                 'width' => max(($textWidth ?? (self::MIN_GEOMETRY_SIZE / $sourceWidth)) * $sourceWidth, self::MIN_GEOMETRY_SIZE),
                 'height' => max(($textHeight ?? (self::MIN_GEOMETRY_SIZE / $sourceHeight)) * $sourceHeight, self::MIN_GEOMETRY_SIZE),
+                'fontKey' => is_string($textLayer['fontKey'] ?? null) ? trim($textLayer['fontKey']) : null,
                 'fontFamily' => $this->normalizeFont(is_string($textLayer['fontFamily'] ?? null) ? $textLayer['fontFamily'] : null),
                 'fontSize' => $this->clamp(
                     ($this->toFiniteFloat($textLayer['fontSize'] ?? null) ?? 96.0) * $sourceHeightRatio,
@@ -438,6 +439,7 @@ final class CanvasEditorScriptRenderer
                 });
 
                 $fontReference = $this->resolveFontReference(
+                    is_string($textLayer['fontKey'] ?? null) ? $textLayer['fontKey'] : null,
                     $textLayer['fontFamily'],
                     $textLayer['fontWeight'],
                     $textLayer['fontStyle']
@@ -532,8 +534,17 @@ final class CanvasEditorScriptRenderer
         return in_array($textAlign, ['left', 'center', 'right'], true) ? $textAlign : 'left';
     }
 
-    private function resolveFontReference(string $fontFamily, string $fontWeight, string $fontStyle): string
+    private function resolveFontReference(?string $fontKey, string $fontFamily, string $fontWeight, string $fontStyle): string
     {
+        $normalizedFontKey = trim((string) $fontKey);
+        if ($normalizedFontKey !== '') {
+            $customFontFace = $this->editorFontCatalog?->findFontFaceByKey($normalizedFontKey);
+            $customFontReference = $customFontFace['path'] ?? null;
+            if (is_string($customFontReference) && $customFontReference !== '' && $this->filesystem->exists($customFontReference)) {
+                return $customFontReference;
+            }
+        }
+
         $customFontReference = $this->editorFontCatalog?->resolveFontFile($fontFamily, $fontWeight, $fontStyle);
         if (is_string($customFontReference) && $customFontReference !== '' && $this->filesystem->exists($customFontReference)) {
             return $customFontReference;

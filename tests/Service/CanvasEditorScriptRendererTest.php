@@ -33,14 +33,14 @@ class CanvasEditorScriptRendererTest extends TestCase
 
         $renderer = new CanvasEditorScriptRenderer($filesystem, $parameterBag);
         $resolveFontReference = \Closure::bind(
-            function (string $family, string $weight, string $style): string {
-                return $this->resolveFontReference($family, $weight, $style);
+            function (?string $fontKey, string $family, string $weight, string $style): string {
+                return $this->resolveFontReference($fontKey, $family, $weight, $style);
             },
             $renderer,
             CanvasEditorScriptRenderer::class
         );
 
-        $resolvedFont = $resolveFontReference($fontFamily, $fontWeight, $fontStyle);
+        $resolvedFont = $resolveFontReference(null, $fontFamily, $fontWeight, $fontStyle);
 
         $this->assertSame('/project/public/standard_fonts/' . $expectedSuffix, $resolvedFont);
     }
@@ -91,16 +91,62 @@ class CanvasEditorScriptRendererTest extends TestCase
 
         try {
             $resolveFontReference = \Closure::bind(
-                function (string $family, string $weight, string $style): string {
-                    return $this->resolveFontReference($family, $weight, $style);
+                function (?string $fontKey, string $family, string $weight, string $style): string {
+                    return $this->resolveFontReference($fontKey, $family, $weight, $style);
                 },
                 $renderer,
                 CanvasEditorScriptRenderer::class
             );
 
-            $resolvedFont = $resolveFontReference('Courier Prime', 'bold', 'italic');
+            $resolvedFont = $resolveFontReference(null, 'Courier Prime', 'bold', 'italic');
 
             $this->assertSame(realpath($fontPath) ?: '', $resolvedFont);
+        } finally {
+            $filesystem->remove($projectDir);
+        }
+    }
+
+    public function testResolveFontReferencePrefersExactFontKeyBeforeFamilyGuessing(): void
+    {
+        $projectDir = sys_get_temp_dir() . '/canvas-editor-renderer-key-test-' . bin2hex(random_bytes(6));
+        $regularFontPath = $projectDir . '/assets/fonts/TestFace/TestFace-Regular.ttf';
+        $lightItalicFontPath = $projectDir . '/assets/fonts/TestFace/TestFace-LightItalic.ttf';
+        $filesystem = new Filesystem();
+        $filesystem->mkdir(dirname($regularFontPath));
+        $filesystem->touch($regularFontPath);
+        $filesystem->touch($lightItalicFontPath);
+
+        $parameterBag = $this->createMock(ParameterBagInterface::class);
+        $parameterBag
+            ->method('get')
+            ->with('kernel.project_dir')
+            ->willReturn($projectDir);
+
+        $fontCatalog = new EditorFontCatalog($parameterBag);
+        $renderer = new CanvasEditorScriptRenderer($filesystem, $parameterBag, $fontCatalog);
+        $lightItalicFace = null;
+
+        foreach ($fontCatalog->getCustomFontFaces() as $fontFace) {
+            if (str_ends_with($fontFace['path'], 'TestFace-LightItalic.ttf')) {
+                $lightItalicFace = $fontFace;
+                break;
+            }
+        }
+
+        self::assertNotNull($lightItalicFace);
+
+        try {
+            $resolveFontReference = \Closure::bind(
+                function (?string $fontKey, string $family, string $weight, string $style): string {
+                    return $this->resolveFontReference($fontKey, $family, $weight, $style);
+                },
+                $renderer,
+                CanvasEditorScriptRenderer::class
+            );
+
+            $resolvedFont = $resolveFontReference($lightItalicFace['key'], 'Test Face', 'normal', 'normal');
+
+            $this->assertSame(realpath($lightItalicFontPath) ?: '', $resolvedFont);
         } finally {
             $filesystem->remove($projectDir);
         }
