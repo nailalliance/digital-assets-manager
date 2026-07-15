@@ -241,7 +241,7 @@ class ImageProcessorService
 
             $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
             $image->compositeImage($mask, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
-            $image->setImageBackgroundColor(new \ImagickPixel('red'));
+            $image->setImageBackgroundColor(new \ImagickPixel('white'));
             $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_BACKGROUND);
         } finally {
             $mask->clear();
@@ -419,10 +419,6 @@ class ImageProcessorService
 
     private function resolveCanvasBackgroundColor(?string $legendText, bool $useLargestClipPath): string
     {
-        if ($legendText === null && $useLargestClipPath) {
-            return 'red';
-        }
-
         return 'white';
     }
 

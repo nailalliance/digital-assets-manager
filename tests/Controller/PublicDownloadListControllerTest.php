@@ -259,7 +259,7 @@ class PublicDownloadListControllerTest extends TestCase
 
         $this->assertInstanceOf(BinaryFileResponse::class, $response);
         $this->assertStringEndsWith(
-            '/123/1100x900-p30-lcpv8-v1.png',
+            '/123/1100x900-p30-v1-v1.png',
             $response->getFile()->getPathname()
         );
         $this->assertSame('largest-clip-path-image', file_get_contents($response->getFile()->getPathname()));
@@ -303,7 +303,7 @@ class PublicDownloadListControllerTest extends TestCase
 
         $this->assertInstanceOf(BinaryFileResponse::class, $response);
         $this->assertStringEndsWith(
-            '/124/1000x1000-p20-cp3-lcpv8-v1.jpg',
+            '/124/1000x1000-p20-cp3-v1-v1.jpg',
             $response->getFile()->getPathname()
         );
     }
