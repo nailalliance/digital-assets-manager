@@ -55,10 +55,11 @@ class ImageProcessorService
         int $height,
         int $padding = 0,
         string $format = 'jpg',
-        bool $useLargestClipPath = false
+        bool $useLargestClipPath = false,
+        ?int $clipPathIndex = null
     ): ?string
     {
-        return $this->processImage($sourcePath, $width, $height, $padding, $format, null, $useLargestClipPath);
+        return $this->processImage($sourcePath, $width, $height, $padding, $format, null, $useLargestClipPath, $clipPathIndex);
     }
 
     /**
@@ -71,7 +72,8 @@ class ImageProcessorService
         int $padding,
         string $outputFormat,
         ?string $legendText,
-        bool $useLargestClipPath = false
+        bool $useLargestClipPath = false,
+        ?int $clipPathIndex = null
     ): ?string
     {
         if (!class_exists('Imagick') || !$this->filesystem->exists($sourcePath)) {
@@ -96,7 +98,7 @@ class ImageProcessorService
             }
 
             if ($useLargestClipPath && $legendText === null) {
-                $this->applyLargestClipPathIfAvailable($image);
+                $this->applyLargestClipPathIfAvailable($image, $clipPathIndex);
             }
 
             // if ($mimeType === 'application/pdf') {
@@ -199,9 +201,12 @@ class ImageProcessorService
         }
     }
 
-    private function applyLargestClipPathIfAvailable(\Imagick $image): void
+    private function applyLargestClipPathIfAvailable(\Imagick $image, ?int $clipPathIndex = null): void
     {
-        $svgPathData = $this->findLargestClipPathSvg($image);
+        $svgPathData = $clipPathIndex !== null
+            ? $image->getImageProperty("8BIM:1999,2998:#{$clipPathIndex}")
+            : $this->findLargestClipPathSvg($image);
+
         if ($svgPathData === null) {
             return;
         }

@@ -153,10 +153,12 @@ class PublicDownloadListController extends AbstractController
         return new BinaryFileResponse($thumbnailPath);
     }
 
-    #[Route('/share/{token}/image/{assetId}/use-largest-clip-path/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_largest_clip_path_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true])]
-    #[Route('/share/{token}/image/{assetId}/use-largest-clip-path/{width}x{height}/{filename}.{extension}', name: 'public_image_largest_clip_path', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true])]
-    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => false])]
-    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{filename}.{extension}', name: 'public_image', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => false])]
+    #[Route('/share/{token}/image/{assetId}/use-clip-path/{pathIndex}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_clip_path_index_padded', requirements: ['assetId' => '\d+', 'pathIndex' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true])]
+    #[Route('/share/{token}/image/{assetId}/use-clip-path/{pathIndex}/{width}x{height}/{filename}.{extension}', name: 'public_image_clip_path_index', requirements: ['assetId' => '\d+', 'pathIndex' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true])]
+    #[Route('/share/{token}/image/{assetId}/use-largest-clip-path/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_largest_clip_path_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true, 'clipPathIndex' => null])]
+    #[Route('/share/{token}/image/{assetId}/use-largest-clip-path/{width}x{height}/{filename}.{extension}', name: 'public_image_largest_clip_path', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true, 'clipPathIndex' => null])]
+    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => false, 'clipPathIndex' => null])]
+    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{filename}.{extension}', name: 'public_image', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => false, 'clipPathIndex' => null])]
     public function publicImage(
         #[MapEntity(mapping: ['token' => 'token'])]
         OneTimeLinks $oneTimeLink,
@@ -168,6 +170,7 @@ class PublicDownloadListController extends AbstractController
         int $height,
         int $padding,
         bool $useLargestClipPath,
+        ?int $clipPathIndex,
         string $filename,
         string $extension
     ): Response {
@@ -201,12 +204,12 @@ class PublicDownloadListController extends AbstractController
         }
 
         try {
-            $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension, $useLargestClipPath);
+            $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension, $useLargestClipPath, $clipPathIndex);
             $response = new BinaryFileResponse($cachedImagePath);
         } catch (\InvalidArgumentException) {
             throw $this->createNotFoundException('Could not process image.');
         } catch (\RuntimeException) {
-            $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension, $useLargestClipPath);
+            $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension, $useLargestClipPath, $clipPathIndex);
 
             if ($imageBinary === null || $imageBinary === '') {
                 throw $this->createNotFoundException('Could not process image.');

@@ -26,7 +26,15 @@ final class PermalinkImageCacheService
         $this->permalinkCacheDir = rtrim($permalinkCacheDir, '/');
     }
 
-    public function getOrCreate(Assets $asset, int $width, int $height, int $padding, string $format, bool $useLargestClipPath = false): string
+    public function getOrCreate(
+        Assets $asset,
+        int $width,
+        int $height,
+        int $padding,
+        string $format,
+        bool $useLargestClipPath = false,
+        ?int $clipPathIndex = null
+    ): string
     {
         $this->assertValidVariant($width, $height, $padding, $format);
 
@@ -40,7 +48,7 @@ final class PermalinkImageCacheService
             throw new \RuntimeException('Source file not found.');
         }
 
-        $cachePath = $this->buildCachePath($assetId, $width, $height, $padding, $format, $useLargestClipPath);
+        $cachePath = $this->buildCachePath($assetId, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex);
         if ($this->isUsableCacheFile($cachePath)) {
             return $cachePath;
         }
@@ -52,7 +60,7 @@ final class PermalinkImageCacheService
             throw new \RuntimeException('Could not prepare cached permalink image directory.', previous: $exception);
         }
 
-        $lock = $this->lockFactory->createLock($this->buildLockKey($assetId, $width, $height, $padding, $format, $useLargestClipPath));
+        $lock = $this->lockFactory->createLock($this->buildLockKey($assetId, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex));
         $lock->acquire(true);
 
         $tempPath = null;
@@ -62,7 +70,7 @@ final class PermalinkImageCacheService
                 return $cachePath;
             }
 
-            $imageBinary = $this->imageProcessor->exportFile($sourcePath, $width, $height, $padding, $format, $useLargestClipPath);
+            $imageBinary = $this->imageProcessor->exportFile($sourcePath, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex);
 
             if ($imageBinary === null || $imageBinary === '') {
                 throw new \RuntimeException('Could not process image.');
@@ -89,9 +97,22 @@ final class PermalinkImageCacheService
         }
     }
 
-    private function buildCachePath(int $assetId, int $width, int $height, int $padding, string $format, bool $useLargestClipPath): string
+    private function buildCachePath(
+        int $assetId,
+        int $width,
+        int $height,
+        int $padding,
+        string $format,
+        bool $useLargestClipPath,
+        ?int $clipPathIndex
+    ): string
     {
-        $clipPathSegment = $useLargestClipPath ? '-' . self::LARGEST_CLIP_PATH_CACHE_TOKEN : '';
+        $clipPathSegment = '';
+        if ($clipPathIndex !== null) {
+            $clipPathSegment = sprintf('-cp%d-%s', $clipPathIndex, self::LARGEST_CLIP_PATH_CACHE_TOKEN);
+        } elseif ($useLargestClipPath) {
+            $clipPathSegment = '-' . self::LARGEST_CLIP_PATH_CACHE_TOKEN;
+        }
 
         return sprintf(
             '%s/%d/%dx%d-p%d%s-%s.%s',
@@ -106,8 +127,23 @@ final class PermalinkImageCacheService
         );
     }
 
-    private function buildLockKey(int $assetId, int $width, int $height, int $padding, string $format, bool $useLargestClipPath): string
+    private function buildLockKey(
+        int $assetId,
+        int $width,
+        int $height,
+        int $padding,
+        string $format,
+        bool $useLargestClipPath,
+        ?int $clipPathIndex
+    ): string
     {
+        $clipPathLockSegment = 'standard';
+        if ($clipPathIndex !== null) {
+            $clipPathLockSegment = sprintf('cp%d-%s', $clipPathIndex, self::LARGEST_CLIP_PATH_CACHE_TOKEN);
+        } elseif ($useLargestClipPath) {
+            $clipPathLockSegment = self::LARGEST_CLIP_PATH_CACHE_TOKEN;
+        }
+
         return sprintf(
             'permalink-image:%d:%dx%d:%d:%s:%s:%s',
             $assetId,
@@ -115,7 +151,7 @@ final class PermalinkImageCacheService
             $height,
             $padding,
             $format,
-            $useLargestClipPath ? self::LARGEST_CLIP_PATH_CACHE_TOKEN : 'standard',
+            $clipPathLockSegment,
             $this->cacheVersion
         );
     }
