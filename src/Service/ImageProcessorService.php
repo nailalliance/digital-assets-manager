@@ -151,9 +151,11 @@ class ImageProcessorService
             // Resize the image to fit within the target dimensions minus padding
             $image->thumbnailImage($targetWidth - ($padding * 2), $targetHeight - ($padding * 2), true, true);
 
+            $backgroundColor = $this->resolveCanvasBackgroundColor($legendText, $useLargestClipPath);
+
             // Create the final canvas with padding
             $canvas = new \Imagick();
-            $canvas->newImage($targetWidth, $targetHeight, 'white', $outputFormat);
+            $canvas->newImage($targetWidth, $targetHeight, $backgroundColor, $outputFormat);
 
             // Place the resized image in the center of the canvas
             $x = ($targetWidth - $image->getImageWidth()) / 2;
@@ -230,7 +232,7 @@ class ImageProcessorService
 
             $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
             $image->compositeImage($mask, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
-            $image->setImageBackgroundColor(new \ImagickPixel('white'));
+            $image->setImageBackgroundColor(new \ImagickPixel('red'));
             $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_BACKGROUND);
         } finally {
             $mask->clear();
@@ -265,6 +267,15 @@ class ImageProcessorService
         $bounds = $this->extractClipPathBounds($pathData);
 
         return $bounds['area'] ?? null;
+    }
+
+    private function resolveCanvasBackgroundColor(?string $legendText, bool $useLargestClipPath): string
+    {
+        if ($legendText === null && $useLargestClipPath) {
+            return 'red';
+        }
+
+        return 'white';
     }
 
     /**

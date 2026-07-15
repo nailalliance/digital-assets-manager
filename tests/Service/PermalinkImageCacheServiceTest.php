@@ -69,7 +69,7 @@ class PermalinkImageCacheServiceTest extends TestCase
         $this->assertStringEndsWith('/456/1000x1000-p0-v1.jpg', $widthVariant);
         $this->assertStringEndsWith('/456/1000x1000-p20-v1.jpg', $paddingVariant);
         $this->assertStringEndsWith('/456/1000x1000-p0-v1.webp', $formatVariant);
-        $this->assertStringEndsWith('/456/1000x1000-p0-lcpv5-v1.jpg', $clipPathVariant);
+        $this->assertStringEndsWith('/456/1000x1000-p0-lcpv6-v1.jpg', $clipPathVariant);
     }
 
     public function testGetOrCreateRegeneratesZeroByteCacheFiles(): void

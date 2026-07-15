@@ -10,7 +10,7 @@ use Symfony\Component\Lock\LockFactory;
 
 final class PermalinkImageCacheService
 {
-    private const LARGEST_CLIP_PATH_CACHE_TOKEN = 'lcpv5';
+    private const LARGEST_CLIP_PATH_CACHE_TOKEN = 'lcpv6';
 
     private readonly string $permalinkCacheDir;
 

@@ -38,8 +38,8 @@ class ImageProcessorServiceTest extends TestCase
 
         $this->assertLessThan(0.1, $outsidePixel['a']);
         $this->assertGreaterThan(0.9, $outsidePixel['r']);
-        $this->assertGreaterThan(0.9, $outsidePixel['g']);
-        $this->assertGreaterThan(0.9, $outsidePixel['b']);
+        $this->assertLessThan(0.1, $outsidePixel['g']);
+        $this->assertLessThan(0.1, $outsidePixel['b']);
         $this->assertGreaterThan(0.9, $insidePixel['a']);
 
         $draw->clear();
@@ -82,6 +82,17 @@ class ImageProcessorServiceTest extends TestCase
 
         $draw->clear();
         $image->clear();
+    }
+
+    public function testClippedExportUsesRedCanvasBackground(): void
+    {
+        $service = new ImageProcessorService(new Filesystem(), $this->createParameterBag());
+        $method = new \ReflectionMethod(ImageProcessorService::class, 'resolveCanvasBackgroundColor');
+        $method->setAccessible(true);
+
+        $this->assertSame('red', $method->invoke($service, null, true));
+        $this->assertSame('white', $method->invoke($service, null, false));
+        $this->assertSame('white', $method->invoke($service, 'legend', true));
     }
 
     private function createParameterBag(): ParameterBagInterface
