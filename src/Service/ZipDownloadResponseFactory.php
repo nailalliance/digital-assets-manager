@@ -90,4 +90,86 @@ final class ZipDownloadResponseFactory
 
         return $response;
     }
+
+    /**
+     * @param list<array{
+     *     archiveName: string,
+     *     sourcePath?: string,
+     *     content?: string,
+     *     callback?: Closure,
+     *     exactSize?: int
+     * }> $entries
+     */
+    public function createStreaming(
+        string $archiveName,
+        array $entries,
+        ?Closure $beforeStream = null,
+        ?Closure $afterStream = null,
+        $outputStream = null
+    ): StreamedResponse {
+        $response = new StreamedResponse(function () use ($archiveName, $entries, $beforeStream, $afterStream, $outputStream): void {
+            $zip = new ZipStream(
+                operationMode: OperationMode::NORMAL,
+                outputName: $archiveName,
+                outputStream: $outputStream,
+                defaultCompressionMethod: CompressionMethod::STORE,
+                defaultEnableZeroHeader: true,
+                sendHttpHeaders: false,
+                flushOutput: true,
+            );
+
+            try {
+                if ($beforeStream) {
+                    $beforeStream();
+                }
+
+                @ignore_user_abort(true);
+                @set_time_limit(0);
+
+                foreach ($entries as $entry) {
+                    if (isset($entry['sourcePath'])) {
+                        $zip->addFileFromPath(
+                            fileName: $entry['archiveName'],
+                            path: $entry['sourcePath'],
+                        );
+                        continue;
+                    }
+
+                    if (isset($entry['callback']) && $entry['callback'] instanceof Closure) {
+                        $zip->addFileFromCallback(
+                            fileName: $entry['archiveName'],
+                            callback: $entry['callback'],
+                            exactSize: $entry['exactSize'] ?? null,
+                        );
+                        continue;
+                    }
+
+                    if (isset($entry['content'])) {
+                        $zip->addFile(
+                            fileName: $entry['archiveName'],
+                            data: $entry['content'],
+                        );
+                    }
+                }
+
+                $zip->finish();
+            } finally {
+                if ($afterStream) {
+                    $afterStream();
+                }
+            }
+        });
+
+        $response->headers->set('Content-Type', 'application/zip');
+        $response->headers->set(
+            'Content-Disposition',
+            $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $archiveName)
+        );
+        $response->headers->set('Content-Transfer-Encoding', 'binary');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('X-Accel-Buffering', 'no');
+
+        return $response;
+    }
 }

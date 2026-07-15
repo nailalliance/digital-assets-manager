@@ -81,6 +81,11 @@ final class CanvasEditorScriptRenderer
         return in_array($mimeType, self::SUPPORTED_MIME_TYPES, true);
     }
 
+    public function getOutputExtensionForMimeType(string $inputMimeType): string
+    {
+        return $this->resolveOutputExtension($this->resolveOutputMimeType($inputMimeType));
+    }
+
     /**
      * @param array<string, mixed> $parsedScript
      *
@@ -125,6 +130,70 @@ final class CanvasEditorScriptRenderer
                 'extension' => $outputExtension,
                 'mimeType' => $outputMimeType,
             ];
+        } finally {
+            $sourceImage->clear();
+            $sourceImage->destroy();
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $parsedScript
+     *
+     * @return array{stream: resource, extension: string, mimeType: string}
+     */
+    public function renderAssetToStream(Assets $asset, array $parsedScript): array
+    {
+        if (!class_exists(\Imagick::class)) {
+            throw new \RuntimeException('Imagick is required to render scripted downloads.');
+        }
+
+        $sourcePath = $asset->getFilePath();
+        if (!is_string($sourcePath) || $sourcePath === '' || !$this->filesystem->exists($sourcePath)) {
+            throw new \RuntimeException('Source file not found.');
+        }
+
+        $mimeType = (string) $asset->getMimeType();
+        if (!$this->supportsMimeType($mimeType)) {
+            throw new \RuntimeException(sprintf('The asset mime type "%s" is not supported.', $mimeType));
+        }
+
+        $sourceImage = $this->loadSourceImage($sourcePath, $mimeType);
+
+        try {
+            $sourceWidth = max(1, $sourceImage->getImageWidth());
+            $sourceHeight = max(1, $sourceImage->getImageHeight());
+            $normalizedState = $this->buildRenderableState($parsedScript, $sourceWidth, $sourceHeight);
+            $outputMimeType = $this->resolveOutputMimeType($mimeType);
+            $outputExtension = $this->resolveOutputExtension($outputMimeType);
+            $exportCanvas = $this->renderCanvas($sourceImage, $normalizedState, $outputMimeType);
+
+            try {
+                $stream = tmpfile();
+                if ($stream === false) {
+                    throw new \RuntimeException('A temporary stream could not be created for the scripted download.');
+                }
+
+                $blob = $exportCanvas->getImageBlob();
+                if (fwrite($stream, $blob) === false) {
+                    fclose($stream);
+                    throw new \RuntimeException('The scripted image stream could not be written.');
+                }
+                unset($blob);
+
+                if (rewind($stream) === false) {
+                    fclose($stream);
+                    throw new \RuntimeException('The scripted image stream could not be rewound.');
+                }
+
+                return [
+                    'stream' => $stream,
+                    'extension' => $outputExtension,
+                    'mimeType' => $outputMimeType,
+                ];
+            } finally {
+                $exportCanvas->clear();
+                $exportCanvas->destroy();
+            }
         } finally {
             $sourceImage->clear();
             $sourceImage->destroy();
