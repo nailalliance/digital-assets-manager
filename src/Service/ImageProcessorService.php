@@ -49,15 +49,30 @@ class ImageProcessorService
      * @param string $format The output format ('webp', 'jpg', 'png').
      * @return string|null The binary content of the exported image, or null on failure.
      */
-    public function exportFile(string $sourcePath, int $width, int $height, int $padding = 0, string $format = 'jpg'): ?string
+    public function exportFile(
+        string $sourcePath,
+        int $width,
+        int $height,
+        int $padding = 0,
+        string $format = 'jpg',
+        bool $useLargestClipPath = false
+    ): ?string
     {
-        return $this->processImage($sourcePath, $width, $height, $padding, $format, null);
+        return $this->processImage($sourcePath, $width, $height, $padding, $format, null, $useLargestClipPath);
     }
 
     /**
      * The core image processing logic.
      */
-    private function processImage(string $sourcePath, int $targetWidth, int $targetHeight, int $padding, string $outputFormat, ?string $legendText): ?string
+    private function processImage(
+        string $sourcePath,
+        int $targetWidth,
+        int $targetHeight,
+        int $padding,
+        string $outputFormat,
+        ?string $legendText,
+        bool $useLargestClipPath = false
+    ): ?string
     {
         if (!class_exists('Imagick') || !$this->filesystem->exists($sourcePath)) {
             return null;
@@ -78,6 +93,10 @@ class ImageProcessorService
                 $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             } else {
                 $image->readImage($filePathToRead);
+            }
+
+            if ($useLargestClipPath && $legendText === null) {
+                $this->applyLargestClipPathIfAvailable($image);
             }
 
             // if ($mimeType === 'application/pdf') {
@@ -175,5 +194,108 @@ class ImageProcessorService
                 $this->filesystem->remove($tempPngPath);
             }
         }
+    }
+
+    private function applyLargestClipPathIfAvailable(\Imagick $image): void
+    {
+        $svgPathData = $this->findLargestClipPathSvg($image);
+        if ($svgPathData === null) {
+            return;
+        }
+
+        $mask = new \Imagick();
+
+        try {
+            $maskSvg = $this->normalizeClipPathSvg($svgPathData);
+
+            $mask->setBackgroundColor(new \ImagickPixel('black'));
+            $mask->readImageBlob($maskSvg);
+            $mask->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+
+            if (
+                $mask->getImageWidth() !== $image->getImageWidth()
+                || $mask->getImageHeight() !== $image->getImageHeight()
+            ) {
+                $mask->scaleImage($image->getImageWidth(), $image->getImageHeight());
+            }
+
+            $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
+            $image->compositeImage($mask, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
+        } finally {
+            $mask->clear();
+        }
+    }
+
+    private function findLargestClipPathSvg(\Imagick $image): ?string
+    {
+        $bestPathSvg = null;
+        $maxBoxArea = 0.0;
+
+        for ($i = 0; $i <= 15; $i++) {
+            $svgPathData = $image->getImageProperty("8BIM:1999,2998:#{$i}");
+            if (!$svgPathData) {
+                continue;
+            }
+
+            $area = $this->estimateClipPathBoundingBoxArea($svgPathData);
+            if ($area === null || $area <= $maxBoxArea) {
+                continue;
+            }
+
+            $maxBoxArea = $area;
+            $bestPathSvg = $svgPathData;
+        }
+
+        return $bestPathSvg;
+    }
+
+    private function estimateClipPathBoundingBoxArea(string $svgPathData): ?float
+    {
+        if (!preg_match('/d="([^"]+)"/', $svgPathData, $matches)) {
+            return null;
+        }
+
+        preg_match_all('/[-+]?[0-9]*\.?[0-9]+/', $matches[1], $coords);
+        $numbers = $coords[0] ?? [];
+
+        if (count($numbers) < 4) {
+            return null;
+        }
+
+        $minX = $maxX = (float) $numbers[0];
+        $minY = $maxY = (float) $numbers[1];
+        $count = count($numbers);
+
+        for ($i = 0; $i < $count; $i += 2) {
+            if (!isset($numbers[$i + 1])) {
+                break;
+            }
+
+            $x = (float) $numbers[$i];
+            $y = (float) $numbers[$i + 1];
+
+            if ($x < $minX) {
+                $minX = $x;
+            }
+            if ($x > $maxX) {
+                $maxX = $x;
+            }
+            if ($y < $minY) {
+                $minY = $y;
+            }
+            if ($y > $maxY) {
+                $maxY = $y;
+            }
+        }
+
+        return ($maxX - $minX) * ($maxY - $minY);
+    }
+
+    private function normalizeClipPathSvg(string $svgPathData): string
+    {
+        $svgPathData = preg_replace('/fill\s*:\s*#[0-9A-Fa-f]{3,6}/', 'fill:#FFFFFF', $svgPathData) ?? $svgPathData;
+        $svgPathData = preg_replace('/fill="[^"]*"/', 'fill="#FFFFFF"', $svgPathData) ?? $svgPathData;
+
+        return $svgPathData;
     }
 }

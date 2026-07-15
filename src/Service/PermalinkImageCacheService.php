@@ -24,7 +24,7 @@ final class PermalinkImageCacheService
         $this->permalinkCacheDir = rtrim($permalinkCacheDir, '/');
     }
 
-    public function getOrCreate(Assets $asset, int $width, int $height, int $padding, string $format): string
+    public function getOrCreate(Assets $asset, int $width, int $height, int $padding, string $format, bool $useLargestClipPath = false): string
     {
         $this->assertValidVariant($width, $height, $padding, $format);
 
@@ -38,7 +38,7 @@ final class PermalinkImageCacheService
             throw new \RuntimeException('Source file not found.');
         }
 
-        $cachePath = $this->buildCachePath($assetId, $width, $height, $padding, $format);
+        $cachePath = $this->buildCachePath($assetId, $width, $height, $padding, $format, $useLargestClipPath);
         if ($this->isUsableCacheFile($cachePath)) {
             return $cachePath;
         }
@@ -50,7 +50,7 @@ final class PermalinkImageCacheService
             throw new \RuntimeException('Could not prepare cached permalink image directory.', previous: $exception);
         }
 
-        $lock = $this->lockFactory->createLock($this->buildLockKey($assetId, $width, $height, $padding, $format));
+        $lock = $this->lockFactory->createLock($this->buildLockKey($assetId, $width, $height, $padding, $format, $useLargestClipPath));
         $lock->acquire(true);
 
         $tempPath = null;
@@ -60,7 +60,7 @@ final class PermalinkImageCacheService
                 return $cachePath;
             }
 
-            $imageBinary = $this->imageProcessor->exportFile($sourcePath, $width, $height, $padding, $format);
+            $imageBinary = $this->imageProcessor->exportFile($sourcePath, $width, $height, $padding, $format, $useLargestClipPath);
 
             if ($imageBinary === null || $imageBinary === '') {
                 throw new \RuntimeException('Could not process image.');
@@ -87,29 +87,33 @@ final class PermalinkImageCacheService
         }
     }
 
-    private function buildCachePath(int $assetId, int $width, int $height, int $padding, string $format): string
+    private function buildCachePath(int $assetId, int $width, int $height, int $padding, string $format, bool $useLargestClipPath): string
     {
+        $clipPathSegment = $useLargestClipPath ? '-lcp' : '';
+
         return sprintf(
-            '%s/%d/%dx%d-p%d-%s.%s',
+            '%s/%d/%dx%d-p%d%s-%s.%s',
             $this->permalinkCacheDir,
             $assetId,
             $width,
             $height,
             $padding,
+            $clipPathSegment,
             $this->cacheVersion,
             $format
         );
     }
 
-    private function buildLockKey(int $assetId, int $width, int $height, int $padding, string $format): string
+    private function buildLockKey(int $assetId, int $width, int $height, int $padding, string $format, bool $useLargestClipPath): string
     {
         return sprintf(
-            'permalink-image:%d:%dx%d:%d:%s:%s',
+            'permalink-image:%d:%dx%d:%d:%s:%s:%s',
             $assetId,
             $width,
             $height,
             $padding,
             $format,
+            $useLargestClipPath ? 'lcp' : 'standard',
             $this->cacheVersion
         );
     }

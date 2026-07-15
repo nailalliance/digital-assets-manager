@@ -153,8 +153,10 @@ class PublicDownloadListController extends AbstractController
         return new BinaryFileResponse($thumbnailPath);
     }
 
-    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'])]
-    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{filename}.{extension}', name: 'public_image', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0])]
+    #[Route('/share/{token}/image/{assetId}/use-largest-clip-path/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_largest_clip_path_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true])]
+    #[Route('/share/{token}/image/{assetId}/use-largest-clip-path/{width}x{height}/{filename}.{extension}', name: 'public_image_largest_clip_path', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true])]
+    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => false])]
+    #[Route('/share/{token}/image/{assetId}/{width}x{height}/{filename}.{extension}', name: 'public_image', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => false])]
     public function publicImage(
         #[MapEntity(mapping: ['token' => 'token'])]
         OneTimeLinks $oneTimeLink,
@@ -165,6 +167,7 @@ class PublicDownloadListController extends AbstractController
         int $width,
         int $height,
         int $padding,
+        bool $useLargestClipPath,
         string $filename,
         string $extension
     ): Response {
@@ -198,12 +201,12 @@ class PublicDownloadListController extends AbstractController
         }
 
         try {
-            $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension);
+            $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension, $useLargestClipPath);
             $response = new BinaryFileResponse($cachedImagePath);
         } catch (\InvalidArgumentException) {
             throw $this->createNotFoundException('Could not process image.');
         } catch (\RuntimeException) {
-            $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension);
+            $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension, $useLargestClipPath);
 
             if ($imageBinary === null || $imageBinary === '') {
                 throw $this->createNotFoundException('Could not process image.');

@@ -41,7 +41,7 @@ class PublicDownloadListControllerTest extends TestCase
         $cacheImageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 1000, 1000, 25, 'jpg')
+            ->with($asset->getFilePath(), 1000, 1000, 25, 'jpg', false)
             ->willReturn('cached-public-image');
         $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
         $fallbackImageProcessor->expects($this->never())->method('exportFile');
@@ -62,6 +62,7 @@ class PublicDownloadListControllerTest extends TestCase
             1000,
             1000,
             25,
+            false,
             'sample-name',
             'jpg'
         );
@@ -74,6 +75,7 @@ class PublicDownloadListControllerTest extends TestCase
             1000,
             1000,
             25,
+            false,
             'sample-name',
             'jpg'
         );
@@ -123,6 +125,7 @@ class PublicDownloadListControllerTest extends TestCase
             1200,
             800,
             0,
+            false,
             'expired',
             'png'
         );
@@ -162,6 +165,7 @@ class PublicDownloadListControllerTest extends TestCase
             900,
             900,
             10,
+            false,
             'unauthorized',
             'webp'
         );
@@ -181,7 +185,7 @@ class PublicDownloadListControllerTest extends TestCase
         $fallbackImageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 1500, 1500, 100, 'webp')
+            ->with($asset->getFilePath(), 1500, 1500, 100, 'webp', false)
             ->willReturn('fallback-image-binary');
 
         $cacheService = new PermalinkImageCacheService(
@@ -200,6 +204,7 @@ class PublicDownloadListControllerTest extends TestCase
             1500,
             1500,
             100,
+            false,
             '22399-GEL-WIRELESS-Sanding-Bits-CeramicLargeBarrelBitRoundTop',
             'webp'
         );
@@ -210,6 +215,49 @@ class PublicDownloadListControllerTest extends TestCase
             '22399-GEL-WIRELESS-Sanding-Bits-CeramicLargeBarrelBitRoundTop.webp',
             (string) $response->headers->get('Content-Disposition')
         );
+    }
+
+    public function testPublicImageUsesLargestClipPathVariantWhenRequested(): void
+    {
+        $asset = $this->createAsset(123, $this->createSourceFile('source-image'));
+        $controller = new TestablePublicDownloadListController(false);
+        $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
+        $cacheImageProcessor
+            ->expects($this->once())
+            ->method('exportFile')
+            ->with($asset->getFilePath(), 1100, 900, 30, 'png', true)
+            ->willReturn('largest-clip-path-image');
+        $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
+        $fallbackImageProcessor->expects($this->never())->method('exportFile');
+
+        $cacheService = new PermalinkImageCacheService(
+            new Filesystem(),
+            $cacheImageProcessor,
+            new LockFactory(new InMemoryStore()),
+            $this->tempDir . '/cache',
+            'v1'
+        );
+
+        $response = $controller->publicImage(
+            $this->createShareLink('token-clip-path', $asset, '+30 days'),
+            $asset,
+            $cacheService,
+            $fallbackImageProcessor,
+            1100,
+            900,
+            30,
+            true,
+            'clipped',
+            'png'
+        );
+
+        $this->assertInstanceOf(BinaryFileResponse::class, $response);
+        $this->assertStringEndsWith(
+            '/123/1100x900-p30-lcp-v1.png',
+            $response->getFile()->getPathname()
+        );
+        $this->assertSame('largest-clip-path-image', file_get_contents($response->getFile()->getPathname()));
+        $this->assertSame('image/png', $response->headers->get('Content-Type'));
     }
 
     private function createAsset(int $id, string $sourcePath): Assets
