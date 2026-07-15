@@ -2710,6 +2710,16 @@ function getRulerStepValue(scale) {
     return candidates.find((candidate) => candidate >= preferredSourceStep) ?? candidates.at(-1);
 }
 
+function pickClosestOffset(offsets) {
+    if (!Array.isArray(offsets) || offsets.length === 0) {
+        return 0;
+    }
+
+    return offsets.reduce((closest, current) => (
+        Math.abs(current) < Math.abs(closest) ? current : closest
+    ));
+}
+
 function clamp(value, min, max) {
     if (!Number.isFinite(value)) {
         return min;
