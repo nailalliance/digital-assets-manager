@@ -253,7 +253,7 @@ class PublicDownloadListControllerTest extends TestCase
 
         $this->assertInstanceOf(BinaryFileResponse::class, $response);
         $this->assertStringEndsWith(
-            '/123/1100x900-p30-lcpv4-v1.png',
+            '/123/1100x900-p30-lcpv5-v1.png',
             $response->getFile()->getPathname()
         );
         $this->assertSame('largest-clip-path-image', file_get_contents($response->getFile()->getPathname()));

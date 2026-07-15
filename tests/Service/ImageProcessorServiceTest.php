@@ -9,7 +9,7 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class ImageProcessorServiceTest extends TestCase
 {
-    public function testApplyLargestClipPathUsesOnlyTheSelectedPathShape(): void
+    public function testApplyLargestClipPathUsesOriginalSvgBlobShape(): void
     {
         if (!class_exists(\Imagick::class)) {
             $this->markTestSkipped('Imagick is required for this test.');
@@ -26,7 +26,7 @@ class ImageProcessorServiceTest extends TestCase
 
         $image->setImageProperty(
             '8BIM:1999,2998:#0',
-            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#000000"/><path d="M 50 50 L 150 50 L 150 150 L 50 150 Z" fill="#000000"/></svg>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><path d="M 50 50 L 150 50 L 150 150 L 50 150 Z" style="fill:#000000;stroke:none"/></svg>'
         );
 
         $method = new \ReflectionMethod(ImageProcessorService::class, 'applyLargestClipPathIfAvailable');
@@ -46,7 +46,7 @@ class ImageProcessorServiceTest extends TestCase
         $image->clear();
     }
 
-    public function testApplyLargestClipPathPrefersTighterCandidateOverLooserShadowCandidate(): void
+    public function testApplyLargestClipPathUsesLargestPathResource(): void
     {
         if (!class_exists(\Imagick::class)) {
             $this->markTestSkipped('Imagick is required for this test.');
@@ -58,39 +58,28 @@ class ImageProcessorServiceTest extends TestCase
 
         $draw = new \ImagickDraw();
         $draw->setFillColor(new \ImagickPixel('rgb(255, 80, 120)'));
-        $draw->rectangle(80, 30, 160, 210);
+        $draw->rectangle(30, 30, 210, 210);
         $image->drawImage($draw);
-
-        $shadow = new \Imagick();
-        $shadow->newImage(240, 240, new \ImagickPixel('transparent'), 'png');
-        $shadowDraw = new \ImagickDraw();
-        $shadowDraw->setFillColor(new \ImagickPixel('rgba(0, 0, 0, 0.45)'));
-        $shadowDraw->ellipse(58, 212, 35, 12, 0, 360);
-        $shadow->drawImage($shadowDraw);
-        $shadow->gaussianBlurImage(0, 8);
-        $image->compositeImage($shadow, \Imagick::COMPOSITE_MULTIPLY, 0, 0);
 
         $image->setImageProperty(
             '8BIM:1999,2998:#0',
-            '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240"><path d="M 18 30 L 160 30 L 160 230 L 18 230 Z" fill="#000000"/></svg>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240"><path d="M 70 40 L 170 40 L 170 200 L 70 200 Z" style="fill:#000000;stroke:none"/></svg>'
         );
         $image->setImageProperty(
             '8BIM:1999,2998:#1',
-            '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240"><path d="M 80 30 L 160 30 L 160 210 L 80 210 Z" fill="#000000"/></svg>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240"><path d="M 30 30 L 210 30 L 210 210 L 30 210 Z" style="fill:#000000;stroke:none"/></svg>'
         );
 
         $method = new \ReflectionMethod(ImageProcessorService::class, 'applyLargestClipPathIfAvailable');
         $method->setAccessible(true);
         $method->invoke($service, $image);
 
-        $shadowPixel = $image->getImagePixelColor(35, 212)->getColor(true);
-        $contentPixel = $image->getImagePixelColor(120, 120)->getColor(true);
+        $largestOnlyPixel = $image->getImagePixelColor(45, 120)->getColor(true);
+        $outsidePixel = $image->getImagePixelColor(10, 10)->getColor(true);
 
-        $this->assertLessThan(0.1, $shadowPixel['a']);
-        $this->assertGreaterThan(0.9, $contentPixel['a']);
+        $this->assertGreaterThan(0.9, $largestOnlyPixel['a']);
+        $this->assertLessThan(0.1, $outsidePixel['a']);
 
-        $shadowDraw->clear();
-        $shadow->clear();
         $draw->clear();
         $image->clear();
     }
