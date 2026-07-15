@@ -223,7 +223,11 @@ class ImageProcessorService
         $mask = new \Imagick();
 
         try {
-            $maskSvg = $this->buildMaskSvgFromOriginalBlob($svgPathData);
+            $maskSvg = $this->buildMaskSvgFromFilledPaths(
+                $svgPathData,
+                $image->getImageWidth(),
+                $image->getImageHeight()
+            );
             $mask->setBackgroundColor(new \ImagickPixel('black'));
             $mask->readImageBlob($maskSvg);
             $mask->setImageMatte(false);
@@ -274,74 +278,143 @@ class ImageProcessorService
         return $bounds['area'] ?? null;
     }
 
-    private function buildMaskSvgFromOriginalBlob(string $svgPathData): string
+    private function buildMaskSvgFromFilledPaths(string $svgPathData, int $imageWidth, int $imageHeight): string
     {
         $document = new \DOMDocument();
         if (@$document->loadXML($svgPathData) === false) {
-            return str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
-        }
-
-        $svg = $document->documentElement;
-        if (!$svg instanceof \DOMElement) {
-            return str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
+            return $this->buildMaskSvgFromPathDataStrings(
+                $this->extractPathDataStringsFromRawSvg($svgPathData),
+                $imageWidth,
+                $imageHeight
+            );
         }
 
         $xpath = new \DOMXPath($document);
-        /** @var \DOMNodeList<\DOMElement> $elements */
-        $elements = $xpath->query('//*');
-        if ($elements === false) {
-            return str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
+        /** @var \DOMNodeList<\DOMElement> $pathElements */
+        $pathElements = $xpath->query('//*[local-name()="path"][@d]');
+        if ($pathElements === false) {
+            return $this->buildMaskSvgFromPathDataStrings(
+                $this->extractPathDataStringsFromRawSvg($svgPathData),
+                $imageWidth,
+                $imageHeight
+            );
         }
 
-        $elementsToRemove = [];
-        foreach ($elements as $element) {
-            if ($element->tagName === 'rect') {
-                $elementsToRemove[] = $element;
+        $paths = [];
+        foreach ($pathElements as $pathElement) {
+            if (!$this->isFilledMaskPathElement($pathElement)) {
                 continue;
             }
 
-            if ($element->tagName === 'svg') {
-                continue;
-            }
-
-            $this->normalizeSvgElementForMask($element);
+            $paths[] = [
+                'd' => $pathElement->getAttribute('d'),
+                'fillRule' => $pathElement->getAttribute('fill-rule'),
+                'clipRule' => $pathElement->getAttribute('clip-rule'),
+                'transform' => $pathElement->getAttribute('transform'),
+            ];
         }
 
-        foreach ($elementsToRemove as $elementToRemove) {
-            $elementToRemove->parentNode?->removeChild($elementToRemove);
+        if ($paths === []) {
+            return $this->buildMaskSvgFromPathDataStrings(
+                $this->extractPathDataStringsFromRawSvg($svgPathData),
+                $imageWidth,
+                $imageHeight
+            );
         }
+
+        return $this->buildMaskSvgDocument($paths, $imageWidth, $imageHeight);
+    }
+
+    private function isFilledMaskPathElement(\DOMElement $pathElement): bool
+    {
+        $fill = strtolower(trim($pathElement->getAttribute('fill')));
+        if ($fill !== '' && $fill === 'none') {
+            return false;
+        }
+
+        $style = strtolower($pathElement->getAttribute('style'));
+        if (preg_match('/fill\s*:\s*none\b/', $style)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractPathDataStringsFromRawSvg(string $svgPathData): array
+    {
+        if (!preg_match_all('/<path[^>]*\sd="([^"]+)"/i', $svgPathData, $matches)) {
+            return [];
+        }
+
+        return array_values(array_filter($matches[1] ?? [], static fn (string $pathData): bool => $pathData !== ''));
+    }
+
+    /**
+     * @param list<string> $pathDataStrings
+     */
+    private function buildMaskSvgFromPathDataStrings(array $pathDataStrings, int $imageWidth, int $imageHeight): string
+    {
+        $paths = [];
+
+        foreach ($pathDataStrings as $pathData) {
+            $paths[] = [
+                'd' => $pathData,
+                'fillRule' => 'evenodd',
+                'clipRule' => '',
+                'transform' => '',
+            ];
+        }
+
+        return $this->buildMaskSvgDocument($paths, $imageWidth, $imageHeight);
+    }
+
+    /**
+     * @param list<array{d: string, fillRule: string, clipRule: string, transform: string}> $paths
+     */
+    private function buildMaskSvgDocument(array $paths, int $imageWidth, int $imageHeight): string
+    {
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $svg = $document->createElement('svg');
+        $svg->setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        $svg->setAttribute('width', (string) $imageWidth);
+        $svg->setAttribute('height', (string) $imageHeight);
+        $svg->setAttribute('viewBox', sprintf('0 0 %d %d', $imageWidth, $imageHeight));
+        $document->appendChild($svg);
 
         $backgroundRect = $document->createElement('rect');
         $backgroundRect->setAttribute('width', '100%');
         $backgroundRect->setAttribute('height', '100%');
         $backgroundRect->setAttribute('fill', '#000000');
+        $svg->appendChild($backgroundRect);
 
-        if ($svg->firstChild !== null) {
-            $svg->insertBefore($backgroundRect, $svg->firstChild);
-        } else {
-            $svg->appendChild($backgroundRect);
-        }
+        foreach ($paths as $pathData) {
+            $path = $document->createElement('path');
+            $path->setAttribute('d', $pathData['d']);
+            $path->setAttribute('fill', '#FFFFFF');
 
-        return $document->saveXML($svg) ?: str_replace('fill:#000000', 'fill:#FFFFFF', $svgPathData);
-    }
-
-    private function normalizeSvgElementForMask(\DOMElement $element): void
-    {
-        if ($element->hasAttribute('fill')) {
-            $element->setAttribute('fill', '#FFFFFF');
-        } else {
-            $element->setAttribute('fill', '#FFFFFF');
-        }
-
-        if ($element->hasAttribute('style')) {
-            $style = preg_replace('/fill\s*:\s*[^;"]+/i', 'fill:#FFFFFF', $element->getAttribute('style')) ?? $element->getAttribute('style');
-            if (!preg_match('/fill\s*:/i', $style)) {
-                $style = rtrim($style, ';');
-                $style .= ($style === '' ? '' : ';') . 'fill:#FFFFFF';
+            if ($pathData['fillRule'] !== '') {
+                $path->setAttribute('fill-rule', $pathData['fillRule']);
             }
 
-            $element->setAttribute('style', $style);
+            if ($pathData['clipRule'] !== '') {
+                $path->setAttribute('clip-rule', $pathData['clipRule']);
+            }
+
+            if ($pathData['transform'] !== '') {
+                $path->setAttribute('transform', $pathData['transform']);
+            }
+
+            $svg->appendChild($path);
         }
+
+        return $document->saveXML() ?: sprintf(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="%1$d" height="%2$d" viewBox="0 0 %1$d %2$d"><rect width="100%%" height="100%%" fill="#000000"/></svg>',
+            $imageWidth,
+            $imageHeight
+        );
     }
 
     private function resolveCanvasBackgroundColor(?string $legendText, bool $useLargestClipPath): string
