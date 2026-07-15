@@ -93,4 +93,69 @@ class ZipDownloadResponseFactoryTest extends TestCase
             }
         }
     }
+
+    public function testCreateStreamingBuildsZipResponseFromCallbacks(): void
+    {
+        $archivePath = null;
+        $outputStream = fopen('php://temp', 'w+b');
+        $this->assertNotFalse($outputStream);
+
+        try {
+            $factory = new ZipDownloadResponseFactory();
+            $response = $factory->createStreaming(
+                'streamed-bundle.zip',
+                [
+                    [
+                        'archiveName' => 'first.txt',
+                        'callback' => static function () {
+                            $stream = fopen('php://temp', 'w+b');
+                            fwrite($stream, 'streamed-alpha');
+                            rewind($stream);
+
+                            return $stream;
+                        },
+                    ],
+                    [
+                        'archiveName' => 'notes.txt',
+                        'content' => "zip\nstream",
+                    ],
+                ],
+                null,
+                null,
+                $outputStream
+            );
+
+            $this->assertSame('application/zip', $response->headers->get('Content-Type'));
+            $this->assertSame('no', $response->headers->get('X-Accel-Buffering'));
+            $this->assertStringContainsString(
+                'streamed-bundle.zip',
+                (string) $response->headers->get('Content-Disposition')
+            );
+            $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+
+            $response->sendContent();
+            rewind($outputStream);
+            $archiveContent = stream_get_contents($outputStream);
+            $this->assertIsString($archiveContent);
+
+            $archivePath = tempnam(sys_get_temp_dir(), 'zip-streaming-archive-');
+            $this->assertNotFalse($archivePath);
+            file_put_contents($archivePath, $archiveContent);
+
+            $zip = new \ZipArchive();
+            $this->assertTrue($zip->open($archivePath) === true);
+            $this->assertSame('streamed-alpha', $zip->getFromName('first.txt'));
+            $this->assertSame("zip\nstream", $zip->getFromName('notes.txt'));
+            $this->assertSame(2, $zip->numFiles);
+            $zip->close();
+        } finally {
+            if (is_resource($outputStream)) {
+                fclose($outputStream);
+            }
+
+            if (is_string($archivePath) && file_exists($archivePath)) {
+                unlink($archivePath);
+            }
+        }
+    }
 }

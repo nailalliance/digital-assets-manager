@@ -10,38 +10,46 @@
         data-permalink-generator-base-url-value="{{ app.request.schemeAndHttpHost }}"
         data-permalink-generator-share-endpoint-value="{{ path('download_list_share') }}"
         data-download-bag-script-initial-script-value="{{ scriptDraft|default('')|e('html_attr') }}"
+        data-download-bag-script-status-url-template-value="{{ path('download_list_zip_scripted_status', {token: '__TOKEN__'}) }}"
+        data-download-bag-script-clear-url-template-value="{{ path('download_list_zip_scripted_status_clear', {token: '__TOKEN__'}) }}"
     >
+        {% set actionButtonBase = 'inline-flex min-h-[5.5rem] items-center justify-center rounded-2xl border px-6 py-4 text-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-violet-300' %}
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-900">Download Bag</h1>
-            <div class="flex items-center space-x-3">
+            <div class="flex flex-wrap items-stretch gap-4">
+                {% if assets is not empty %}
+                    <button type="button" data-action="click->download-bag-script#openModal" class="{{ actionButtonBase }} gap-3 border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                        <svg class="h-8 w-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        Apply Script to Bag
+                    </button>
+                {% endif %}
+
                 {% if is_granted('ROLE_FTP_DESIGNER') and assets is not empty %}
-                    <button data-action="click->share-link#openShareModal" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
-                        <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                        Generate Share Link
+                    <button type="button" data-action="click->permalink-generator#openModal"
+                            class="{{ actionButtonBase }} flex-col gap-1 border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                        <span class="inline-flex items-center gap-3">
+                            <svg class="h-8 w-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                            Generate Web Links
+                        </span>
+                        <span class="text-xs font-medium text-gray-500">(from jpg|png only)</span>
                     </button>
 
-                    <button type="button" data-action="click->permalink-generator#openModal"
-                            class="flex flex-col items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        <div class="inline-flex">
-                            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                            Generate Web Links
-                        </div>
-                        <span class="text-xs">(from jpg|png only)</span>
+                    <button data-action="click->share-link#openShareModal" class="{{ actionButtonBase }} gap-3 border-transparent bg-green-600 text-white hover:bg-green-700">
+                        <svg class="h-8 w-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        Generate Share Link
                     </button>
                 {% endif %}
 
                 {% if assets is not empty %}
-                    <button type="button" data-action="click->download-bag-script#openModal" class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        Apply Script to Bag
-                    </button>
-                    <a href="{{ path('download_list_zip') }}" data-turbo="false" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700">
-                        <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <a href="{{ path('download_list_zip') }}" data-turbo="false" class="{{ actionButtonBase }} gap-3 border-transparent bg-violet-600 text-white hover:bg-violet-700">
+                        <svg class="h-8 w-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Download All (.zip)
                     </a>
                 {% endif %}
             </div>
         </div>
+
+        <iframe name="download-bag-script-frame" data-download-bag-script-target="iframe" class="hidden" tabindex="-1" aria-hidden="true"></iframe>
 
         {% for type, messages in app.flashes %}
             {% for message in messages %}
@@ -189,13 +197,14 @@
 
         <div data-download-bag-script-target="modal" data-action="click->download-bag-script#closeOnBackdrop" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900/60 p-4">
             <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
-                <form action="{{ path('download_list_zip_scripted') }}" method="post" data-turbo="false" class="flex flex-col">
+                <form action="{{ path('download_list_zip_scripted') }}" method="post" target="download-bag-script-frame" data-turbo="false" data-download-bag-script-target="form" data-action="submit->download-bag-script#submit" class="flex flex-col">
+                    <input type="hidden" name="downloadToken" value="" data-download-bag-script-target="tokenInput">
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                         <div>
                             <h2 class="text-xl font-semibold text-gray-900">Apply Editor Script to Download Bag</h2>
                             <p class="mt-2 text-sm text-gray-500">Paste a canvas editor script to replay the same crop, image transform, and text layout across every supported raster asset in the bag.</p>
                         </div>
-                        <button type="button" data-action="click->download-bag-script#closeModal" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        <button type="button" data-download-bag-script-target="closeButton" data-action="click->download-bag-script#closeModal" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
                             Close
                         </button>
                     </div>
@@ -218,6 +227,21 @@
 
                         <div data-download-bag-script-target="warning" class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"></div>
 
+                        <div data-download-bag-script-target="progressPanel" class="hidden rounded-xl border border-violet-200 bg-violet-50 px-4 py-4">
+                            <div class="flex items-center justify-between gap-3 text-sm">
+                                <p class="font-semibold text-violet-900">Streaming edited ZIP</p>
+                                <p data-download-bag-script-target="progressPercent" class="font-semibold text-violet-700">0%</p>
+                            </div>
+                            <div class="mt-3 h-3 overflow-hidden rounded-full bg-violet-100">
+                                <div data-download-bag-script-target="progressBar" class="h-full w-0 rounded-full bg-violet-600 transition-all duration-300 ease-out"></div>
+                            </div>
+                            <div class="mt-3 flex flex-col gap-1 text-sm text-violet-900 md:flex-row md:items-center md:justify-between">
+                                <p data-download-bag-script-target="progressLabel">Waiting to start…</p>
+                                <p data-download-bag-script-target="progressMeta" class="text-violet-700">0 of 0 rendered</p>
+                            </div>
+                            <p class="mt-2 text-xs text-violet-700">The ZIP is streamed directly to the browser, so large download bags do not need every edited file buffered in memory first.</p>
+                        </div>
+
                         <div>
                             <label for="download-bag-script-textarea" class="block text-sm font-medium text-gray-700">Editor Script JSON</label>
                             <textarea id="download-bag-script-textarea" name="script" data-download-bag-script-target="textarea" class="mt-2 h-80 w-full rounded-xl border border-gray-300 p-4 font-mono text-sm text-slate-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" placeholder='{
@@ -233,7 +257,7 @@
                     <div class="flex items-center justify-between gap-3 border-t border-gray-200 px-6 py-4">
                         <p class="text-sm text-gray-500">This is session-local and download-only. Original assets in the bag are not modified.</p>
                         <div class="flex items-center gap-3">
-                            <button type="button" data-action="click->download-bag-script#closeModal" class="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <button type="button" data-download-bag-script-target="closeButton" data-action="click->download-bag-script#closeModal" class="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
                                 Cancel
                             </button>
                             <button type="submit" data-download-bag-script-target="submitButton" class="inline-flex items-center justify-center rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">

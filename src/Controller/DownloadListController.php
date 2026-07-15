@@ -8,6 +8,7 @@ use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
 use App\Entity\User;
 use App\Service\CanvasEditorScriptRenderer;
+use App\Service\DownloadProgressService;
 use App\Service\DownloadListService;
 use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -48,7 +49,6 @@ class DownloadListController extends AbstractController
     public function add(Assets $asset, DownloadListService $downloadListService, Request $request): Response
     {
         if ($downloadListService->add($asset->getId())) {
-            $this->addFlash('success', sprintf('"%s" has been added to your download bag.', $asset->getName()));
         } else {
             $this->addFlash('warning', 'You do not have access to that asset.');
         }
@@ -70,8 +70,6 @@ class DownloadListController extends AbstractController
                 'downloadCount' => $downloadListService->getCount(),
             ], Response::HTTP_FORBIDDEN);
         }
-
-        $this->addFlash('success', sprintf('"%s" has been added to your download bag.', $asset->getName()));
 
         return $this->json([
             'success' => true,
@@ -204,38 +202,51 @@ class DownloadListController extends AbstractController
         DownloadListService $downloadListService,
         EntityManagerInterface $entityManager,
         ZipDownloadResponseFactory $zipDownloadResponseFactory,
-        CanvasEditorScriptRenderer $canvasEditorScriptRenderer
+        CanvasEditorScriptRenderer $canvasEditorScriptRenderer,
+        DownloadProgressService $downloadProgressService,
     ): Response {
         $rawScript = trim((string) $request->request->get('script', ''));
         $assets = $downloadListService->getAssets();
+        $downloadToken = $this->resolveDownloadToken((string) $request->request->get('downloadToken', ''));
 
         if ($rawScript === '') {
-            $this->rememberScriptDraft($request, $rawScript);
-            $this->addFlash('error', 'Paste an editor script before downloading.');
-
-            return $this->redirectToRoute('download_list_index');
+            return $this->scriptedZipFailureResponse(
+                $request,
+                $downloadProgressService,
+                $downloadToken,
+                $rawScript,
+                'Paste an editor script before downloading.'
+            );
         }
 
         if ($assets === []) {
-            $this->rememberScriptDraft($request, $rawScript);
-            $this->addFlash('warning', 'Your download bag is empty.');
-
-            return $this->redirectToRoute('download_list_index');
+            return $this->scriptedZipFailureResponse(
+                $request,
+                $downloadProgressService,
+                $downloadToken,
+                $rawScript,
+                'Your download bag is empty.',
+                'warning',
+                Response::HTTP_BAD_REQUEST
+            );
         }
 
         try {
             $parsedScript = $canvasEditorScriptRenderer->parseScript($rawScript);
         } catch (\InvalidArgumentException $exception) {
-            $this->rememberScriptDraft($request, $rawScript);
-            $this->addFlash('error', $exception->getMessage());
-
-            return $this->redirectToRoute('download_list_index');
+            return $this->scriptedZipFailureResponse(
+                $request,
+                $downloadProgressService,
+                $downloadToken,
+                $rawScript,
+                $exception->getMessage()
+            );
         }
 
         $entries = [];
         $issues = [];
-        $temporaryFiles = [];
         $downloadableAssets = [];
+        $renderableAssets = [];
         $archiveNameCounts = [];
 
         foreach ($assets as $asset) {
@@ -259,31 +270,93 @@ class DownloadListController extends AbstractController
                 continue;
             }
 
-            try {
-                $renderedFile = $canvasEditorScriptRenderer->renderAssetToTempFile($asset, $parsedScript);
-                $temporaryFiles[] = $renderedFile['path'];
-                $downloadableAssets[] = $asset;
-                $entries[] = [
-                    'archiveName' => $this->createUniqueArchiveName(
-                        $this->buildScriptedArchiveName($asset, $renderedFile['extension']),
-                        $archiveNameCounts
-                    ),
-                    'sourcePath' => $renderedFile['path'],
-                ];
-            } catch (\Throwable $exception) {
-                $issues[] = sprintf(
-                    '%s could not be rendered: %s',
-                    $asset->getName() ?? 'An asset',
-                    $exception->getMessage()
-                );
-            }
+            $renderableAssets[] = $asset;
+            $downloadableAssets[] = $asset;
         }
 
-        if ($entries === []) {
-            $this->rememberScriptDraft($request, $rawScript);
-            $this->addFlash('error', 'No supported assets in the download bag could be rendered with that script.');
+        if ($renderableAssets === []) {
+            return $this->scriptedZipFailureResponse(
+                $request,
+                $downloadProgressService,
+                $downloadToken,
+                $rawScript,
+                'No supported assets in the download bag could be rendered with that script.'
+            );
+        }
 
-            return $this->redirectToRoute('download_list_index');
+        if ($downloadToken !== null) {
+            $downloadProgressService->initialize($downloadToken, count($renderableAssets), count($issues));
+        }
+
+        $processedCount = 0;
+        $renderableTotal = count($renderableAssets);
+        $openStreams = [];
+        $streamCompleted = false;
+
+        foreach ($renderableAssets as $asset) {
+            $extension = $canvasEditorScriptRenderer->getOutputExtensionForMimeType((string) $asset->getMimeType());
+            $archiveName = $this->createUniqueArchiveName(
+                $this->buildScriptedArchiveName($asset, $extension),
+                $archiveNameCounts
+            );
+
+            $entries[] = [
+                'archiveName' => $archiveName,
+                'callback' => function () use (
+                    $asset,
+                    $parsedScript,
+                    $canvasEditorScriptRenderer,
+                    $downloadProgressService,
+                    $downloadToken,
+                    &$processedCount,
+                    $renderableTotal,
+                    &$openStreams,
+                    &$streamCompleted
+                ) {
+                    $assetName = $asset->getName() ?? 'Asset';
+
+                    if ($downloadToken !== null) {
+                        $downloadProgressService->advance(
+                            $downloadToken,
+                            $processedCount,
+                            $renderableTotal,
+                            sprintf('Rendering %d of %d: %s', $processedCount + 1, $renderableTotal, $assetName)
+                        );
+                    }
+
+                    try {
+                        $renderedAsset = $canvasEditorScriptRenderer->renderAssetToStream($asset, $parsedScript);
+                        $stream = $renderedAsset['stream'];
+
+                        if (is_resource($stream)) {
+                            $openStreams[] = $stream;
+                        }
+
+                        $processedCount++;
+                        $streamCompleted = $processedCount === $renderableTotal;
+
+                        if ($downloadToken !== null) {
+                            $downloadProgressService->advance(
+                                $downloadToken,
+                                $processedCount,
+                                $renderableTotal,
+                                sprintf('Rendered %d of %d assets.', $processedCount, $renderableTotal)
+                            );
+                        }
+
+                        return $stream;
+                    } catch (\Throwable $exception) {
+                        if ($downloadToken !== null) {
+                            $downloadProgressService->fail(
+                                $downloadToken,
+                                sprintf('%s could not be rendered: %s', $assetName, $exception->getMessage())
+                            );
+                        }
+
+                        throw $exception;
+                    }
+                },
+            ];
         }
 
         if ($issues !== []) {
@@ -296,28 +369,85 @@ class DownloadListController extends AbstractController
         $ipAddress = $request->getClientIp() ?? 'unknown';
         $user = $this->getUser();
 
-        return $zipDownloadResponseFactory->create(
+        return $zipDownloadResponseFactory->createStreaming(
             'download_bag_edited_' . date('Y-m-d') . '.zip',
             $entries,
-            function () use ($downloadableAssets, $entityManager, $ipAddress, $user): void {
-                foreach ($downloadableAssets as $asset) {
-                    $log = new Logs();
-                    $log->setAsset($asset);
-                    $log->setUser($user);
-                    $log->setIpAddress($ipAddress);
-                    $entityManager->persist($log);
+            null,
+            function () use (
+                $downloadableAssets,
+                $entityManager,
+                $ipAddress,
+                $user,
+                &$openStreams,
+                &$streamCompleted,
+                $downloadProgressService,
+                $downloadToken
+            ): void {
+                foreach ($openStreams as $stream) {
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
                 }
 
-                $entityManager->flush();
-            },
-            function () use ($temporaryFiles): void {
-                foreach ($temporaryFiles as $temporaryFile) {
-                    if (is_string($temporaryFile) && is_file($temporaryFile)) {
-                        @unlink($temporaryFile);
+                if (!$streamCompleted) {
+                    if (
+                        $downloadToken !== null
+                        && ($downloadProgressService->get($downloadToken)['status'] ?? 'running') === 'running'
+                    ) {
+                        $downloadProgressService->fail($downloadToken, 'The edited ZIP could not be completed.');
+                    }
+
+                    return;
+                }
+
+                try {
+                    foreach ($downloadableAssets as $asset) {
+                        $log = new Logs();
+                        $log->setAsset($asset);
+                        $log->setUser($user);
+                        $log->setIpAddress($ipAddress);
+                        $entityManager->persist($log);
+                    }
+
+                    $entityManager->flush();
+                } finally {
+                    if ($downloadToken !== null) {
+                        $downloadProgressService->complete($downloadToken);
                     }
                 }
             }
         );
+    }
+
+    #[Route('/zip/scripted/status/{token}', name: 'download_list_zip_scripted_status', methods: ['GET'])]
+    public function scriptedZipStatus(string $token, DownloadProgressService $downloadProgressService): JsonResponse
+    {
+        if ($this->resolveDownloadToken($token) === null) {
+            return $this->json([
+                'status' => 'failed',
+                'message' => 'The download token is invalid.',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        return $this->json($downloadProgressService->get($token) ?? [
+            'status' => 'pending',
+            'total' => 0,
+            'processed' => 0,
+            'skipped' => 0,
+            'message' => 'Waiting for the edited download to start...',
+        ]);
+    }
+
+    #[Route('/zip/scripted/status/{token}', name: 'download_list_zip_scripted_status_clear', methods: ['DELETE'])]
+    public function clearScriptedZipStatus(string $token, DownloadProgressService $downloadProgressService): Response
+    {
+        if ($this->resolveDownloadToken($token) === null) {
+            return new Response(null, Response::HTTP_BAD_REQUEST);
+        }
+
+        $downloadProgressService->clear($token);
+
+        return new Response(null, Response::HTTP_NO_CONTENT);
     }
 
     #[Route('/add-multiple', name: 'download_list_add_multiple', methods: ['POST'])]
@@ -340,19 +470,51 @@ class DownloadListController extends AbstractController
         }
 
         if ($addedCount === 0) {
-            $this->addFlash('warning', 'No accessible assets were added to your download bag.');
+            $this->addFlash('warning', 'No accessible assets could be added to your download bag.');
         } elseif ($addedCount < count($assetIds)) {
-            $this->addFlash('warning', sprintf('%d assets were added. Some selected assets are not accessible to you.', $addedCount));
-        } else {
-            $this->addFlash('success', sprintf('%d assets have been added to your download bag.', $addedCount));
+            $this->addFlash('warning', 'Some selected assets are not accessible to you and were skipped.');
         }
 
         return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
     }
 
+    private function scriptedZipFailureResponse(
+        Request $request,
+        DownloadProgressService $downloadProgressService,
+        ?string $downloadToken,
+        string $rawScript,
+        string $message,
+        string $flashType = 'error',
+        int $statusCode = Response::HTTP_UNPROCESSABLE_ENTITY,
+    ): Response {
+        if ($downloadToken !== null) {
+            $downloadProgressService->fail($downloadToken, $message);
+
+            return new Response($message, $statusCode, [
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
+        }
+
+        $this->rememberScriptDraft($request, $rawScript);
+        $this->addFlash($flashType, $message);
+
+        return $this->redirectToRoute('download_list_index');
+    }
+
     private function rememberScriptDraft(Request $request, string $rawScript): void
     {
         $request->getSession()->set('download_list_script_draft', $rawScript);
+    }
+
+    private function resolveDownloadToken(string $token): ?string
+    {
+        $token = trim($token);
+
+        if ($token === '') {
+            return null;
+        }
+
+        return preg_match('/^[A-Za-z0-9._-]{12,120}$/', $token) === 1 ? $token : null;
     }
 
     private function buildScriptedArchiveName(Assets $asset, string $extension): string

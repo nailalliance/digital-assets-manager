@@ -4,8 +4,9 @@ namespace App\Tests\Controller;
 
 use App\Controller\DownloadListController;
 use App\Entity\Assets\Assets;
-use App\Service\DownloadListService;
 use App\Service\CanvasEditorScriptRenderer;
+use App\Service\DownloadListService;
+use App\Service\DownloadProgressService;
 use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -71,7 +72,8 @@ class DownloadListControllerTest extends KernelTestCase
             $downloadListService,
             $this->createMock(EntityManagerInterface::class),
             new ZipDownloadResponseFactory(),
-            new CanvasEditorScriptRenderer(new Filesystem(), static::getContainer()->get('parameter_bag'))
+            new CanvasEditorScriptRenderer(new Filesystem(), static::getContainer()->get('parameter_bag')),
+            new DownloadProgressService(new Filesystem())
         );
 
         $this->assertSame(302, $response->getStatusCode());
