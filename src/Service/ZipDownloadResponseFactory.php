@@ -12,12 +12,13 @@ use ZipStream\ZipStream;
 final class ZipDownloadResponseFactory
 {
     /**
-     * @param list<array{archiveName: string, sourcePath: string}> $entries
+     * @param list<array{archiveName: string, sourcePath?: string, content?: string}> $entries
      */
     public function create(
         string $archiveName,
         array $entries,
         ?Closure $beforeStream = null,
+        ?Closure $afterStream = null,
         $outputStream = null
     ): StreamedResponse
     {
@@ -33,30 +34,47 @@ final class ZipDownloadResponseFactory
         );
 
         foreach ($entries as $entry) {
-            $size = filesize($entry['sourcePath']);
+            if (isset($entry['sourcePath'])) {
+                $size = filesize($entry['sourcePath']);
 
-            if ($size === false) {
+                if ($size === false) {
+                    continue;
+                }
+
+                $zip->addFileFromPath(
+                    fileName: $entry['archiveName'],
+                    path: $entry['sourcePath'],
+                    exactSize: $size,
+                );
                 continue;
             }
 
-            $zip->addFileFromPath(
-                fileName: $entry['archiveName'],
-                path: $entry['sourcePath'],
-                exactSize: $size,
-            );
+            if (isset($entry['content'])) {
+                $zip->addFile(
+                    fileName: $entry['archiveName'],
+                    data: $entry['content'],
+                    exactSize: strlen($entry['content']),
+                );
+            }
         }
 
         $contentLength = $zip->finish();
 
-        $response = new StreamedResponse(function () use ($beforeStream, $zip): void {
-            if ($beforeStream) {
-                $beforeStream();
+        $response = new StreamedResponse(function () use ($beforeStream, $afterStream, $zip): void {
+            try {
+                if ($beforeStream) {
+                    $beforeStream();
+                }
+
+                @ignore_user_abort(true);
+                @set_time_limit(0);
+
+                $zip->executeSimulation();
+            } finally {
+                if ($afterStream) {
+                    $afterStream();
+                }
             }
-
-            @ignore_user_abort(true);
-            @set_time_limit(0);
-
-            $zip->executeSimulation();
         });
 
         $response->headers->set('Content-Type', 'application/zip');

@@ -7,6 +7,7 @@ use App\Entity\Downloads\Lists;
 use App\Entity\Downloads\Logs;
 use App\Entity\Downloads\OneTimeLinks;
 use App\Entity\User;
+use App\Service\CanvasEditorScriptRenderer;
 use App\Service\DownloadListService;
 use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,10 +29,15 @@ class DownloadListController extends AbstractController
      * Displays the contents of the download list.
      */
     #[Route('/', name: 'download_list_index')]
-    public function index(DownloadListService $downloadListService): Response
+    public function index(DownloadListService $downloadListService, RequestStack $requestStack): Response
     {
+        $session = $requestStack->getSession();
+        $scriptDraft = $session->get('download_list_script_draft');
+        $session->remove('download_list_script_draft');
+
         return $this->render('download_list/index.html.twig', [
             'assets' => $downloadListService->getAssets(),
+            'scriptDraft' => is_string($scriptDraft) ? $scriptDraft : '',
         ]);
     }
 
@@ -192,6 +198,128 @@ class DownloadListController extends AbstractController
         );
     }
 
+    #[Route('/zip/scripted', name: 'download_list_zip_scripted', methods: ['POST'])]
+    public function scriptedZip(
+        Request $request,
+        DownloadListService $downloadListService,
+        EntityManagerInterface $entityManager,
+        ZipDownloadResponseFactory $zipDownloadResponseFactory,
+        CanvasEditorScriptRenderer $canvasEditorScriptRenderer
+    ): Response {
+        $rawScript = trim((string) $request->request->get('script', ''));
+        $assets = $downloadListService->getAssets();
+
+        if ($rawScript === '') {
+            $this->rememberScriptDraft($request, $rawScript);
+            $this->addFlash('error', 'Paste an editor script before downloading.');
+
+            return $this->redirectToRoute('download_list_index');
+        }
+
+        if ($assets === []) {
+            $this->rememberScriptDraft($request, $rawScript);
+            $this->addFlash('warning', 'Your download bag is empty.');
+
+            return $this->redirectToRoute('download_list_index');
+        }
+
+        try {
+            $parsedScript = $canvasEditorScriptRenderer->parseScript($rawScript);
+        } catch (\InvalidArgumentException $exception) {
+            $this->rememberScriptDraft($request, $rawScript);
+            $this->addFlash('error', $exception->getMessage());
+
+            return $this->redirectToRoute('download_list_index');
+        }
+
+        $entries = [];
+        $issues = [];
+        $temporaryFiles = [];
+        $downloadableAssets = [];
+        $archiveNameCounts = [];
+
+        foreach ($assets as $asset) {
+            $mimeType = $asset->getMimeType();
+            $sourcePath = $asset->getFilePath();
+
+            if (!$canvasEditorScriptRenderer->supportsMimeType($mimeType)) {
+                $issues[] = sprintf(
+                    '%s was skipped because %s is not supported by scripted bag downloads.',
+                    $asset->getName() ?? 'An asset',
+                    $mimeType ?? 'its mime type'
+                );
+                continue;
+            }
+
+            if (!is_string($sourcePath) || !is_readable($sourcePath)) {
+                $issues[] = sprintf(
+                    '%s was skipped because the source file is not readable.',
+                    $asset->getName() ?? 'An asset'
+                );
+                continue;
+            }
+
+            try {
+                $renderedFile = $canvasEditorScriptRenderer->renderAssetToTempFile($asset, $parsedScript);
+                $temporaryFiles[] = $renderedFile['path'];
+                $downloadableAssets[] = $asset;
+                $entries[] = [
+                    'archiveName' => $this->createUniqueArchiveName(
+                        $this->buildScriptedArchiveName($asset, $renderedFile['extension']),
+                        $archiveNameCounts
+                    ),
+                    'sourcePath' => $renderedFile['path'],
+                ];
+            } catch (\Throwable $exception) {
+                $issues[] = sprintf(
+                    '%s could not be rendered: %s',
+                    $asset->getName() ?? 'An asset',
+                    $exception->getMessage()
+                );
+            }
+        }
+
+        if ($entries === []) {
+            $this->rememberScriptDraft($request, $rawScript);
+            $this->addFlash('error', 'No supported assets in the download bag could be rendered with that script.');
+
+            return $this->redirectToRoute('download_list_index');
+        }
+
+        if ($issues !== []) {
+            $entries[] = [
+                'archiveName' => 'README-scripted-download.txt',
+                'content' => $this->buildScriptedDownloadReport($downloadableAssets, $issues),
+            ];
+        }
+
+        $ipAddress = $request->getClientIp() ?? 'unknown';
+        $user = $this->getUser();
+
+        return $zipDownloadResponseFactory->create(
+            'download_bag_edited_' . date('Y-m-d') . '.zip',
+            $entries,
+            function () use ($downloadableAssets, $entityManager, $ipAddress, $user): void {
+                foreach ($downloadableAssets as $asset) {
+                    $log = new Logs();
+                    $log->setAsset($asset);
+                    $log->setUser($user);
+                    $log->setIpAddress($ipAddress);
+                    $entityManager->persist($log);
+                }
+
+                $entityManager->flush();
+            },
+            function () use ($temporaryFiles): void {
+                foreach ($temporaryFiles as $temporaryFile) {
+                    if (is_string($temporaryFile) && is_file($temporaryFile)) {
+                        @unlink($temporaryFile);
+                    }
+                }
+            }
+        );
+    }
+
     #[Route('/add-multiple', name: 'download_list_add_multiple', methods: ['POST'])]
     public function addMultiple(Request $request, DownloadListService $downloadListService): Response
     {
@@ -220,5 +348,61 @@ class DownloadListController extends AbstractController
         }
 
         return $this->redirect($request->headers->get('referer', $this->generateUrl('home')));
+    }
+
+    private function rememberScriptDraft(Request $request, string $rawScript): void
+    {
+        $request->getSession()->set('download_list_script_draft', $rawScript);
+    }
+
+    private function buildScriptedArchiveName(Assets $asset, string $extension): string
+    {
+        $filePath = (string) $asset->getFilePath();
+        $filename = pathinfo($filePath, \PATHINFO_FILENAME);
+        $safeBaseName = preg_replace('/[^a-zA-Z0-9\-_]+/', '-', $filename) ?: 'asset-edited';
+
+        return $safeBaseName . '-edited.' . $extension;
+    }
+
+    /**
+     * @param array<string, int> $archiveNameCounts
+     */
+    private function createUniqueArchiveName(string $archiveName, array &$archiveNameCounts): string
+    {
+        $archiveNameCounts[$archiveName] = ($archiveNameCounts[$archiveName] ?? 0) + 1;
+        $occurrence = $archiveNameCounts[$archiveName];
+
+        if ($occurrence === 1) {
+            return $archiveName;
+        }
+
+        $extension = pathinfo($archiveName, \PATHINFO_EXTENSION);
+        $baseName = pathinfo($archiveName, \PATHINFO_FILENAME);
+
+        return $extension !== ''
+            ? sprintf('%s-%d.%s', $baseName, $occurrence, $extension)
+            : sprintf('%s-%d', $baseName, $occurrence);
+    }
+
+    /**
+     * @param Assets[] $downloadableAssets
+     * @param list<string> $issues
+     */
+    private function buildScriptedDownloadReport(array $downloadableAssets, array $issues): string
+    {
+        $lines = [
+            'Canvas script download summary',
+            '==============================',
+            '',
+            sprintf('Rendered assets: %d', count($downloadableAssets)),
+            sprintf('Skipped or failed assets: %d', count($issues)),
+            '',
+        ];
+
+        foreach ($issues as $issue) {
+            $lines[] = '- ' . $issue;
+        }
+
+        return implode("\n", $lines) . "\n";
     }
 }

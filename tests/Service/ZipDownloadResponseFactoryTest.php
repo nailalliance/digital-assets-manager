@@ -20,6 +20,7 @@ class ZipDownloadResponseFactoryTest extends TestCase
         file_put_contents($secondFile, 'beta');
 
         $beforeStreamCalled = false;
+        $afterStreamCalled = false;
         $outputStream = fopen('php://temp', 'w+b');
         $this->assertNotFalse($outputStream);
 
@@ -30,9 +31,13 @@ class ZipDownloadResponseFactoryTest extends TestCase
                 [
                     ['archiveName' => 'first.txt', 'sourcePath' => $firstFile],
                     ['archiveName' => 'second.txt', 'sourcePath' => $secondFile],
+                    ['archiveName' => 'readme.txt', 'content' => "hello\nworld"],
                 ],
                 function () use (&$beforeStreamCalled): void {
                     $beforeStreamCalled = true;
+                },
+                function () use (&$afterStreamCalled): void {
+                    $afterStreamCalled = true;
                 },
                 $outputStream
             );
@@ -55,6 +60,7 @@ class ZipDownloadResponseFactoryTest extends TestCase
             $this->assertIsString($archiveContent);
 
             $this->assertTrue($beforeStreamCalled);
+            $this->assertTrue($afterStreamCalled);
             $this->assertSame($contentLength, strlen($archiveContent));
 
             $archivePath = tempnam(sys_get_temp_dir(), 'zip-download-archive-');
@@ -65,7 +71,8 @@ class ZipDownloadResponseFactoryTest extends TestCase
             $this->assertTrue($zip->open($archivePath) === true);
             $this->assertSame('alpha', $zip->getFromName('first.txt'));
             $this->assertSame('beta', $zip->getFromName('second.txt'));
-            $this->assertSame(2, $zip->numFiles);
+            $this->assertSame("hello\nworld", $zip->getFromName('readme.txt'));
+            $this->assertSame(3, $zip->numFiles);
             $zip->close();
 
         } finally {
