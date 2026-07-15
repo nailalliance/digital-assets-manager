@@ -213,13 +213,22 @@
                             </div>
                         </div>
 
-                        <div>
-                            <label for="image-editor-font-family" class="mb-1 block text-sm font-medium text-slate-200">Font</label>
-                            <select id="image-editor-font-family" data-image-editor-target="fontFamilySelect" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="fontFamily" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
-                                {% for fontFamily in fontFamilies %}
-                                    <option value="{{ fontFamily }}">{{ fontFamily }}</option>
-                                {% endfor %}
-                            </select>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="image-editor-font-family" class="mb-1 block text-sm font-medium text-slate-200">Typeface</label>
+                                <select id="image-editor-font-family" data-image-editor-target="fontFamilySelect" data-action="change->image-editor#changeSelectedTextStyle" data-style-property="fontFamily" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                                    {% for fontFamily in fontFamilies %}
+                                        <option value="{{ fontFamily }}">{{ fontFamily }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="image-editor-font-style" class="mb-1 block text-sm font-medium text-slate-200">Font Style</label>
+                                <select id="image-editor-font-style" data-image-editor-target="fontStyleSelect" data-action="change->image-editor#changeSelectedFontStyle" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+                                    <option value="normal:normal">Regular</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div>

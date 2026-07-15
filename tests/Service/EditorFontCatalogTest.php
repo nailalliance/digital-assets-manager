@@ -37,8 +37,10 @@ class EditorFontCatalogTest extends TestCase
         $fontFamilies = $catalog->getSelectableFontFamilies();
         $customFontFaces = $catalog->getCustomFontFaces();
 
+        $this->assertSame(['DM Serif Text', 'Roboto Mono'], $fontFamilies);
         $this->assertContains('DM Serif Text', $fontFamilies);
         $this->assertContains('Roboto Mono', $fontFamilies);
+        $this->assertNotContains('Arial', $fontFamilies);
         $this->assertCount(3, $customFontFaces);
         $this->assertSame(
             realpath($this->projectDir . '/assets/fonts/Google/DMSerifText-BoldItalic.ttf') ?: '',
@@ -61,6 +63,13 @@ class EditorFontCatalogTest extends TestCase
         $this->assertSame('Arial', $catalog->normalizeFontFamily('Missing Font'));
         $this->assertSame('Courier Prime', $catalog->normalizeFontFamily('courier prime'));
         $this->assertSame(realpath($fontPath) ?: '', $catalog->findFontFaceByKey($fontFace['key'])['path']);
+    }
+
+    public function testCatalogReturnsNoSelectableFamiliesWhenRepoFontDirectoryIsEmpty(): void
+    {
+        $catalog = $this->createCatalog();
+
+        $this->assertSame([], $catalog->getSelectableFontFamilies());
     }
 
     private function createCatalog(): EditorFontCatalog

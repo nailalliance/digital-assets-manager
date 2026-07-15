@@ -250,7 +250,7 @@ final class EditorFontCatalog
             $right['relativePath'],
         ]);
 
-        $selectableFamilies = self::SYSTEM_FONTS;
+        $selectableFamilies = [];
         foreach ($customFaces as $fontFace) {
             if (!in_array($fontFace['family'], $selectableFamilies, true)) {
                 $selectableFamilies[] = $fontFace['family'];
