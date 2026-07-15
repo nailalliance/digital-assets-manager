@@ -519,9 +519,9 @@ export default class extends Controller {
 
         const previousState = this.cloneState(this.state);
         if (dimension === 'x') {
-            selectedText.x = nextPixels / this.state.sourceBounds.width;
+            selectedText.x = this.displayToSourceX(nextPixels) / this.state.sourceBounds.width;
         } else if (dimension === 'y') {
-            selectedText.y = nextPixels / this.state.sourceBounds.height;
+            selectedText.y = this.displayToSourceY(nextPixels) / this.state.sourceBounds.height;
         } else if (dimension === 'width') {
             selectedText.width = nextPixels / this.state.sourceBounds.width;
         } else if (dimension === 'height') {
@@ -1357,9 +1357,9 @@ export default class extends Controller {
 
     updateCropPositionFromPixels(dimension, nextPixels) {
         if (dimension === 'x') {
-            this.state.crop.x = nextPixels / this.state.sourceBounds.width;
+            this.state.crop.x = this.displayToSourceX(nextPixels) / this.state.sourceBounds.width;
         } else {
-            this.state.crop.y = nextPixels / this.state.sourceBounds.height;
+            this.state.crop.y = this.displayToSourceY(nextPixels) / this.state.sourceBounds.height;
         }
 
         this.clampCrop();
@@ -1392,8 +1392,8 @@ export default class extends Controller {
     updateImagePositionFromPixels(dimension, nextPixels) {
         const currentRect = this.getBaseImageSourceRect();
         this.setBaseImageSourceRect({
-            left: dimension === 'x' ? nextPixels : currentRect.left,
-            top: dimension === 'y' ? nextPixels : currentRect.top,
+            left: dimension === 'x' ? this.displayToSourceX(nextPixels) : currentRect.left,
+            top: dimension === 'y' ? this.displayToSourceY(nextPixels) : currentRect.top,
             scale: this.state.baseImage.scale,
         });
     }
@@ -1401,12 +1401,13 @@ export default class extends Controller {
     getGeometryInspectorState() {
         if (this.isCropSelected()) {
             const rect = this.getCropSourceRect();
+            const displayRect = this.getDisplayRectFromSourceRect(rect);
             const dimensions = this.getCropPixelDimensions();
             return {
                 title: 'Crop Frame',
-                description: 'Top-left position and export size in source-space pixels.',
-                x: Math.round(rect.left),
-                y: Math.round(rect.top),
+                description: 'Top-left position and export size in canvas pixels from the top-left origin.',
+                x: Math.round(displayRect.x),
+                y: Math.round(displayRect.y),
                 width: dimensions.width,
                 height: dimensions.height,
                 hint: 'Resize from a handle to anchor the opposite edge, or type exact X, Y, width, and height values here.',
@@ -1415,12 +1416,13 @@ export default class extends Controller {
 
         if (this.isBaseImageSelected()) {
             const rect = this.getBaseImageSourceRect();
+            const displayRect = this.getDisplayRectFromSourceRect(rect);
             const dimensions = this.getBaseImagePixelDimensions();
             return {
                 title: 'Base Image',
-                description: 'Top-left position and scaled size in source-space pixels.',
-                x: Math.round(rect.left),
-                y: Math.round(rect.top),
+                description: 'Top-left position and scaled size in canvas pixels from the top-left origin.',
+                x: Math.round(displayRect.x),
+                y: Math.round(displayRect.y),
                 width: dimensions.width,
                 height: dimensions.height,
                 hint: 'Resize from a handle to anchor the opposite corner, or type exact X, Y, width, and height values here.',
@@ -1448,13 +1450,15 @@ export default class extends Controller {
         const selectedText = this.getSelectedText();
 
         if (selectedText) {
+            const textRect = this.getTextSourceRect(selectedText);
+            const displayRect = this.getDisplayRectFromSourceRect(textRect);
             this.propertiesEmptyStateTarget.classList.add('hidden');
             this.geometryInspectorTarget.classList.add('hidden');
             this.textInspectorTarget.classList.remove('hidden');
-            this.textXInputTarget.value = String(Math.round(selectedText.x * this.state.sourceBounds.width));
-            this.textYInputTarget.value = String(Math.round(selectedText.y * this.state.sourceBounds.height));
-            this.textWidthInputTarget.value = String(Math.max(1, Math.round(selectedText.width * this.state.sourceBounds.width)));
-            this.textHeightInputTarget.value = String(Math.max(1, Math.round(selectedText.height * this.state.sourceBounds.height)));
+            this.textXInputTarget.value = String(Math.round(displayRect.x));
+            this.textYInputTarget.value = String(Math.round(displayRect.y));
+            this.textWidthInputTarget.value = String(Math.max(1, Math.round(displayRect.width)));
+            this.textHeightInputTarget.value = String(Math.max(1, Math.round(displayRect.height)));
             this.fontFamilySelectTarget.value = normalizeFont(selectedText.fontFamily);
             this.fontSizeInputTarget.value = String(Math.round(selectedText.fontSize));
             this.colorInputTarget.value = normalizeColor(selectedText.color);
@@ -1536,6 +1540,7 @@ export default class extends Controller {
 
     renderRulers() {
         const metrics = this.getSurfaceMetrics();
+        const displayBounds = this.getDisplayBounds(metrics);
         this.topRulerTarget.style.left = `${metrics.left}px`;
         this.topRulerTarget.style.top = '0px';
         this.topRulerTarget.style.width = `${metrics.width}px`;
@@ -1545,24 +1550,26 @@ export default class extends Controller {
         this.leftRulerTarget.style.width = `${RULER_BAR_SIZE}px`;
         this.leftRulerTarget.style.height = `${metrics.height}px`;
 
-        this.populateRuler(this.topRulerTarget, this.state.sourceBounds.width, metrics.scale, 'horizontal', metrics.contentLeft);
-        this.populateRuler(this.leftRulerTarget, this.state.sourceBounds.height, metrics.scale, 'vertical', metrics.contentTop);
+        this.populateRuler(this.topRulerTarget, Math.max(1, Math.round(displayBounds.width)), metrics.scale, 'horizontal', 0);
+        this.populateRuler(this.leftRulerTarget, Math.max(1, Math.round(displayBounds.height)), metrics.scale, 'vertical', 0);
     }
 
-    populateRuler(container, sourceLength, scale, orientation, offset) {
+    populateRuler(container, axisLength, scale, orientation, offset) {
         container.innerHTML = '';
 
         const stepValue = getRulerStepValue(scale);
         const fragment = document.createDocumentFragment();
         const renderedValues = new Set();
+        let lastRenderedValue = 0;
 
-        for (let value = 0; value <= sourceLength; value += stepValue) {
+        for (let value = 0; value <= axisLength; value += stepValue) {
             fragment.appendChild(this.buildRulerTick(value, scale, orientation, offset));
             renderedValues.add(value);
+            lastRenderedValue = value;
         }
 
-        if (!renderedValues.has(sourceLength)) {
-            fragment.appendChild(this.buildRulerTick(sourceLength, scale, orientation, offset, true));
+        if (!renderedValues.has(axisLength) && ((axisLength - lastRenderedValue) * scale) >= 48) {
+            fragment.appendChild(this.buildRulerTick(axisLength, scale, orientation, offset, true));
         }
 
         container.appendChild(fragment);
@@ -1581,6 +1588,9 @@ export default class extends Controller {
 
         if (isTerminal) {
             tick.classList.add('is-terminal');
+        }
+        if (value === 0) {
+            tick.classList.add('is-origin');
         }
 
         const label = document.createElement('span');
@@ -1859,6 +1869,34 @@ export default class extends Controller {
         };
     }
 
+    getDisplayBounds(metrics = this.getSurfaceMetrics()) {
+        const bounds = this.getWorkspaceBoundsInSourceSpace(metrics);
+        return {
+            width: bounds.right - bounds.left,
+            height: bounds.bottom - bounds.top,
+            sourceOffsetX: bounds.left,
+            sourceOffsetY: bounds.top,
+        };
+    }
+
+    getDisplayRectFromSourceRect(rect, metrics = this.getSurfaceMetrics()) {
+        const displayBounds = this.getDisplayBounds(metrics);
+        return {
+            x: rect.left - displayBounds.sourceOffsetX,
+            y: rect.top - displayBounds.sourceOffsetY,
+            width: rect.width,
+            height: rect.height,
+        };
+    }
+
+    displayToSourceX(value, metrics = this.getSurfaceMetrics()) {
+        return this.getDisplayBounds(metrics).sourceOffsetX + value;
+    }
+
+    displayToSourceY(value, metrics = this.getSurfaceMetrics()) {
+        return this.getDisplayBounds(metrics).sourceOffsetY + value;
+    }
+
     getCropPixelRect(metrics = this.getSurfaceMetrics()) {
         return {
             left: metrics.contentLeft + (this.state.crop.x * this.state.sourceBounds.width * metrics.scale),
@@ -1893,12 +1931,22 @@ export default class extends Controller {
         };
     }
 
-    getTextPixelRect(textLayer, metrics = this.getSurfaceMetrics()) {
+    getTextSourceRect(textLayer) {
         return {
-            left: metrics.contentLeft + (textLayer.x * this.state.sourceBounds.width * metrics.scale),
-            top: metrics.contentTop + (textLayer.y * this.state.sourceBounds.height * metrics.scale),
-            width: Math.max(textLayer.width * this.state.sourceBounds.width * metrics.scale, 24),
-            height: Math.max(textLayer.height * this.state.sourceBounds.height * metrics.scale, 24),
+            left: textLayer.x * this.state.sourceBounds.width,
+            top: textLayer.y * this.state.sourceBounds.height,
+            width: textLayer.width * this.state.sourceBounds.width,
+            height: textLayer.height * this.state.sourceBounds.height,
+        };
+    }
+
+    getTextPixelRect(textLayer, metrics = this.getSurfaceMetrics()) {
+        const rect = this.getTextSourceRect(textLayer);
+        return {
+            left: metrics.contentLeft + (rect.left * metrics.scale),
+            top: metrics.contentTop + (rect.top * metrics.scale),
+            width: Math.max(rect.width * metrics.scale, 24),
+            height: Math.max(rect.height * metrics.scale, 24),
         };
     }
 

@@ -91,8 +91,19 @@
 }
 
 .image-editor-ruler-tick-horizontal .image-editor-ruler-label {
-    top: 1rem;
+    top: 0.2rem;
+    left: 0;
+    transform: translateX(-50%);
+}
+
+.image-editor-ruler-tick-horizontal.is-origin .image-editor-ruler-label {
     left: 0.35rem;
+    transform: none;
+}
+
+.image-editor-ruler-tick-horizontal.is-terminal .image-editor-ruler-label {
+    left: -0.35rem;
+    transform: translateX(-100%);
 }
 
 .image-editor-ruler-tick-vertical .image-editor-ruler-label {
