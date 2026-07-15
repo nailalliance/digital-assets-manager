@@ -13,36 +13,36 @@
         data-download-bag-script-status-url-template-value="{{ path('download_list_zip_scripted_status', {token: '__TOKEN__'}) }}"
         data-download-bag-script-clear-url-template-value="{{ path('download_list_zip_scripted_status_clear', {token: '__TOKEN__'}) }}"
     >
-        {% set actionButtonBase = 'inline-flex min-h-[5.5rem] items-center justify-center rounded-2xl border px-6 py-4 text-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-violet-300' %}
+        {% set actionButtonBase = 'inline-flex h-16 items-center justify-center rounded-md border px-5 text-base font-medium transition focus:outline-none focus:ring-2 focus:ring-violet-300' %}
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-900">Download Bag</h1>
-            <div class="flex flex-wrap items-stretch gap-4">
+            <div class="flex flex-wrap items-stretch gap-3">
                 {% if assets is not empty %}
-                    <button type="button" data-action="click->download-bag-script#openModal" class="{{ actionButtonBase }} gap-3 border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-                        <svg class="h-8 w-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <button type="button" data-action="click->download-bag-script#openModal" class="{{ actionButtonBase }} gap-2.5 border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                        <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         Apply Script to Bag
                     </button>
                 {% endif %}
 
                 {% if is_granted('ROLE_FTP_DESIGNER') and assets is not empty %}
                     <button type="button" data-action="click->permalink-generator#openModal"
-                            class="{{ actionButtonBase }} flex-col gap-1 border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-                        <span class="inline-flex items-center gap-3">
-                            <svg class="h-8 w-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                            Generate Web Links
+                            class="{{ actionButtonBase }} gap-2.5 border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                        <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        <span class="flex flex-col items-start leading-tight">
+                            <span>Generate Web Links</span>
+                            <span class="text-xs font-medium text-gray-500">(from jpg|png only)</span>
                         </span>
-                        <span class="text-xs font-medium text-gray-500">(from jpg|png only)</span>
                     </button>
 
-                    <button data-action="click->share-link#openShareModal" class="{{ actionButtonBase }} gap-3 border-transparent bg-green-600 text-white hover:bg-green-700">
-                        <svg class="h-8 w-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                    <button data-action="click->share-link#openShareModal" class="{{ actionButtonBase }} gap-2.5 border-transparent bg-green-600 text-white hover:bg-green-700">
+                        <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
                         Generate Share Link
                     </button>
                 {% endif %}
 
                 {% if assets is not empty %}
-                    <a href="{{ path('download_list_zip') }}" data-turbo="false" class="{{ actionButtonBase }} gap-3 border-transparent bg-violet-600 text-white hover:bg-violet-700">
-                        <svg class="h-8 w-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <a href="{{ path('download_list_zip') }}" data-turbo="false" class="{{ actionButtonBase }} gap-2.5 border-transparent bg-violet-600 text-white hover:bg-violet-700">
+                        <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Download All (.zip)
                     </a>
                 {% endif %}
