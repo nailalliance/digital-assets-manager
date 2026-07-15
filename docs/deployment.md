@@ -70,3 +70,19 @@ Running it hourly is a good default. The command removes:
 1. Expired Tus chunk metadata and orphaned partial files.
 2. Incomplete direct-share sessions that have been idle longer than the stale window.
 3. Expired completed direct-share links together with their stored files.
+
+## Server diagnostics
+
+When production behavior differs from local, collect a full runtime snapshot on
+the server before changing Apache or PHP configuration:
+
+```bash
+bash bin/collect_server_diagnostics.sh /var/www/html
+```
+
+The script captures:
+
+1. Active Apache modules and vhost handler configuration.
+2. `mod_php` vs `php-fpm` status and PHP/imagick versions.
+3. Symfony prod environment/router details.
+4. Recent Apache, FPM, and application logs.
