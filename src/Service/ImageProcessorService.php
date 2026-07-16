@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -14,16 +15,23 @@ class ImageProcessorService
 {
     private ?string $srgbProfile;
     private ?string $cmykProfile;
+    private ?string $thumbnailFallbackFontPath;
 
     public function __construct(
         private readonly Filesystem $filesystem,
+        private readonly LoggerInterface $logger,
         ParameterBagInterface $params
     ) {
         $srgbProfilePath = $params->get('srgb_profile_path');
         $cmykProfilePath = $params->get('cmyk_profile_path');
+        $projectDir = $params->get('kernel.project_dir');
 
         $this->srgbProfile = $this->filesystem->exists($srgbProfilePath) ? file_get_contents($srgbProfilePath) : null;
         $this->cmykProfile = $this->filesystem->exists($cmykProfilePath) ? file_get_contents($cmykProfilePath) : null;
+        $thumbnailFallbackFontPath = $projectDir . '/assets/fonts/Roboto/Roboto-Regular.ttf';
+        $this->thumbnailFallbackFontPath = $this->filesystem->exists($thumbnailFallbackFontPath)
+            ? $thumbnailFallbackFontPath
+            : null;
     }
 
     /**
@@ -166,13 +174,7 @@ class ImageProcessorService
 
             // Add the legend only if it's provided (for thumbnails)
             if ($legendText) {
-                $draw = new \ImagickDraw();
-                $draw->setFont('Helvetica');
-                $draw->setFontSize(12);
-                $draw->setFillColor(new \ImagickPixel('#999999'));
-                $draw->setGravity(\Imagick::GRAVITY_SOUTHEAST);
-                $canvas->annotateImage($draw, 5, 5, 0, $legendText);
-                $draw->clear();
+                $this->annotateThumbnailLegend($canvas, $legendText, $sourcePath);
             }
 
             // Set format-specific optimizations
@@ -193,11 +195,64 @@ class ImageProcessorService
             return $binary;
 
         } catch (\ImagickException | ProcessFailedException $e) {
+            $this->logger->error('Image processing failed.', [
+                'sourcePath' => $sourcePath,
+                'mimeType' => $mimeType,
+                'targetWidth' => $targetWidth,
+                'targetHeight' => $targetHeight,
+                'padding' => $padding,
+                'outputFormat' => $outputFormat,
+                'hasLegendText' => $legendText !== null,
+                'useLargestClipPath' => $useLargestClipPath,
+                'clipPathIndex' => $clipPathIndex,
+                'fallbackFontPath' => $this->thumbnailFallbackFontPath,
+                'exception' => $e,
+            ]);
             return null;
         } finally {
             if ($tempPngPath && $this->filesystem->exists($tempPngPath)) {
                 $this->filesystem->remove($tempPngPath);
             }
+        }
+    }
+
+    private function annotateThumbnailLegend(\Imagick $canvas, string $legendText, string $sourcePath): void
+    {
+        $fontCandidates = ['Helvetica'];
+
+        if ($this->thumbnailFallbackFontPath !== null) {
+            $fontCandidates[] = $this->thumbnailFallbackFontPath;
+        }
+
+        $lastException = null;
+
+        foreach ($fontCandidates as $font) {
+            $draw = new \ImagickDraw();
+
+            try {
+                $draw->setFont($font);
+                $draw->setFontSize(12);
+                $draw->setFillColor(new \ImagickPixel('#999999'));
+                $draw->setGravity(\Imagick::GRAVITY_SOUTHEAST);
+                $canvas->annotateImage($draw, 5, 5, 0, $legendText);
+
+                return;
+            } catch (\ImagickException $e) {
+                $lastException = $e;
+
+                $this->logger->warning('Thumbnail legend font failed.', [
+                    'sourcePath' => $sourcePath,
+                    'font' => $font,
+                    'fallbackFontPath' => $this->thumbnailFallbackFontPath,
+                    'exception' => $e,
+                ]);
+            } finally {
+                $draw->clear();
+            }
+        }
+
+        if ($lastException !== null) {
+            throw $lastException;
         }
     }
 

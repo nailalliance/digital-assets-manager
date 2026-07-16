@@ -48,6 +48,7 @@ class GenerateVideoThumbnailsCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $lastId = null;
 
         $assetIds = $input->getOption('assetId') ? explode(',', $input->getOption('assetId')) : null;
 
@@ -114,7 +115,11 @@ class GenerateVideoThumbnailsCommand extends Command
 
         $this->entityManager->flush();
         $io->progressFinish();
-        $io->success('Thumbnail generation complete. Last id: ' . $lastId);
+        $io->success(
+            $lastId !== null
+                ? 'Thumbnail generation complete. Last id: ' . $lastId
+                : 'Thumbnail generation complete. No thumbnails were written.'
+        );
 
         return Command::SUCCESS;
     }
