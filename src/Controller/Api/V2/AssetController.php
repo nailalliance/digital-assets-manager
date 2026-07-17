@@ -140,6 +140,7 @@ class AssetController extends AbstractController
         $height = intval($payload['height'] ?? 1000);
         $padding = intval($payload['padding'] ?? 0);
         $format = $payload['format'] ?? 'jpg';
+        $clip = $payload['clip'] ?? false;
 
         if (empty($assetIds) || !is_array($assetIds)) {
             return $this->json(['error' => 'Invalid asset IDs'], JsonResponse::HTTP_BAD_REQUEST);
@@ -182,7 +183,13 @@ class AssetController extends AbstractController
             $filenameBase = !empty($itemCodes) ? implode('_', $itemCodes) . '_' . $asset->getName() : $asset->getName();
             $safeFilename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $filenameBase);
 
-            $urls[$asset->getId()] = $this->generateUrl('public_image_padded', [
+            $publicImageRouteName = 'public_image_padded';
+
+            if ($clip) {
+                $publicImageRouteName = 'public_image_largest_clip_path_padded';
+            }
+
+            $urls[$asset->getId()] = $this->generateUrl($publicImageRouteName, [
                 'token' => $oneTimeLink->getToken(),
                 'assetId' => $asset->getId(),
                 'width' => $width,
