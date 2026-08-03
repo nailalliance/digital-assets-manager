@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Entity\ApiTokenFor;
 use App\Repository\ApiTokenRepository;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -49,6 +50,15 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
 
         if (!$tokenEntity) {
             throw new CustomUserMessageAuthenticationException('Invalid API token');
+        }
+
+        if (
+            str_starts_with($request->getPathInfo(), '/api/admin/')
+            && $tokenEntity->getService() !== ApiTokenFor::ADMIN
+        ) {
+            throw new CustomUserMessageAuthenticationException(
+                'An admin service token is required'
+            );
         }
 
         return new SelfValidatingPassport(
