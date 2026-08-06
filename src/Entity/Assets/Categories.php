@@ -3,6 +3,7 @@
 namespace App\Entity\Assets;
 
 use App\Entity\Restrictions\Groups;
+use App\Entity\User;
 use App\Repository\Assets\CategoriesRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -43,6 +44,12 @@ class Categories
     #[ORM\ManyToMany(targetEntity: Groups::class, mappedBy: 'categories')]
     private Collection $restrictedGroups;
 
+    /**
+     * @var Collection<int, User>
+     */
+    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'designerAccessCategories')]
+    private Collection $designerAccessUsers;
+
     #[ORM\Column(options: ['default' => true])]
     #[SerializerGroups('searchable')]
     private ?bool $status = true;
@@ -52,6 +59,7 @@ class Categories
         $this->parent = new ArrayCollection();
         $this->assets = new ArrayCollection();
         $this->restrictedGroups = new ArrayCollection();
+        $this->designerAccessUsers = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -162,6 +170,33 @@ class Categories
     {
         if ($this->restrictedGroups->removeElement($restrictedGroup)) {
             $restrictedGroup->removeCategory($this);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function getDesignerAccessUsers(): Collection
+    {
+        return $this->designerAccessUsers;
+    }
+
+    public function addDesignerAccessUser(User $user): static
+    {
+        if (!$this->designerAccessUsers->contains($user)) {
+            $this->designerAccessUsers->add($user);
+            $user->addDesignerAccessCategory($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDesignerAccessUser(User $user): static
+    {
+        if ($this->designerAccessUsers->removeElement($user)) {
+            $user->removeDesignerAccessCategory($this);
         }
 
         return $this;

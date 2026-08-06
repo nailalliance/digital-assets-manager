@@ -27,43 +27,117 @@ class AssetsRepository extends ServiceEntityRepository
         parent::__construct($registry, Assets::class);
     }
 
-    /**
-     * @return string[]
-     */
-    private function getVisibleStatusesForCurrentUser(): array
-    {
-        $statuses = [AssetStatusEnum::ACTIVE->value];
-
-        if ($this->security->isGranted('ROLE_FTP_DESIGNER')) {
-            $statuses[] = AssetStatusEnum::DESIGNER->value;
-        }
-
-        return $statuses;
-    }
-
-    private function applyBrandRestrictions(QueryBuilder $qb): QueryBuilder
+    private function applyVisibilityRestrictions(QueryBuilder $qb): QueryBuilder
     {
         /** @var ?User $user */
         $user = $this->security->getUser();
 
-        if (null === $user || $this->security->isGranted('ROLE_FTP_DESIGNER'))
-        {
-            return $qb;
+        if ($this->security->isGranted('ROLE_FTP_DESIGNER')) {
+            return $qb
+                ->andWhere('a.status IN (:visibleStatuses)')
+                ->setParameter('visibleStatuses', [
+                    AssetStatusEnum::ACTIVE->value,
+                    AssetStatusEnum::DESIGNER->value,
+                ]);
         }
 
-        $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
-
-        if (empty($allowedBrandIds)) {
-            // if user has no brands, they see nothing
+        if ($user === null) {
             return $qb->andWhere('1 = 0');
         }
 
-        $qb->innerJoin('a.brand', 'b_join')
-            ->innerJoin('b_join.brands', 'p_join') // Join from child brand to parent brand
-            ->andWhere($qb->expr()->in('p_join.id', ':allowedBrandIds'))
-            ->setParameter('allowedBrandIds', $allowedBrandIds);
+        $regularBrandIds = $this->getBrandTreeIds($user->getRestrictedBrands());
+        $designerBrandIds = $this->getBrandTreeIds($user->getDesignerAccessBrands());
+        $designerCategoryIds = $this->getCategoryTreeIds($user->getDesignerAccessCategories());
+
+        $qb->leftJoin('a.brand', 'visibilityBrand')
+            ->leftJoin('a.categories', 'visibilityCategory');
+
+        $visibility = $qb->expr()->orX();
+
+        if ($regularBrandIds !== []) {
+            $visibility->add($qb->expr()->andX(
+                $qb->expr()->eq('a.status', ':activeStatus'),
+                $qb->expr()->in('visibilityBrand.id', ':regularBrandIds'),
+            ));
+            $qb->setParameter('activeStatus', AssetStatusEnum::ACTIVE->value)
+                ->setParameter('regularBrandIds', $regularBrandIds);
+        }
+
+        $designerTaxonomies = $qb->expr()->orX();
+        if ($designerBrandIds !== []) {
+            $designerTaxonomies->add($qb->expr()->in('visibilityBrand.id', ':designerBrandIds'));
+            $qb->setParameter('designerBrandIds', $designerBrandIds);
+        }
+        if ($designerCategoryIds !== []) {
+            $designerTaxonomies->add($qb->expr()->in('visibilityCategory.id', ':designerCategoryIds'));
+            $qb->setParameter('designerCategoryIds', $designerCategoryIds);
+        }
+
+        if ($designerTaxonomies->count() > 0) {
+            $visibility->add($qb->expr()->andX(
+                $qb->expr()->eq('a.status', ':designerStatus'),
+                $designerTaxonomies,
+            ));
+            $qb->setParameter('designerStatus', AssetStatusEnum::DESIGNER->value);
+        }
+
+        if ($visibility->count() === 0) {
+            return $qb->andWhere('1 = 0');
+        }
+
+        $qb->andWhere($visibility);
 
         return $qb;
+    }
+
+    private function getBrandTreeIds(iterable $brands): array
+    {
+        $ids = [];
+        $visited = [];
+        $queue = is_array($brands) ? $brands : iterator_to_array($brands);
+
+        while ($brand = array_pop($queue)) {
+            $objectId = spl_object_id($brand);
+            if (isset($visited[$objectId])) {
+                continue;
+            }
+
+            $visited[$objectId] = true;
+            if ($brand->getId() !== null) {
+                $ids[] = $brand->getId();
+            }
+
+            foreach ($brand->getParent() as $child) {
+                $queue[] = $child;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function getCategoryTreeIds(iterable $categories): array
+    {
+        $ids = [];
+        $visited = [];
+        $queue = is_array($categories) ? $categories : iterator_to_array($categories);
+
+        while ($category = array_pop($queue)) {
+            $objectId = spl_object_id($category);
+            if (isset($visited[$objectId])) {
+                continue;
+            }
+
+            $visited[$objectId] = true;
+            if ($category->getId() !== null) {
+                $ids[] = $category->getId();
+            }
+
+            foreach ($category->getParent() as $child) {
+                $queue[] = $child;
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**
@@ -82,11 +156,11 @@ class AssetsRepository extends ServiceEntityRepository
     ): Paginator
     {
         $qb = $this->createQueryBuilder('a')
-            ->where('a.status IN (:statuses)')
-            ->andWhere('a.embargoDate IS NULL OR a.embargoDate <= :now')
+            ->where('a.embargoDate IS NULL OR a.embargoDate <= :now')
             ->andWhere('a.expirationDate IS NULL OR a.expirationDate >= :now')
-            ->setParameter('statuses', $this->getVisibleStatusesForCurrentUser())
             ->setParameter('now', new \DateTimeImmutable());
+
+        $qb = $this->applyVisibilityRestrictions($qb);
 
         if ($fileTypeGroup) {
             $mimeTypes = MimeTypesGroups::getMimeTypes($fileTypeGroup);
@@ -129,8 +203,6 @@ class AssetsRepository extends ServiceEntityRepository
                 ->setParameter('brandStatus', true);
         }
 
-        $qb = $this->applyBrandRestrictions($qb);
-
         $qb->orderBy('a.createdAt', 'DESC')
             ->setFirstResult($offset)
             ->setMaxResults($limit);
@@ -154,14 +226,20 @@ class AssetsRepository extends ServiceEntityRepository
             return [];
         }
 
-        return $this->createQueryBuilder('a')
+        $qb = $this->createQueryBuilder('a')
             ->innerJoin('a.brand', 'b')
             ->where('b.id IN (:brandIds)')
             ->andWhere('b.status = :brandStatus')
-            ->andWhere('a.status IN (:statuses)')
+            ->andWhere('a.embargoDate IS NULL OR a.embargoDate <= :now')
+            ->andWhere('a.expirationDate IS NULL OR a.expirationDate >= :now')
             ->setParameter('brandIds', $brandIds)
             ->setParameter('brandStatus', true)
-            ->setParameter('statuses', $this->getVisibleStatusesForCurrentUser())
+            ->setParameter('now', new \DateTimeImmutable());
+
+        $this->applyVisibilityRestrictions($qb);
+
+        return $qb
+            ->distinct()
             ->orderBy('a.createdAt', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
@@ -192,6 +270,16 @@ class AssetsRepository extends ServiceEntityRepository
             ->setParameter('ids', $ids)
             ->getQuery()
             ->getResult();
+    }
+
+    public function findOneByThumbnailFilename(string $filename): ?Assets
+    {
+        return $this->createQueryBuilder('a')
+            ->where('a.thumbnailPath LIKE :thumbnailSuffix')
+            ->setParameter('thumbnailSuffix', '%/' . $filename)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function findForAdminList(

@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Entity\Assets\Brands;
+use App\Entity\Assets\Categories;
 use App\Entity\Boards\Board;
 use App\Entity\Boards\BoardCollaborator;
 use App\Entity\Chat\Chat;
@@ -66,6 +67,28 @@ class User implements UserInterface
     private Collection $restrictedBrands;
 
     /**
+     * Brands whose designer-only assets this user may view.
+     *
+     * @var Collection<int, Brands>
+     */
+    #[ORM\ManyToMany(targetEntity: Brands::class, inversedBy: 'designerAccessUsers')]
+    #[ORM\JoinTable(name: 'user_designer_access_brands')]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    #[ORM\InverseJoinColumn(name: 'brand_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    private Collection $designerAccessBrands;
+
+    /**
+     * Categories whose designer-only assets this user may view.
+     *
+     * @var Collection<int, Categories>
+     */
+    #[ORM\ManyToMany(targetEntity: Categories::class, inversedBy: 'designerAccessUsers')]
+    #[ORM\JoinTable(name: 'user_designer_access_categories')]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    #[ORM\InverseJoinColumn(name: 'category_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    private Collection $designerAccessCategories;
+
+    /**
      * @var Collection<int, ApiToken>
      */
     #[ORM\OneToMany(targetEntity: ApiToken::class, mappedBy: 'owner')]
@@ -84,6 +107,8 @@ class User implements UserInterface
         $this->ownedBoards = new ArrayCollection();
         $this->boardCollaborations = new ArrayCollection();
         $this->restrictedBrands = new ArrayCollection();
+        $this->designerAccessBrands = new ArrayCollection();
+        $this->designerAccessCategories = new ArrayCollection();
         $this->apiTokens = new ArrayCollection();
         $this->chats = new ArrayCollection();
     }
@@ -297,6 +322,54 @@ class User implements UserInterface
     public function removeRestrictedBrand(Brands $restrictedBrand): static
     {
         $this->restrictedBrands->removeElement($restrictedBrand);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Brands>
+     */
+    public function getDesignerAccessBrands(): Collection
+    {
+        return $this->designerAccessBrands;
+    }
+
+    public function addDesignerAccessBrand(Brands $brand): static
+    {
+        if (!$this->designerAccessBrands->contains($brand)) {
+            $this->designerAccessBrands->add($brand);
+        }
+
+        return $this;
+    }
+
+    public function removeDesignerAccessBrand(Brands $brand): static
+    {
+        $this->designerAccessBrands->removeElement($brand);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Categories>
+     */
+    public function getDesignerAccessCategories(): Collection
+    {
+        return $this->designerAccessCategories;
+    }
+
+    public function addDesignerAccessCategory(Categories $category): static
+    {
+        if (!$this->designerAccessCategories->contains($category)) {
+            $this->designerAccessCategories->add($category);
+        }
+
+        return $this;
+    }
+
+    public function removeDesignerAccessCategory(Categories $category): static
+    {
+        $this->designerAccessCategories->removeElement($category);
 
         return $this;
     }

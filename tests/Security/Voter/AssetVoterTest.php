@@ -5,8 +5,10 @@ namespace App\Tests\Security\Voter;
 use App\Entity\Assets\Assets;
 use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\Assets\Brands;
+use App\Entity\Assets\Categories;
 use App\Entity\User;
 use App\Security\Voter\AssetVoter;
+use App\Service\DesignerAssetAccessChecker;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -40,7 +42,7 @@ class AssetVoterTest extends TestCase
         $mockSecurity = $this->createMock(Security::class);
         $mockSecurity->method('isGranted')->willReturnCallback(fn(string $attribute) => in_array($attribute, $userRoles));
 
-        $voter = new AssetVoter($mockSecurity);
+        $voter = new AssetVoter($mockSecurity, new DesignerAssetAccessChecker());
         $token = new UsernamePasswordToken($user, 'main', $user->getRoles());
 
         $this->assertSame($expectedVote, $voter->vote($token, $asset, [AssetVoter::VIEW]));
@@ -88,5 +90,64 @@ class AssetVoterTest extends TestCase
             AssetStatusEnum::ACTIVE,
             VoterInterface::ACCESS_DENIED
         ];
+    }
+
+    public function testRegularUserCanViewDesignerAssetGrantedByCategory(): void
+    {
+        $user = (new User())->setRoles(['ROLE_USER']);
+        $category = new Categories();
+        $category->addDesignerAccessUser($user);
+
+        $asset = (new Assets())->setStatus(AssetStatusEnum::DESIGNER);
+        $asset->addCategory($category);
+
+        $this->assertSame(VoterInterface::ACCESS_GRANTED, $this->vote($user, $asset));
+    }
+
+    public function testRegularUserCanViewDesignerAssetGrantedByParentBrand(): void
+    {
+        $user = (new User())->setRoles(['ROLE_USER']);
+        $parentBrand = new Brands();
+        $childBrand = (new Brands())->setBrands($parentBrand);
+        $parentBrand->addDesignerAccessUser($user);
+
+        $asset = (new Assets())->setStatus(AssetStatusEnum::DESIGNER);
+        $asset->addBrand($childBrand);
+
+        $this->assertSame(VoterInterface::ACCESS_GRANTED, $this->vote($user, $asset));
+    }
+
+    public function testDesignerGrantDoesNotExposeNormalAssetOutsideRegularBrandAccess(): void
+    {
+        $user = (new User())->setRoles(['ROLE_USER']);
+        $category = new Categories();
+        $category->addDesignerAccessUser($user);
+
+        $asset = (new Assets())->setStatus(AssetStatusEnum::ACTIVE);
+        $asset->addCategory($category);
+
+        $this->assertSame(VoterInterface::ACCESS_DENIED, $this->vote($user, $asset));
+    }
+
+    public function testUnrelatedRegularUserCannotViewDesignerAsset(): void
+    {
+        $user = (new User())->setRoles(['ROLE_USER']);
+        $asset = (new Assets())->setStatus(AssetStatusEnum::DESIGNER);
+        $asset->addCategory(new Categories());
+
+        $this->assertSame(VoterInterface::ACCESS_DENIED, $this->vote($user, $asset));
+    }
+
+    private function vote(User $user, Assets $asset): int
+    {
+        $mockSecurity = $this->createMock(Security::class);
+        $mockSecurity->method('isGranted')->willReturnCallback(
+            fn (string $attribute) => in_array($attribute, $user->getRoles(), true)
+        );
+
+        $voter = new AssetVoter($mockSecurity, new DesignerAssetAccessChecker());
+        $token = new UsernamePasswordToken($user, 'main', $user->getRoles());
+
+        return $voter->vote($token, $asset, [AssetVoter::VIEW]);
     }
 }

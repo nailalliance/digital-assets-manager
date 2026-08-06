@@ -33,6 +33,8 @@ meilisearch:
                     - 'typo'
                 filterableAttributes:
                     - 'parent_brand_ids'
+                    - 'brand_access_ids'
+                    - 'category_access_ids'
                     - 'brand'
                     - 'categories'
                     - 'collections'

@@ -52,6 +52,22 @@ class BrandVoter extends Voter
 
         $userBrandIds = $user->getRestrictedBrands()->map(fn($brand) => $brand->getId())->toArray();
 
-        return in_array($brand->getId(), $userBrandIds);
+        foreach ($user->getDesignerAccessBrands() as $designerAccessBrand) {
+            $visited = [];
+            $current = $designerAccessBrand;
+
+            while ($current !== null) {
+                $objectId = spl_object_id($current);
+                if (isset($visited[$objectId])) {
+                    break;
+                }
+
+                $visited[$objectId] = true;
+                $userBrandIds[] = $current->getId();
+                $current = $current->getBrands();
+            }
+        }
+
+        return in_array($brand->getId(), array_unique($userBrandIds), true);
     }
 }

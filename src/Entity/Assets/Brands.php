@@ -50,6 +50,12 @@ class Brands
     #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'restrictedBrands')]
     private Collection $restrictedUsers;
 
+    /**
+     * @var Collection<int, User>
+     */
+    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'designerAccessBrands')]
+    private Collection $designerAccessUsers;
+
     #[ORM\Column(options: ['default' => true])]
     #[SerializerGroups(['searchable'])]
     private ?bool $status = true;
@@ -60,6 +66,7 @@ class Brands
         $this->assets = new ArrayCollection();
         $this->restrictedGroups = new ArrayCollection();
         $this->restrictedUsers = new ArrayCollection();
+        $this->designerAccessUsers = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -197,6 +204,33 @@ class Brands
     {
         if ($this->restrictedUsers->removeElement($restrictedUser)) {
             $restrictedUser->removeRestrictedBrand($this);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function getDesignerAccessUsers(): Collection
+    {
+        return $this->designerAccessUsers;
+    }
+
+    public function addDesignerAccessUser(User $user): static
+    {
+        if (!$this->designerAccessUsers->contains($user)) {
+            $this->designerAccessUsers->add($user);
+            $user->addDesignerAccessBrand($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDesignerAccessUser(User $user): static
+    {
+        if ($this->designerAccessUsers->removeElement($user)) {
+            $user->removeDesignerAccessBrand($this);
         }
 
         return $this;

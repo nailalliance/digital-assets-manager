@@ -42,6 +42,24 @@ final class HomeController extends AbstractController
         {
             $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
 
+            foreach ($user->getDesignerAccessBrands() as $designerAccessBrand) {
+                $visited = [];
+                $current = $designerAccessBrand;
+
+                while ($current !== null) {
+                    $objectId = spl_object_id($current);
+                    if (isset($visited[$objectId])) {
+                        break;
+                    }
+
+                    $visited[$objectId] = true;
+                    $allowedBrandIds[] = $current->getId();
+                    $current = $current->getBrands();
+                }
+            }
+
+            $allowedBrandIds = array_unique($allowedBrandIds);
+
             if (!empty($allowedBrandIds)) {
                 $parentBrands = array_values(array_filter($parentBrands, function ($brand) use ($allowedBrandIds) {
                     if (!in_array($brand->getId(), $allowedBrandIds))

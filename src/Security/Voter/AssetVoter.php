@@ -5,6 +5,7 @@ namespace App\Security\Voter;
 use App\Entity\Assets\Assets;
 use App\Entity\Assets\AssetStatusEnum;
 use App\Entity\User;
+use App\Service\DesignerAssetAccessChecker;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -15,7 +16,8 @@ class AssetVoter extends Voter
     public const VIEW = 'ASSET_VIEW';
 
     public function __construct(
-        private Security $security
+        private Security $security,
+        private DesignerAssetAccessChecker $designerAssetAccessChecker,
     )
     {}
 
@@ -54,13 +56,32 @@ class AssetVoter extends Voter
             return !($asset->getStatus() === AssetStatusEnum::INACTIVE);
         }
 
+        if ($asset->getStatus() === AssetStatusEnum::DESIGNER) {
+            return $this->designerAssetAccessChecker->isGranted($user, $asset);
+        }
+
+        if ($asset->getStatus() !== AssetStatusEnum::ACTIVE) {
+            return false;
+        }
+
         $userBrandsIds = $user->getRestrictedBrands()->map(fn($brand) => $brand->getId())->toArray();
 
         foreach ($asset->getBrand() as $assetBrand) {
-            $parentBrand = $assetBrand->getBrands();
-            if ($parentBrand && in_array($parentBrand->getId(), $userBrandsIds, true)) {
-                // return true;
-                return ($asset->getStatus() === AssetStatusEnum::ACTIVE);
+            $visited = [];
+            $current = $assetBrand;
+
+            while ($current !== null) {
+                $objectId = spl_object_id($current);
+                if (isset($visited[$objectId])) {
+                    break;
+                }
+
+                $visited[$objectId] = true;
+                if (in_array($current->getId(), $userBrandsIds, true)) {
+                    return true;
+                }
+
+                $current = $current->getBrands();
             }
         }
 

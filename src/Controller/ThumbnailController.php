@@ -5,7 +5,8 @@ namespace App\Controller;
 use App\Entity\ApiToken;
 use App\Entity\Assets\Assets;
 use App\Repository\ApiTokenRepository;
-use App\Repository\UserRepository;
+use App\Repository\Assets\AssetsRepository;
+use App\Security\Voter\AssetVoter;
 use App\Service\ImageProcessorService;
 use App\Service\UserRoleChecker;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -13,25 +14,23 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 class ThumbnailController extends AbstractController
 {
     #[Route('/thumbnail/{filename}', name: 'asset_thumbnail')]
-    public function thumbnail(string $filename): BinaryFileResponse
+    public function thumbnail(string $filename, AssetsRepository $assetsRepository): BinaryFileResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
 
-        $firstLetter = strtolower(substr($filename, 0, 1));
-        $secondLetter = strtolower(substr($filename, 1, 1));
-        $thumbnailDir = $this->getParameter('thumbnail_dir');
+        $asset = $assetsRepository->findOneByThumbnailFilename($filename);
+        if ($asset === null) {
+            throw $this->createNotFoundException('Thumbnail not found.');
+        }
 
-        $fullPath = sprintf(
-            '%s/%s/%s/%s',
-            $thumbnailDir,
-            $firstLetter,
-            $secondLetter,
-            $filename
-        );
+        $this->denyAccessUnlessGranted(AssetVoter::VIEW, $asset);
+
+        $fullPath = $asset->getThumbnailPath();
 
         // 2. Check if the reconstructed file path exists
         if (!file_exists($fullPath)) {
@@ -106,6 +105,7 @@ class ThumbnailController extends AbstractController
     }
 
     #[Route('/thumbnailId/{id}', name: 'asset_thumbnail_by_id', requirements: ['id' => '\d+'])]
+    #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
     public function thumbnailById(Assets $assets): BinaryFileResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');

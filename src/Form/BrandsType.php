@@ -2,10 +2,11 @@
 
 namespace App\Form;
 
-use App\Entity\Assets\Assets;
 use App\Entity\Assets\Brands;
 use App\Entity\Restrictions\Groups;
+use App\Entity\User;
 use App\Repository\Assets\BrandsRepository;
+use App\Repository\UserRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -46,6 +47,25 @@ class BrandsType extends AbstractType
                 'multiple' => true,
                 'expanded' => true,
                 'required' => false,
+            ])
+            ->add('designerAccessUsers', EntityType::class, [
+                'class' => User::class,
+                'query_builder' => fn (UserRepository $users) => $users->createQueryBuilder('u')
+                    ->orderBy('u.name', 'ASC')
+                    ->addOrderBy('u.id', 'ASC'),
+                'choice_label' => fn (User $user) => sprintf(
+                    '#%d — %s (%s)',
+                    $user->getId(),
+                    $user->getName(),
+                    $user->getUsername()
+                ),
+                'multiple' => true,
+                'expanded' => false,
+                'required' => false,
+                'by_reference' => false,
+                'label' => 'Users granted designer-only asset access',
+                'help' => 'These users can view designer-only assets assigned to this brand or any child brand.',
+                'attr' => ['size' => 12],
             ])
             ->add('status', ChoiceType::class, [
                 'choices' => [

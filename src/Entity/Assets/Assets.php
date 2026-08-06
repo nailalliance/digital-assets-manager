@@ -593,6 +593,66 @@ class Assets
         return array_unique($parentBrandIds);
     }
 
+    /**
+     * Get directly assigned brand IDs and all ancestor IDs for access filtering.
+     */
+    #[SerializerGroups(['searchable'])]
+    #[SerializedName('brand_access_ids')]
+    public function getBrandAccessIds(): array
+    {
+        $ids = [];
+
+        foreach ($this->brand as $brand) {
+            $visited = [];
+            $current = $brand;
+
+            while ($current !== null) {
+                $objectId = spl_object_id($current);
+                if (isset($visited[$objectId])) {
+                    break;
+                }
+
+                $visited[$objectId] = true;
+                if ($current->getId() !== null) {
+                    $ids[] = $current->getId();
+                }
+                $current = $current->getBrands();
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * Get directly assigned category IDs and all ancestor IDs for access filtering.
+     */
+    #[SerializerGroups(['searchable'])]
+    #[SerializedName('category_access_ids')]
+    public function getCategoryAccessIds(): array
+    {
+        $ids = [];
+
+        foreach ($this->categories as $category) {
+            $visited = [];
+            $current = $category;
+
+            while ($current !== null) {
+                $objectId = spl_object_id($current);
+                if (isset($visited[$objectId])) {
+                    break;
+                }
+
+                $visited[$objectId] = true;
+                if ($current->getId() !== null) {
+                    $ids[] = $current->getId();
+                }
+                $current = $current->getCategories();
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
     public function getParent(): ?self
     {
         return $this->parent;

@@ -45,21 +45,6 @@ class SearchService
 
         $filters = [];
 
-        // Status
-        $statuses = [
-            'status=' . AssetStatusEnum::ACTIVE->value,
-        ];
-
-        if (!empty($status))
-        {
-            foreach ($status as $status_)
-            {
-                $statuses[] = 'status=' . $status_->value;
-            }
-        }
-
-        $filters[] = "(" . join(' OR ', $statuses) . ")";
-
         $searchParams = [
             'limit' => $limit,
             'offset' => $offset,
@@ -68,17 +53,54 @@ class SearchService
         /** @var User $user */
         $user = $this->security->getUser();
 
-        if ($user && !$this->security->isGranted('ROLE_FTP_DESIGNER'))
-        {
-            $allowedBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
+        if ($user && !$this->security->isGranted('ROLE_FTP_DESIGNER')) {
+            $visibility = [];
+            $regularBrandIds = $user->getRestrictedBrands()->map(fn ($brand) => $brand->getId())->toArray();
+            $designerBrandIds = $user->getDesignerAccessBrands()->map(fn ($brand) => $brand->getId())->toArray();
+            $designerCategoryIds = $user->getDesignerAccessCategories()->map(fn ($category) => $category->getId())->toArray();
 
-            // $filters[] = 'embargodate >= ' . time();
-
-            if (empty($allowedBrandIds)) {
-                $filters[] = 'parent_brand_ids = 0';
-            } else {
-                $filters[] = 'parent_brand_ids IN [' . implode(',', $allowedBrandIds) . ']';
+            if ($regularBrandIds !== []) {
+                $visibility[] = sprintf(
+                    '(status=%s AND brand_access_ids IN [%s])',
+                    AssetStatusEnum::ACTIVE->value,
+                    implode(',', $regularBrandIds)
+                );
             }
+
+            $designerTaxonomies = [];
+            if ($designerBrandIds !== []) {
+                $designerTaxonomies[] = 'brand_access_ids IN [' . implode(',', $designerBrandIds) . ']';
+            }
+            if ($designerCategoryIds !== []) {
+                $designerTaxonomies[] = 'category_access_ids IN [' . implode(',', $designerCategoryIds) . ']';
+            }
+            if ($designerTaxonomies !== []) {
+                $visibility[] = sprintf(
+                    '(status=%s AND (%s))',
+                    AssetStatusEnum::DESIGNER->value,
+                    implode(' OR ', $designerTaxonomies)
+                );
+            }
+
+            $filters[] = $visibility === []
+                ? '(status=active AND brand_access_ids = 0)'
+                : '(' . implode(' OR ', $visibility) . ')';
+        } else {
+            $statuses = [AssetStatusEnum::ACTIVE->value];
+
+            if ($this->security->isGranted('ROLE_FTP_DESIGNER')) {
+                $statuses[] = AssetStatusEnum::DESIGNER->value;
+            }
+
+            foreach ($status ?? [] as $requestedStatus) {
+                $statuses[] = $requestedStatus->value;
+            }
+
+            $statuses = array_unique($statuses);
+            $filters[] = '(' . implode(' OR ', array_map(
+                fn (string $visibleStatus) => 'status=' . $visibleStatus,
+                $statuses
+            )) . ')';
         }
 
         // Brands
