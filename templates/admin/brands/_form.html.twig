@@ -9,7 +9,7 @@
     <section class="mt-8 rounded-md border border-violet-200 bg-violet-50 p-5">
         <h2 class="text-lg font-semibold text-gray-900">Designer-only asset access</h2>
         <p class="mt-1 mb-4 text-sm text-gray-600">Grant selected regular users access without changing their roles.</p>
-        {{ form_row(form.designerAccessUsers) }}
+        {{ include('admin/_designer_access_selector.html.twig', {field: form.designerAccessUsers}) }}
     </section>
 <div class="mt-8 pt-5 border-t border-gray-200 flex justify-end space-x-3">
     <a href="{{ path('admin_brands_index') }}"
