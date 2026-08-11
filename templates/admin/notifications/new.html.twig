@@ -1,0 +1,10 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}New Notification | {{ parent() }}{% endblock %}
+
+{% block body %}
+    <h1 class="mb-6 text-3xl font-bold text-gray-900">Create Header Notification</h1>
+    <div class="rounded-lg bg-white p-8 shadow-xl">
+        {{ include('admin/notifications/_form.html.twig') }}
+    </div>
+{% endblock %}

@@ -88,6 +88,10 @@
                             <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Admin</span><br>
                             Users
                         </a>
+                        <a href="{{ url('admin_notifications_index') }}" data-turbo="false" class="text-gray-600 hover:text-blue-600">
+                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Admin</span><br>
+                            Notices
+                        </a>
                     {% endif %}
                 </div>
                 <div class="flex items-center">
@@ -108,6 +112,7 @@
                 </div>
             {% endif %}
         </nav>
+        {{ include('_partials/_site_notifications.html.twig') }}
     </header>
 
     <main class="container mx-auto px-6 py-8">

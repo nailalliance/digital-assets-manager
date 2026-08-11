@@ -1,0 +1,20 @@
+{% set level_styles = {
+    info: 'border-blue-500 bg-blue-50 text-blue-950',
+    success: 'border-green-500 bg-green-50 text-green-950',
+    warning: 'border-amber-500 bg-amber-50 text-amber-950',
+    critical: 'border-red-600 bg-red-50 text-red-950'
+} %}
+
+{% for notification in header_notifications() %}
+    <div class="border-t-4 {{ attribute(level_styles, notification.level.value) }}" role="{{ notification.level.value in ['warning', 'critical'] ? 'alert' : 'status' }}">
+        <div class="container mx-auto flex items-start gap-3 px-6 py-3">
+            <svg class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+            </svg>
+            <p class="text-sm leading-5">
+                <strong class="font-semibold">{{ notification.title }}</strong>
+                <span class="ml-1">{{ notification.message }}</span>
+            </p>
+        </div>
+    </div>
+{% endfor %}
