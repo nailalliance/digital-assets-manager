@@ -25,7 +25,47 @@ ls public/build
 4. Deploy both source and `public/build/`.
 5. Clear Symfony cache on the target if your deployment process does not already
    do that.
-6. Hard refresh the browser after deploy when testing frontend behavior.
+6. When indexed fields or `config/packages/meilisearch.yaml` change, synchronize
+   the Meilisearch settings and documents:
+
+```bash
+composer meilisearch-sync
+```
+
+   This imports into a temporary index, applies the configured settings, and
+   atomically swaps it into place so searches do not use a partially rebuilt
+   index.
+7. Hard refresh the browser after deploy when testing frontend behavior.
+
+## Meilisearch schema recovery
+
+Search filters fail with HTTP 400 when application code uses a field before the
+deployed Meilisearch index has received the matching `filterableAttributes`
+setting. For example:
+
+```text
+Attribute `brand_access_ids` is not filterable
+```
+
+To restore searches immediately, push the configured settings first:
+
+```bash
+php bin/console meilisearch:update-settings \
+  --indices=assets \
+  --response-timeout=120000 \
+  --env=prod \
+  --no-debug
+```
+
+Then run the complete zero-downtime synchronization so all existing documents
+contain the new indexed fields:
+
+```bash
+composer meilisearch-sync
+```
+
+The settings-only command stops the invalid-filter error. It does not populate
+new fields on documents that were indexed before the application change.
 
 ## FTP deploys
 
