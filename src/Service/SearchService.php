@@ -61,18 +61,18 @@ class SearchService
 
             if ($regularBrandIds !== []) {
                 $visibility[] = sprintf(
-                    '(status=%s AND brand_access_ids IN [%s])',
+                    '(status=%s AND %s)',
                     AssetStatusEnum::ACTIVE->value,
-                    implode(',', $regularBrandIds)
+                    $this->brandAccessFilter($regularBrandIds)
                 );
             }
 
             $designerTaxonomies = [];
             if ($designerBrandIds !== []) {
-                $designerTaxonomies[] = 'brand_access_ids IN [' . implode(',', $designerBrandIds) . ']';
+                $designerTaxonomies[] = $this->brandAccessFilter($designerBrandIds);
             }
             if ($designerCategoryIds !== []) {
-                $designerTaxonomies[] = 'category_access_ids IN [' . implode(',', $designerCategoryIds) . ']';
+                $designerTaxonomies[] = $this->categoryAccessFilter($designerCategoryIds);
             }
             if ($designerTaxonomies !== []) {
                 $visibility[] = sprintf(
@@ -148,5 +148,40 @@ class SearchService
             'hits' => $searchResults ?? [],
             'total' => count($searchResults) ?? 0,
         ];
+    }
+
+    /**
+     * Match the complete access field and the legacy fields retained on documents
+     * that were indexed before brand_access_ids was introduced.
+     *
+     * The direct and immediate-parent checks are strictly narrower fallbacks. A
+     * complete index rebuild remains necessary for deeper brand hierarchies.
+     *
+     * @param int[] $brandIds
+     */
+    private function brandAccessFilter(array $brandIds): string
+    {
+        $ids = implode(',', $brandIds);
+
+        return sprintf(
+            '(brand_access_ids IN [%1$s] OR parent_brand_ids IN [%1$s] OR brandForSearch.id IN [%1$s])',
+            $ids
+        );
+    }
+
+    /**
+     * Match direct categories while legacy documents are being rebuilt with the
+     * complete category ancestry field.
+     *
+     * @param int[] $categoryIds
+     */
+    private function categoryAccessFilter(array $categoryIds): string
+    {
+        $ids = implode(',', $categoryIds);
+
+        return sprintf(
+            '(category_access_ids IN [%1$s] OR categoriesForSearch.id IN [%1$s])',
+            $ids
+        );
     }
 }

@@ -34,10 +34,19 @@ class SearchServiceTest extends TestCase
                 self::callback(function (array $params): bool {
                     $filter = $params['filter'];
 
-                    self::assertStringContainsString('status=active AND brand_access_ids IN [3]', $filter);
+                    self::assertStringContainsString(
+                        'status=active AND (brand_access_ids IN [3] OR parent_brand_ids IN [3] OR brandForSearch.id IN [3])',
+                        $filter
+                    );
                     self::assertStringContainsString('status=designer', $filter);
-                    self::assertStringContainsString('brand_access_ids IN [4]', $filter);
-                    self::assertStringContainsString('category_access_ids IN [8]', $filter);
+                    self::assertStringContainsString(
+                        '(brand_access_ids IN [4] OR parent_brand_ids IN [4] OR brandForSearch.id IN [4])',
+                        $filter
+                    );
+                    self::assertStringContainsString(
+                        '(category_access_ids IN [8] OR categoriesForSearch.id IN [8])',
+                        $filter
+                    );
 
                     return true;
                 })
