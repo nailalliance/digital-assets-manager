@@ -3,7 +3,9 @@
 namespace App\Controller\Admin;
 
 use App\Entity\Assets\Assets;
+use App\Form\AssetUploadMetadataType;
 use App\Message\ProcessAssetUpload;
+use App\Repository\Assets\BrandsRepository;
 use App\Security\TusUploadTokenManager;
 use App\Tus\Cache\PerUploadFileStore;
 use App\Tus\OptimizedTusServer;
@@ -27,10 +29,17 @@ class UploadController extends AbstractController
     {}
 
     #[Route('/admin/assets/upload', name: 'app_asset_upload', methods: ['GET'])]
-    public function index(): Response
+    public function index(BrandsRepository $brandsRepository): Response
     {
+        $metadataForm = $this->createForm(AssetUploadMetadataType::class);
+
         return $this->render('admin/asset_upload/index.html.twig', [
             'uploadAuthToken' => $this->uploadTokenManager->createForUser($this->getUser()),
+            'metadataForm' => $metadataForm->createView(),
+            'parentBrands' => $brandsRepository->findBy(
+                ['brands' => null, 'status' => true],
+                ['name' => 'ASC'],
+            ),
         ]);
     }
 

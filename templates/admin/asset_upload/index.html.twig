@@ -1,62 +1,113 @@
 {% extends 'base.html.twig' %}
 
+{% form_theme metadataForm 'tailwind_form_theme.html.twig' %}
+
 {% block title %}Upload New Assets | {{ parent() }}{% endblock %}
 
 {% block body %}
-    <div class="max-w-4xl mx-auto">
-        <div class="bg-white rounded-lg shadow-xl p-8">
+    <div class="max-w-5xl mx-auto">
+        <div class="bg-white rounded-lg shadow-xl p-8"
+             data-controller="asset-upload"
+             data-asset-upload-auth-token-value="{{ uploadAuthToken }}">
             <h1 class="text-3xl font-bold text-gray-900 mb-2">Upload Assets</h1>
-            <p class="text-gray-600 mb-6">Drag and drop a file or click the area below to select a file for upload.</p>
+            <p class="text-gray-600 mb-6">
+                Select one or more files. Each file becomes its own DAM asset and is processed independently.
+            </p>
 
-            <div
-                data-controller="tus-upload"
-                data-tus-upload-auth-token-value="{{ uploadAuthToken }}">
-                <form data-action="submit->tus-upload#upload">
-
-                    {# The Dropzone Area #}
-                    <div
-                        data-tus-upload-target="dropzone"
-                        data-action="dragover->tus-upload#dragover dragleave->tus-upload#dragleave drop->tus-upload#drop"
-                        class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-colors"
-                    >
-                        <div class="flex flex-col items-center pointer-events-none">
-                            <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V16a4 4 0 01-4 4H7z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v6m-3-3h6"></path></svg>
-                            <p class="mt-4 text-lg text-gray-600">
-                                <span class="font-semibold text-violet-600">Click to upload</span> or drag and drop
-                            </p>
-                            <p class="mt-1 text-sm text-gray-500" data-tus-upload-target="fileNameDisplay">No file selected</p>
-                        </div>
-                        <input
-                            type="file"
-                            class="hidden"
-                            data-tus-upload-target="fileInput"
-                            data-action="change->tus-upload#fileSelected"
-                        >
+            {{ form_start(metadataForm, {'attr': {'data-action': 'submit->asset-upload#upload'}}) }}
+                <div data-asset-upload-target="dropzone"
+                     data-action="dragover->asset-upload#dragover dragleave->asset-upload#dragleave drop->asset-upload#drop"
+                     class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-colors">
+                    <div class="flex flex-col items-center pointer-events-none">
+                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V16a4 4 0 01-4 4H7z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11v6m-3-3h6"></path></svg>
+                        <p class="mt-4 text-lg text-gray-600">
+                            <span class="font-semibold text-violet-600">Click to upload</span> or drag and drop files
+                        </p>
+                        <p class="mt-1 text-sm text-gray-500" data-asset-upload-target="fileSummary">No files selected</p>
                     </div>
+                    <input type="file"
+                           multiple
+                           class="hidden"
+                           data-asset-upload-target="fileInput"
+                           data-action="change->asset-upload#filesSelected">
+                </div>
 
-                    <!-- Progress Bar Section -->
-                    {# FIX: Changed data-tus-upload-target to "progressContainer" #}
-                    <div class="hidden mt-4" data-tus-upload-target="progressContainer">
-                        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
-                            <div class="bg-violet-600 h-2.5 rounded-full transition-all duration-300" data-tus-upload-target="progressBar" style="width: 0%"></div>
-                        </div>
-                        {# FIX: Added data-tus-upload-target to the percentage text element #}
-                        <p class="text-sm text-center text-gray-600" data-tus-upload-target="progressText"></p>
+                <ul class="mt-4 space-y-2" data-asset-upload-target="fileList"></ul>
+
+                <div class="mt-8 border-t border-gray-200 pt-6">
+                    <h2 class="text-xl font-semibold text-gray-900">Optional metadata for every file</h2>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Any selections below will be applied to all assets in this upload.
+                    </p>
+
+                    <div class="mt-5 space-y-4">
+                        <details class="rounded-lg border border-gray-200 p-4">
+                            <summary class="cursor-pointer font-medium text-gray-900">Brands</summary>
+                            <div class="mt-4" data-controller="brand-filter">
+                                <label for="upload_parent_brand_filter" class="block text-sm font-medium text-gray-700">Filter Brands by Parent</label>
+                                <select id="upload_parent_brand_filter"
+                                        data-action="change->brand-filter#filter"
+                                        class="mt-1 mb-4 block w-full border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500 sm:text-sm">
+                                    <option value="">Show All Brands</option>
+                                    {% for parent in parentBrands %}
+                                        <option value="{{ parent.id }}">{{ parent.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div data-brand-filter-target="brandList">
+                                    {{ form_widget(metadataForm.brands) }}
+                                    {{ form_errors(metadataForm.brands) }}
+                                </div>
+                            </div>
+                        </details>
+
+                        <details class="rounded-lg border border-gray-200 p-4">
+                            <summary class="cursor-pointer font-medium text-gray-900">Categories</summary>
+                            <div class="mt-4">
+                                {{ form_widget(metadataForm.categories) }}
+                                {{ form_errors(metadataForm.categories) }}
+                            </div>
+                        </details>
+
+                        <details class="rounded-lg border border-gray-200 p-4">
+                            <summary class="cursor-pointer font-medium text-gray-900">Collections</summary>
+                            <div class="mt-4">
+                                {{ form_widget(metadataForm.collections) }}
+                                {{ form_errors(metadataForm.collections) }}
+                            </div>
+                        </details>
                     </div>
+                </div>
 
-                    <!-- Error Message Area -->
-                    <div class="hidden bg-red-100 text-red-700 p-3 rounded-md my-4" data-tus-upload-target="errorMessage"></div>
-
-                    <div class="mt-8 pt-5 border-t border-gray-200 flex justify-end">
-                        <button type="submit"
-                                data-tus-upload-target="submitButton"
-                                class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                disabled>
-                            Start Upload
-                        </button>
+                <div class="hidden mt-6" data-asset-upload-target="progressContainer">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                        <div class="bg-violet-600 h-2.5 rounded-full transition-all duration-300"
+                             data-asset-upload-target="progressBar"
+                             style="width: 0%"></div>
                     </div>
-                </form>
-            </div>
+                    <p class="text-sm text-center text-gray-600" data-asset-upload-target="progressText"></p>
+                </div>
+
+                <div class="hidden bg-red-100 text-red-700 p-3 rounded-md mt-4"
+                     role="alert"
+                     data-asset-upload-target="errorMessage"></div>
+
+                <div class="hidden mt-6 rounded-lg border border-gray-200 bg-gray-50 p-5"
+                     aria-live="polite"
+                     data-asset-upload-target="resultContainer">
+                    <h2 class="text-lg font-semibold text-gray-900">Upload results</h2>
+                    <p class="mt-1 text-sm text-gray-600" data-asset-upload-target="resultSummary"></p>
+                    <ul class="mt-4 space-y-2" data-asset-upload-target="resultList"></ul>
+                </div>
+
+                <div class="mt-8 pt-5 border-t border-gray-200 flex justify-end">
+                    <button type="submit"
+                            data-asset-upload-target="submitButton"
+                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            disabled>
+                        Start Upload
+                    </button>
+                </div>
+            {{ form_end(metadataForm) }}
         </div>
     </div>
 {% endblock %}

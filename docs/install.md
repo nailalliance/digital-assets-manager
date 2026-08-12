@@ -63,3 +63,21 @@ To view the logs, use:
 sudo journalctl -u mynailalliance-dam-app.service -f
 ```
 
+## Deploying application updates
+
+Messenger workers are long-running PHP processes. They must be restarted after every application deployment so they do not keep an old compiled container in memory while loading new classes.
+
+From `/var/www/html`, after the new code and dependencies are in place:
+
+```shell
+sudo -u mynailalliance-library php8.4 bin/console doctrine:migrations:migrate --no-interaction --env=prod
+sudo -u mynailalliance-library php8.4 bin/console cache:clear --env=prod --no-debug
+sudo systemctl restart mynailalliance-messenger-worker.service
+sudo systemctl status mynailalliance-messenger-worker.service
+```
+
+To follow worker errors during verification:
+
+```shell
+sudo journalctl -u mynailalliance-messenger-worker.service -f
+```
