@@ -2,7 +2,7 @@
 
 namespace App\Tests\Controller;
 
-use App\Controller\PublicDownloadListController;
+use App\Controller\ShareController;
 use App\Entity\Assets\Assets;
 use App\Entity\Downloads\Lists;
 use App\Entity\Downloads\OneTimeLinks;
@@ -16,7 +16,7 @@ use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\Store\InMemoryStore;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
-class PublicDownloadListControllerTest extends TestCase
+class ShareControllerTest extends TestCase
 {
     private Filesystem $filesystem;
     private string $tempDir;
@@ -36,7 +36,7 @@ class PublicDownloadListControllerTest extends TestCase
     public function testPublicImageGeneratesOnceAndReusesCacheAcrossTokens(): void
     {
         $asset = $this->createAsset(42, $this->createSourceFile('source-image'));
-        $controller = new TestablePublicDownloadListController(false);
+        $controller = new TestableShareController(false);
         $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
         $cacheImageProcessor
             ->expects($this->once())
@@ -101,7 +101,7 @@ class PublicDownloadListControllerTest extends TestCase
     public function testPublicImageRejectsExpiredLinksBeforeUsingCache(): void
     {
         $asset = $this->createAsset(77, $this->createSourceFile('source-image'));
-        $controller = new TestablePublicDownloadListController(false);
+        $controller = new TestableShareController(false);
         $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
         $cacheImageProcessor->expects($this->never())->method('exportFile');
         $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
@@ -137,7 +137,7 @@ class PublicDownloadListControllerTest extends TestCase
     public function testPublicImageRejectsAssetsOutsideTheShareBeforeUsingCache(): void
     {
         $asset = $this->createAsset(88, $this->createSourceFile('source-image'));
-        $controller = new TestablePublicDownloadListController(true);
+        $controller = new TestableShareController(true);
         $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
         $cacheImageProcessor->expects($this->never())->method('exportFile');
         $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
@@ -178,7 +178,7 @@ class PublicDownloadListControllerTest extends TestCase
     public function testPublicImageFallsBackToDirectGenerationWhenCacheWriteFails(): void
     {
         $asset = $this->createAsset(99, $this->createSourceFile('source-image'));
-        $controller = new TestablePublicDownloadListController(false);
+        $controller = new TestableShareController(false);
         $blockingPath = $this->tempDir . '/cache-blocker';
         file_put_contents($blockingPath, 'not-a-directory');
 
@@ -225,7 +225,7 @@ class PublicDownloadListControllerTest extends TestCase
     public function testPublicImageUsesLargestClipPathVariantWhenRequested(): void
     {
         $asset = $this->createAsset(123, $this->createSourceFile('source-image'));
-        $controller = new TestablePublicDownloadListController(false);
+        $controller = new TestableShareController(false);
         $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
         $cacheImageProcessor
             ->expects($this->once())
@@ -269,7 +269,7 @@ class PublicDownloadListControllerTest extends TestCase
     public function testPublicImageUsesSpecificClipPathIndexWhenRequested(): void
     {
         $asset = $this->createAsset(124, $this->createSourceFile('source-image'));
-        $controller = new TestablePublicDownloadListController(false);
+        $controller = new TestableShareController(false);
         $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
         $cacheImageProcessor
             ->expects($this->once())
@@ -321,7 +321,7 @@ class PublicDownloadListControllerTest extends TestCase
         $image->clear();
 
         $asset = $this->createAsset(125, $sourcePath);
-        $controller = new TestablePublicDownloadListController(false);
+        $controller = new TestableShareController(false);
         $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
         $cacheImageProcessor->expects($this->never())->method('exportFile');
         $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
@@ -365,7 +365,7 @@ class PublicDownloadListControllerTest extends TestCase
         }
 
         $asset = $this->createAsset(126, $sampleAssetPath);
-        $controller = new TestablePublicDownloadListController(false);
+        $controller = new TestableShareController(false);
         $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
         $cacheImageProcessor->expects($this->never())->method('exportFile');
         $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
@@ -459,7 +459,7 @@ class PublicDownloadListControllerTest extends TestCase
     }
 }
 
-final class TestablePublicDownloadListController extends PublicDownloadListController
+final class TestableShareController extends ShareController
 {
     public function __construct(private readonly bool $isGrantedResult)
     {

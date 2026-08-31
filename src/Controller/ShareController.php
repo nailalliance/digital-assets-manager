@@ -21,7 +21,7 @@ use function count;
 use function is_array;
 use function pathinfo;
 
-class PublicDownloadListController extends AbstractController
+class ShareController extends AbstractController
 {
     #[Route('/share/{token}', name: 'public_download_list')]
     public function index(
