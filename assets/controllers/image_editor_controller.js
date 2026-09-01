@@ -83,6 +83,7 @@ export default class extends Controller {
 
     static values = {
         imageUrl: String,
+        videoExportUrl: String,
         assetName: String,
         mimeType: String,
         customFonts: Array,
@@ -166,6 +167,11 @@ export default class extends Controller {
     }
 
     async loadImage() {
+        if (this.isVideoAsset()) {
+            this.loadVideoPreview();
+            return;
+        }
+
         this.setStatus('Loading image…');
 
         const image = new Image();
@@ -183,6 +189,28 @@ export default class extends Controller {
             this.setStatus('The image could not be loaded into the editor.', 'error');
         };
         image.src = this.imageUrlValue;
+    }
+
+    loadVideoPreview() {
+        this.setStatus('Loading video preview…');
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        video.addEventListener('loadeddata', () => {
+            this.image = video;
+            this.state = this.buildInitialState();
+            this.initialState = this.cloneState(this.state);
+            this.loadingStateTarget.classList.add('hidden');
+            this.renderAll(true);
+            this.setStatus('Editing the first video frame. Export MP4 applies this composition to the full video.', 'success');
+        }, { once: true });
+        video.addEventListener('error', () => {
+            this.loadingStateTarget.textContent = 'The video preview could not be loaded.';
+            this.setStatus('The video could not be loaded into the editor.', 'error');
+        }, { once: true });
+        video.src = this.imageUrlValue;
+        video.load();
     }
 
     readAvailableFontFamilies() {
@@ -350,8 +378,8 @@ export default class extends Controller {
         return {
             version: 1,
             sourceBounds: {
-                width: this.image.naturalWidth,
-                height: this.image.naturalHeight,
+                width: this.getSourceWidth(),
+                height: this.getSourceHeight(),
             },
             crop: null,
             baseImage: {
@@ -564,6 +592,11 @@ export default class extends Controller {
             return;
         }
 
+        if (this.isVideoAsset()) {
+            this.downloadVideo();
+            return;
+        }
+
         await this.customFontLoadPromise;
 
         const output = this.renderExportCanvas();
@@ -585,6 +618,39 @@ export default class extends Controller {
             URL.revokeObjectURL(downloadUrl);
             this.setStatus('Edited image downloaded.', 'success');
         }, output.mimeType, output.mimeType === 'image/jpeg' ? 0.92 : undefined);
+    }
+
+    downloadVideo() {
+        if (!this.hasVideoExportUrlValue) {
+            this.setStatus('Video export is not configured.', 'error');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = this.videoExportUrlValue;
+        form.style.display = 'none';
+
+        const script = document.createElement('textarea');
+        script.name = 'script';
+        script.value = JSON.stringify(this.buildScript(), null, 2);
+        form.appendChild(script);
+        document.body.appendChild(form);
+        form.submit();
+        form.remove();
+        this.setStatus('Rendering MP4. The download will begin when the export is ready.', 'success');
+    }
+
+    isVideoAsset() {
+        return this.mimeTypeValue.startsWith('video/');
+    }
+
+    getSourceWidth() {
+        return this.isVideoAsset() ? this.image.videoWidth : this.image.naturalWidth;
+    }
+
+    getSourceHeight() {
+        return this.isVideoAsset() ? this.image.videoHeight : this.image.naturalHeight;
     }
 
     changeSelectedTextStyle(event) {

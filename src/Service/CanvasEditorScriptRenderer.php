@@ -91,6 +91,17 @@ final class CanvasEditorScriptRenderer
     }
 
     /**
+     * Converts a validated editor script into source-pixel geometry for another renderer.
+     *
+     * @param array<string, mixed> $parsedScript
+     * @return array<string, mixed>
+     */
+    public function buildRenderableStateForSource(array $parsedScript, int $sourceWidth, int $sourceHeight): array
+    {
+        return $this->buildRenderableState($parsedScript, $sourceWidth, $sourceHeight);
+    }
+
+    /**
      * @param array<string, mixed> $parsedScript
      *
      * @return array{path: string, extension: string, mimeType: string}

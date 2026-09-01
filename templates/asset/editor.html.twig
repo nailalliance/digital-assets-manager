@@ -16,6 +16,7 @@
     <div
         {{ stimulus_controller('image-editor', {
             imageUrl: path('asset_stream', {id: asset.id}),
+            videoExportUrl: path('app_asset_editor_video_export', {id: asset.id}),
             assetName: asset.name,
             mimeType: asset.mimeType,
             customFonts: customFonts
@@ -52,7 +53,7 @@
                     Paste Script
                 </button>
                 <button type="button" data-action="click->image-editor#downloadImage" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700">
-                    Download
+                    {{ asset.mimeType starts with 'video/' ? 'Export MP4' : 'Download' }}
                 </button>
             </div>
             <p data-image-editor-target="status" class="mt-3 text-sm text-slate-500">
@@ -125,7 +126,7 @@
                             </div>
                         </div>
                         <div data-image-editor-target="loadingState" class="absolute inset-0 flex items-center justify-center text-sm font-medium text-slate-500">
-                            Loading image…
+                            Loading {{ asset.mimeType starts with 'video/' ? 'video preview' : 'image' }}…
                         </div>
                     </div>
                 </div>

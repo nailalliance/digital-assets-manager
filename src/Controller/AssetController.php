@@ -10,6 +10,7 @@ use App\Form\WebDownloadType;
 use App\Security\Voter\AssetVoter;
 use App\Service\EditorFontCatalog;
 use App\Service\ImageProcessorService;
+use App\Service\Video\CanvasEditorVideoRenderer;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -19,6 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\UX\Turbo\TurboBundle;
@@ -30,6 +32,9 @@ final class AssetController extends AbstractController
         'image/png',
         'image/webp',
         'image/gif',
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
     ];
 
     #[Route('/assets/{id}', name: 'app_asset')]
@@ -94,6 +99,33 @@ final class AssetController extends AbstractController
                 $editorFontCatalog->getCustomFontFaces()
             ),
         ]);
+    }
+
+    #[Route('/assets/{id}/editor/video-export', name: 'app_asset_editor_video_export', methods: ['POST'])]
+    #[IsGranted(AssetVoter::VIEW, subject: 'asset')]
+    public function exportEditedVideo(Assets $asset, Request $request, CanvasEditorVideoRenderer $videoRenderer): BinaryFileResponse
+    {
+        if (!$this->canEditVideo($asset)) {
+            throw $this->createNotFoundException('This asset is not a supported video.');
+        }
+
+        try {
+            $renderedVideo = $videoRenderer->render($asset, (string) $request->request->get('script', ''));
+        } catch (\InvalidArgumentException $exception) {
+            throw new BadRequestHttpException($exception->getMessage(), $exception);
+        } catch (\RuntimeException $exception) {
+            throw $this->createNotFoundException($exception->getMessage());
+        }
+
+        $response = new BinaryFileResponse($renderedVideo['path']);
+        $response->headers->set('Content-Type', 'video/mp4');
+        $response->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+            sprintf('%s-edited.mp4', $this->makeSafeEditorFilename($asset->getName()))
+        );
+        $response->deleteFileAfterSend(true);
+
+        return $response;
     }
 
     #[Route('/assets/editor/fonts/{fontKey}', name: 'app_asset_editor_font', methods: ['GET'])]
@@ -192,5 +224,17 @@ final class AssetController extends AbstractController
     private function canEditImage(Assets $asset): bool
     {
         return in_array($asset->getMimeType(), self::EDITOR_SUPPORTED_MIME_TYPES, true);
+    }
+
+    private function canEditVideo(Assets $asset): bool
+    {
+        return in_array($asset->getMimeType(), ['video/mp4', 'video/webm', 'video/quicktime'], true);
+    }
+
+    private function makeSafeEditorFilename(?string $name): string
+    {
+        $safeName = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $name) ?? 'video';
+
+        return trim($safeName, '-') ?: 'video';
     }
 }
