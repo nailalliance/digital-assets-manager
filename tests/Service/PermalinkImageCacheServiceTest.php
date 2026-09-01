@@ -34,7 +34,7 @@ class PermalinkImageCacheServiceTest extends TestCase
         $imageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 1200, 900, 40, 'jpg', false, null)
+            ->with($asset->getFilePath(), 1200, 900, 40, 'jpg', false, null, false)
             ->willReturn('cached-image-binary');
 
         $service = $this->createService($imageProcessor);
@@ -52,9 +52,9 @@ class PermalinkImageCacheServiceTest extends TestCase
         $asset = $this->createAsset(456, $this->createSourceFile('source-image'));
         $imageProcessor = $this->createMock(ImageProcessorService::class);
         $imageProcessor
-            ->expects($this->exactly(5))
+            ->expects($this->exactly(6))
             ->method('exportFile')
-            ->willReturnOnConsecutiveCalls('variant-one', 'variant-two', 'variant-three', 'variant-four', 'variant-five');
+            ->willReturnOnConsecutiveCalls('variant-one', 'variant-two', 'variant-three', 'variant-four', 'variant-five', 'variant-six');
 
         $service = $this->createService($imageProcessor);
 
@@ -63,16 +63,19 @@ class PermalinkImageCacheServiceTest extends TestCase
         $formatVariant = $service->getOrCreate($asset, 1000, 1000, 0, 'webp');
         $clipPathVariant = $service->getOrCreate($asset, 1000, 1000, 0, 'jpg', true);
         $clipPathIndexVariant = $service->getOrCreate($asset, 1000, 1000, 0, 'jpg', true, 3);
+        $cropInsideMiddleVariant = $service->getOrCreate($asset, 1000, 1000, 0, 'jpg', false, null, true);
 
         $this->assertNotSame($widthVariant, $paddingVariant);
         $this->assertNotSame($widthVariant, $formatVariant);
         $this->assertNotSame($widthVariant, $clipPathVariant);
         $this->assertNotSame($clipPathVariant, $clipPathIndexVariant);
+        $this->assertNotSame($widthVariant, $cropInsideMiddleVariant);
         $this->assertStringEndsWith('/456/1000x1000-p0-v1.jpg', $widthVariant);
         $this->assertStringEndsWith('/456/1000x1000-p20-v1.jpg', $paddingVariant);
         $this->assertStringEndsWith('/456/1000x1000-p0-v1.webp', $formatVariant);
-        $this->assertStringEndsWith('/456/1000x1000-p0-lcpv8-v1.jpg', $clipPathVariant);
-        $this->assertStringEndsWith('/456/1000x1000-p0-cp3-lcpv8-v1.jpg', $clipPathIndexVariant);
+        $this->assertStringEndsWith('/456/1000x1000-p0-v1-v1.jpg', $clipPathVariant);
+        $this->assertStringEndsWith('/456/1000x1000-p0-cp3-v1-v1.jpg', $clipPathIndexVariant);
+        $this->assertStringEndsWith('/456/1000x1000-p0-cimv1-v1.jpg', $cropInsideMiddleVariant);
     }
 
     public function testGetOrCreateRegeneratesZeroByteCacheFiles(): void
@@ -82,7 +85,7 @@ class PermalinkImageCacheServiceTest extends TestCase
         $imageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 800, 600, 0, 'png', false, null)
+            ->with($asset->getFilePath(), 800, 600, 0, 'png', false, null, false)
             ->willReturn('regenerated-binary');
 
         $service = $this->createService($imageProcessor);
@@ -103,7 +106,7 @@ class PermalinkImageCacheServiceTest extends TestCase
         $imageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 640, 640, 10, 'webp', false, null)
+            ->with($asset->getFilePath(), 640, 640, 10, 'webp', false, null, false)
             ->willReturn('regenerated-binary');
 
         $service = $this->createService($imageProcessor);
@@ -129,7 +132,7 @@ class PermalinkImageCacheServiceTest extends TestCase
         $imageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 500, 500, 5, 'jpg', false, null)
+            ->with($asset->getFilePath(), 500, 500, 5, 'jpg', false, null, false)
             ->willReturn(null);
 
         $service = $this->createService($imageProcessor);

@@ -41,7 +41,7 @@ class ShareControllerTest extends TestCase
         $cacheImageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 1000, 1000, 25, 'jpg', false, null)
+            ->with($asset->getFilePath(), 1000, 1000, 25, 'jpg', false, null, false)
             ->willReturn('cached-public-image');
         $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
         $fallbackImageProcessor->expects($this->never())->method('exportFile');
@@ -189,7 +189,7 @@ class ShareControllerTest extends TestCase
         $fallbackImageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 1500, 1500, 100, 'webp', false, null)
+            ->with($asset->getFilePath(), 1500, 1500, 100, 'webp', false, null, false)
             ->willReturn('fallback-image-binary');
 
         $cacheService = new PermalinkImageCacheService(
@@ -230,7 +230,7 @@ class ShareControllerTest extends TestCase
         $cacheImageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 1100, 900, 30, 'png', true, null)
+            ->with($asset->getFilePath(), 1100, 900, 30, 'png', true, null, false)
             ->willReturn('largest-clip-path-image');
         $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
         $fallbackImageProcessor->expects($this->never())->method('exportFile');
@@ -274,7 +274,7 @@ class ShareControllerTest extends TestCase
         $cacheImageProcessor
             ->expects($this->once())
             ->method('exportFile')
-            ->with($asset->getFilePath(), 1000, 1000, 20, 'jpg', true, 3)
+            ->with($asset->getFilePath(), 1000, 1000, 20, 'jpg', true, 3, false)
             ->willReturn('indexed-clip-path-image');
         $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
         $fallbackImageProcessor->expects($this->never())->method('exportFile');
@@ -306,6 +306,52 @@ class ShareControllerTest extends TestCase
             '/124/1000x1000-p20-cp3-v1-v1.jpg',
             $response->getFile()->getPathname()
         );
+    }
+
+    public function testPublicImageUsesCropInsideMiddleVariantWhenRequested(): void
+    {
+        $asset = $this->createAsset(127, $this->createSourceFile('source-image'));
+        $controller = new TestableShareController(false);
+        $cacheImageProcessor = $this->createMock(ImageProcessorService::class);
+        $cacheImageProcessor
+            ->expects($this->once())
+            ->method('exportFile')
+            ->with($asset->getFilePath(), 900, 900, 0, 'webp', false, null, true)
+            ->willReturn('center-cropped-image');
+        $fallbackImageProcessor = $this->createMock(ImageProcessorService::class);
+        $fallbackImageProcessor->expects($this->never())->method('exportFile');
+
+        $cacheService = new PermalinkImageCacheService(
+            new Filesystem(),
+            $cacheImageProcessor,
+            new LockFactory(new InMemoryStore()),
+            $this->tempDir . '/cache',
+            'v1'
+        );
+
+        $response = $controller->publicImage(
+            $this->createShareLink('token-crop-inside-middle', $asset, '+30 days'),
+            $asset,
+            $cacheService,
+            $fallbackImageProcessor,
+            900,
+            900,
+            0,
+            false,
+            null,
+            'center-cropped',
+            'webp',
+            false,
+            false,
+            true
+        );
+
+        $this->assertInstanceOf(BinaryFileResponse::class, $response);
+        $this->assertStringEndsWith(
+            '/127/900x900-p0-cimv1-v1.webp',
+            $response->getFile()->getPathname()
+        );
+        $this->assertSame('center-cropped-image', file_get_contents($response->getFile()->getPathname()));
     }
 
     public function testPublicImageDebugClipPathsRejectsImagesWithoutClipPaths(): void

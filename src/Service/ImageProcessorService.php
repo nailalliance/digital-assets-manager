@@ -55,6 +55,7 @@ class ImageProcessorService
      * @param int $height The target height.
      * @param int $padding The padding to add around the image.
      * @param string $format The output format ('webp', 'jpg', 'png').
+     * @param bool $cropInsideMiddle Whether to fill the available canvas and crop overflow from the center.
      * @return string|null The binary content of the exported image, or null on failure.
      */
     public function exportFile(
@@ -64,10 +65,11 @@ class ImageProcessorService
         int $padding = 0,
         string $format = 'jpg',
         bool $useLargestClipPath = false,
-        ?int $clipPathIndex = null
+        ?int $clipPathIndex = null,
+        bool $cropInsideMiddle = false
     ): ?string
     {
-        return $this->processImage($sourcePath, $width, $height, $padding, $format, null, $useLargestClipPath, $clipPathIndex);
+        return $this->processImage($sourcePath, $width, $height, $padding, $format, null, $useLargestClipPath, $clipPathIndex, $cropInsideMiddle);
     }
 
     /**
@@ -81,7 +83,8 @@ class ImageProcessorService
         string $outputFormat,
         ?string $legendText,
         bool $useLargestClipPath = false,
-        ?int $clipPathIndex = null
+        ?int $clipPathIndex = null,
+        bool $cropInsideMiddle = false
     ): ?string
     {
         if (!class_exists('Imagick') || !$this->filesystem->exists($sourcePath)) {
@@ -158,8 +161,16 @@ class ImageProcessorService
                 $image->unsharpMaskImage(0.25, 0.08, 8.3, 0.045);
             }
 
-            // Resize the image to fit within the target dimensions minus padding
-            $image->thumbnailImage($targetWidth - ($padding * 2), $targetHeight - ($padding * 2), true, true);
+            $availableWidth = $targetWidth - ($padding * 2);
+            $availableHeight = $targetHeight - ($padding * 2);
+
+            if ($cropInsideMiddle) {
+                // Fill the available area and remove overflow equally from opposing sides.
+                $image->cropThumbnailImage($availableWidth, $availableHeight);
+            } else {
+                // Preserve the full image inside the available area (the default behavior).
+                $image->thumbnailImage($availableWidth, $availableHeight, true, true);
+            }
 
             $backgroundColor = $this->resolveCanvasBackgroundColor($legendText, $useLargestClipPath);
 
@@ -205,6 +216,7 @@ class ImageProcessorService
                 'hasLegendText' => $legendText !== null,
                 'useLargestClipPath' => $useLargestClipPath,
                 'clipPathIndex' => $clipPathIndex,
+                'cropInsideMiddle' => $cropInsideMiddle,
                 'fallbackFontPath' => $this->thumbnailFallbackFontPath,
                 'exception' => $e,
             ]);

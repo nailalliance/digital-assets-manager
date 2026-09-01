@@ -11,6 +11,7 @@ use Symfony\Component\Lock\LockFactory;
 final class PermalinkImageCacheService
 {
     private const LARGEST_CLIP_PATH_CACHE_TOKEN = 'v1';
+    private const CROP_INSIDE_MIDDLE_CACHE_TOKEN = 'cimv1';
 
     private readonly string $permalinkCacheDir;
 
@@ -33,7 +34,8 @@ final class PermalinkImageCacheService
         int $padding,
         string $format,
         bool $useLargestClipPath = false,
-        ?int $clipPathIndex = null
+        ?int $clipPathIndex = null,
+        bool $cropInsideMiddle = false
     ): string
     {
         $this->assertValidVariant($width, $height, $padding, $format);
@@ -48,7 +50,7 @@ final class PermalinkImageCacheService
             throw new \RuntimeException('Source file not found.');
         }
 
-        $cachePath = $this->buildCachePath($assetId, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex);
+        $cachePath = $this->buildCachePath($assetId, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex, $cropInsideMiddle);
         if ($this->isUsableCacheFile($cachePath)) {
             return $cachePath;
         }
@@ -60,7 +62,7 @@ final class PermalinkImageCacheService
             throw new \RuntimeException('Could not prepare cached permalink image directory.', previous: $exception);
         }
 
-        $lock = $this->lockFactory->createLock($this->buildLockKey($assetId, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex));
+        $lock = $this->lockFactory->createLock($this->buildLockKey($assetId, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex, $cropInsideMiddle));
         $lock->acquire(true);
 
         $tempPath = null;
@@ -70,7 +72,7 @@ final class PermalinkImageCacheService
                 return $cachePath;
             }
 
-            $imageBinary = $this->imageProcessor->exportFile($sourcePath, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex);
+            $imageBinary = $this->imageProcessor->exportFile($sourcePath, $width, $height, $padding, $format, $useLargestClipPath, $clipPathIndex, $cropInsideMiddle);
 
             if ($imageBinary === null || $imageBinary === '') {
                 throw new \RuntimeException('Could not process image.');
@@ -104,7 +106,8 @@ final class PermalinkImageCacheService
         int $padding,
         string $format,
         bool $useLargestClipPath,
-        ?int $clipPathIndex
+        ?int $clipPathIndex,
+        bool $cropInsideMiddle
     ): string
     {
         $clipPathSegment = '';
@@ -114,14 +117,17 @@ final class PermalinkImageCacheService
             $clipPathSegment = '-' . self::LARGEST_CLIP_PATH_CACHE_TOKEN;
         }
 
+        $cropSegment = $cropInsideMiddle ? '-' . self::CROP_INSIDE_MIDDLE_CACHE_TOKEN : '';
+
         return sprintf(
-            '%s/%d/%dx%d-p%d%s-%s.%s',
+            '%s/%d/%dx%d-p%d%s%s-%s.%s',
             $this->permalinkCacheDir,
             $assetId,
             $width,
             $height,
             $padding,
             $clipPathSegment,
+            $cropSegment,
             $this->cacheVersion,
             $format
         );
@@ -134,7 +140,8 @@ final class PermalinkImageCacheService
         int $padding,
         string $format,
         bool $useLargestClipPath,
-        ?int $clipPathIndex
+        ?int $clipPathIndex,
+        bool $cropInsideMiddle
     ): string
     {
         $clipPathLockSegment = 'standard';
@@ -145,13 +152,14 @@ final class PermalinkImageCacheService
         }
 
         return sprintf(
-            'permalink-image:%d:%dx%d:%d:%s:%s:%s',
+            'permalink-image:%d:%dx%d:%d:%s:%s:%s:%s',
             $assetId,
             $width,
             $height,
             $padding,
             $format,
             $clipPathLockSegment,
+            $cropInsideMiddle ? self::CROP_INSIDE_MIDDLE_CACHE_TOKEN : 'inside-canvas',
             $this->cacheVersion
         );
     }

@@ -155,8 +155,12 @@ class ShareController extends AbstractController
 
     #[Route('/share/{token}/image/{assetId}/use-clip-path/{pathIndex}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_clip_path_index_padded', requirements: ['assetId' => '\d+', 'pathIndex' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true])]
     #[Route('/share/{token}/image/{assetId}/use-clip-path/{pathIndex}/{width}x{height}/{filename}.{extension}', name: 'public_image_clip_path_index', requirements: ['assetId' => '\d+', 'pathIndex' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true])]
+    #[Route('/share/{token}/image/{assetId}/use-clip-path/largest/crop-inside-middle/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_largest_clip_path_crop_inside_middle_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true, 'clipPathIndex' => null, 'cropInsideMiddle' => true])]
+    #[Route('/share/{token}/image/{assetId}/use-clip-path/largest/crop-inside-middle/{width}x{height}/{filename}.{extension}', name: 'public_image_largest_clip_path_crop_inside_middle', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true, 'clipPathIndex' => null, 'cropInsideMiddle' => true])]
     #[Route('/share/{token}/image/{assetId}/use-clip-path/largest/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_largest_clip_path_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => true, 'clipPathIndex' => null])]
     #[Route('/share/{token}/image/{assetId}/use-clip-path/largest/{width}x{height}/{filename}.{extension}', name: 'public_image_largest_clip_path', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => true, 'clipPathIndex' => null])]
+    #[Route('/share/{token}/image/{assetId}/crop-inside-middle/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_crop_inside_middle_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => false, 'clipPathIndex' => null, 'cropInsideMiddle' => true])]
+    #[Route('/share/{token}/image/{assetId}/crop-inside-middle/{width}x{height}/{filename}.{extension}', name: 'public_image_crop_inside_middle', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => false, 'clipPathIndex' => null, 'cropInsideMiddle' => true])]
     #[Route('/share/{token}/image/{assetId}/{width}x{height}/{padding}/{filename}.{extension}', name: 'public_image_padded', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'padding' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['useLargestClipPath' => false, 'clipPathIndex' => null])]
     #[Route('/share/{token}/image/{assetId}/{width}x{height}/{filename}.{extension}', name: 'public_image', requirements: ['assetId' => '\d+', 'width' => '\d+', 'height' => '\d+', 'extension' => 'jpg|png|webp'], defaults: ['padding' => 0, 'useLargestClipPath' => false, 'clipPathIndex' => null])]
     public function publicImage(
@@ -174,7 +178,8 @@ class ShareController extends AbstractController
         string $filename,
         string $extension,
         bool $debugClipPaths = false,
-        bool $debugClipPathsJson = false
+        bool $debugClipPathsJson = false,
+        bool $cropInsideMiddle = false
     ): Response {
         if (!$this->isGranted('IS_AUTHENTICATED_FULLY')) {
             if ($oneTimeLink->getExpirationDate() < new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) {
@@ -222,12 +227,12 @@ class ShareController extends AbstractController
         }
 
         try {
-            $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension, $useLargestClipPath, $clipPathIndex);
+            $cachedImagePath = $permalinkImageCache->getOrCreate($asset, $width, $height, $padding, $extension, $useLargestClipPath, $clipPathIndex, $cropInsideMiddle);
             $response = new BinaryFileResponse($cachedImagePath);
         } catch (\InvalidArgumentException) {
             throw $this->createNotFoundException('Could not process image.');
         } catch (\RuntimeException) {
-            $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension, $useLargestClipPath, $clipPathIndex);
+            $imageBinary = $imageProcessor->exportFile($sourcePath, $width, $height, $padding, $extension, $useLargestClipPath, $clipPathIndex, $cropInsideMiddle);
 
             if ($imageBinary === null || $imageBinary === '') {
                 throw $this->createNotFoundException('Could not process image.');

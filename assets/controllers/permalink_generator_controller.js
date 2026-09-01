@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ["modal", "widthInput", "heightInput", "paddingInput", "extensionInput", "clipPathModeInput", "csvButtonContainer", "expiryNotice", "expiryText"];
+    static targets = ["modal", "widthInput", "heightInput", "paddingInput", "extensionInput", "clipPathModeInput", "resizeModeInput", "csvButtonContainer", "expiryNotice", "expiryText"];
     static values = {
         baseUrl: String,
         shareEndpoint: String,
@@ -29,6 +29,7 @@ export default class extends Controller {
         const padding = Number(this.paddingInputTarget.value || 0);
         const extension = this.extensionInputTarget.value;
         const clipPathMode = this.hasClipPathModeInputTarget ? this.clipPathModeInputTarget.value : 'default';
+        const resizeMode = this.hasResizeModeInputTarget ? this.resizeModeInputTarget.value : 'extend-canvas';
 
         if (!width || !height) {
             alert('Please enter both width and height.');
@@ -61,7 +62,8 @@ export default class extends Controller {
             const extensionIndex = filename.lastIndexOf('.');
             const cleanFilename = extensionIndex > 0 ? filename.substring(0, extensionIndex) : filename;
             const useLargestClipPath = clipPathMode === 'largest' && mimeType === 'image/jpeg';
-            const inputId = `permalink-${assetId}-${width}x${height}-${padding}-${extension}-${clipPathMode}`;
+            const cropInsideMiddle = resizeMode === 'crop-inside-middle';
+            const inputId = `permalink-${assetId}-${width}x${height}-${padding}-${extension}-${clipPathMode}-${resizeMode}`;
 
             if (!token || !permalinkContainer) {
                 return;
@@ -72,6 +74,9 @@ export default class extends Controller {
             let relativeUrl = `/share/${token}/image/${assetId}/`;
             if (useLargestClipPath) {
                 relativeUrl += 'use-clip-path/largest/';
+            }
+            if (cropInsideMiddle) {
+                relativeUrl += 'crop-inside-middle/';
             }
             relativeUrl += `${width}x${height}/`;
             if (padding > 0) {
