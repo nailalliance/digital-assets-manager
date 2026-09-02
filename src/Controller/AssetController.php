@@ -11,6 +11,7 @@ use App\Security\Voter\AssetVoter;
 use App\Service\EditorFontCatalog;
 use App\Service\ImageProcessorService;
 use App\Service\Video\CanvasEditorVideoRenderer;
+use App\Message\ProcessWebVideo;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -23,6 +24,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\UX\Turbo\TurboBundle;
 
 final class AssetController extends AbstractController
@@ -39,7 +41,7 @@ final class AssetController extends AbstractController
 
     #[Route('/assets/{id}', name: 'app_asset')]
     #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
-    public function index(Assets $assets, EntityManagerInterface $entityManager): Response
+    public function index(Assets $assets, EntityManagerInterface $entityManager, MessageBusInterface $messageBus): Response
     {
         $primaryAsset = $assets->getParent() ?? $assets;
 
@@ -47,6 +49,7 @@ final class AssetController extends AbstractController
 
         $editableChild = null;
         $cmykChild = null;
+        $webVideoChild = null;
 
         foreach ($children as $child) {
             if ($child->getAssetVersionTypeEnum() === AssetVersionTypeEnum::EDITABLE)
@@ -57,6 +60,15 @@ final class AssetController extends AbstractController
             {
                 $cmykChild = $child;
             }
+            if ($child->getAssetVersionTypeEnum() === AssetVersionTypeEnum::WEB_VIDEO) {
+                $webVideoChild = $child;
+            }
+        }
+
+        if ($this->canEditVideo($assets) && $webVideoChild === null && !in_array($assets->getWebVideoStatus(), ['processing', 'failed'], true)) {
+            $assets->setWebVideoStatus('pending')->setWebVideoError(null);
+            $entityManager->flush();
+            $messageBus->dispatch(new ProcessWebVideo((int) $assets->getId()));
         }
 
         $webDownloadForm = $this->createForm(WebDownloadType::class, null, [
@@ -70,6 +82,7 @@ final class AssetController extends AbstractController
             'primaryAsset' => $primaryAsset,
             'editableChild' => $editableChild,
             'cmykChild' => $cmykChild,
+            'webVideoChild' => $webVideoChild,
             'canEditImage' => $this->canEditImage($assets),
         ]);
     }
@@ -84,8 +97,16 @@ final class AssetController extends AbstractController
             return $this->redirectToRoute('app_asset', ['id' => $asset->getId()]);
         }
 
+        $webVideoChild = $this->findWebVideoChild($asset);
+        if ($this->canEditVideo($asset) && $webVideoChild === null) {
+            $this->addFlash('notice', 'A browser-ready video preview is being prepared. Refresh this page in a moment.');
+
+            return $this->redirectToRoute('app_asset', ['id' => $asset->getId()]);
+        }
+
         return $this->render('asset/editor.html.twig', [
             'asset' => $asset,
+            'editorSourceAsset' => $webVideoChild ?? $asset,
             'fontFamilies' => $editorFontCatalog->getSelectableFontFamilies(),
             'customFonts' => array_map(
                 fn (array $fontFace): array => [
@@ -236,5 +257,16 @@ final class AssetController extends AbstractController
         $safeName = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $name) ?? 'video';
 
         return trim($safeName, '-') ?: 'video';
+    }
+
+    private function findWebVideoChild(Assets $asset): ?Assets
+    {
+        foreach (($asset->getParent() ?? $asset)->getChildren() as $child) {
+            if ($child->getAssetVersionTypeEnum() === AssetVersionTypeEnum::WEB_VIDEO) {
+                return $child;
+            }
+        }
+
+        return null;
     }
 }

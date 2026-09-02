@@ -76,7 +76,7 @@
                             ></iframe>
                         {% elseif asset.mimeType starts with 'video/' %}
                             <video controls class="w-full h-full object-contain" poster="{{ path('asset_thumbnail', {filename: asset.thumbnailPath|basename}) }}">
-                                <source src="{{ path('asset_stream', {id: asset.id}) }}" type="{{ asset.mimeType }}" type="{{ asset.mimeType }}">
+                                <source src="{{ path('asset_stream', {id: webVideoChild ? webVideoChild.id : asset.id}) }}" type="{{ webVideoChild ? webVideoChild.mimeType : asset.mimeType }}">
                                 Your browser does not support the video tag
                             </video>
                         {% else %}
@@ -110,6 +110,10 @@
                     <div class="mb-6 p-3 bg-gray-100 rounded-md text-sm text-gray-600">
                         <p><span class="font-semibold">For Screen/Web Use:</span> This file uses an RGB color profile.</p>
                     </div>
+                {% endif %}
+
+                {% if asset.mimeType starts with 'video/' and webVideoChild is null %}
+                    <p class="mb-6 text-sm text-slate-600">{{ asset.webVideoStatus == 'failed' ? 'Web preview could not be prepared.' : 'Preparing browser-ready web video preview…' }}</p>
                 {% endif %}
 
                 {# --- START: Version Toggle Links --- #}
@@ -152,6 +156,11 @@
                             </button>
                         </form>
                     </div>
+                    {% if asset.mimeType starts with 'video/' and webVideoChild %}
+                        <a href="{{ path('asset_download', {id: webVideoChild.id}) }}" data-turbo="false" class="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            Download for Web (MP4)
+                        </a>
+                    {% endif %}
                     {% if canEditImage %}
                         <a href="{{ path('app_asset_editor', {id: asset.id}) }}" data-turbo="false" class="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                             <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h2m-1 0v14m8-7H4"></path></svg>

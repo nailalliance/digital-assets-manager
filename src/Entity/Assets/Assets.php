@@ -147,6 +147,12 @@ class Assets
     #[ORM\Column(length: 50, nullable: true, enumType: AssetVersionTypeEnum::class)]
     private ?AssetVersionTypeEnum $assetVersionTypeEnum = null;
 
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $webVideoStatus = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $webVideoError = null;
+
     public function __construct()
     {
         $this->similarAssets = new ArrayCollection();
@@ -703,6 +709,30 @@ class Assets
     public function setAssetVersionTypeEnum(?AssetVersionTypeEnum $assetVersionTypeEnum): static
     {
         $this->assetVersionTypeEnum = $assetVersionTypeEnum;
+
+        return $this;
+    }
+
+    public function getWebVideoStatus(): ?string
+    {
+        return $this->webVideoStatus;
+    }
+
+    public function setWebVideoStatus(?string $webVideoStatus): static
+    {
+        $this->webVideoStatus = $webVideoStatus;
+
+        return $this;
+    }
+
+    public function getWebVideoError(): ?string
+    {
+        return $this->webVideoError;
+    }
+
+    public function setWebVideoError(?string $webVideoError): static
+    {
+        $this->webVideoError = $webVideoError;
 
         return $this;
     }

@@ -9,6 +9,7 @@ use App\Entity\Assets\Collections;
 use App\Entity\Assets\ColorSpaceEnum;
 use App\Entity\User;
 use App\Message\ProcessAssetUpload;
+use App\Message\ProcessWebVideo;
 use App\Repository\Assets\AssetsRepository;
 use App\Service\ImageProcessorService;
 use App\Service\UniqueFilePathGenerator;
@@ -20,6 +21,7 @@ use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 use function basename;
 use function is_null;
 use function mb_substr;
@@ -36,7 +38,8 @@ final class ProcessAssetUploadHandler
         private readonly ImageProcessorService $imageProcessorService,
         private readonly ParameterBagInterface $params,
         private readonly Filesystem $filesystem,
-        private readonly string $uploadDir
+        private readonly string $uploadDir,
+        private readonly ?MessageBusInterface $messageBus = null,
     )
     {
     }
@@ -152,6 +155,12 @@ final class ProcessAssetUploadHandler
 
             $this->entityManager->persist($asset);
             $this->entityManager->flush();
+
+            if (str_starts_with($mimeType, 'video/') && $asset->getId() !== null && $this->messageBus !== null) {
+                $asset->setWebVideoStatus('pending')->setWebVideoError(null);
+                $this->entityManager->flush();
+                $this->messageBus->dispatch(new ProcessWebVideo($asset->getId()));
+            }
             $sourceFileMoved = false;
 
         } finally {

@@ -61,6 +61,7 @@ class DownloadController extends AbstractController
     public function streamVideo(Assets $asset): BinaryFileResponse
     {
         $response = new BinaryFileResponse($asset->getFilePath());
+        $response->headers->set('Content-Type', (string) $asset->getMimeType());
         $response->setContentDisposition(
             ResponseHeaderBag::DISPOSITION_INLINE,
             $asset->getName()

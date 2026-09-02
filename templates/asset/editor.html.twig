@@ -15,10 +15,10 @@
 {% block body %}
     <div
         {{ stimulus_controller('image-editor', {
-            imageUrl: path('asset_stream', {id: asset.id}),
+            imageUrl: path('asset_stream', {id: editorSourceAsset.id}),
             videoExportUrl: path('app_asset_editor_video_export', {id: asset.id}),
             assetName: asset.name,
-            mimeType: asset.mimeType,
+            mimeType: editorSourceAsset.mimeType,
             customFonts: customFonts
         }) }}
         class="space-y-4"
