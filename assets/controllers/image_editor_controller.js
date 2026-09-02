@@ -82,6 +82,7 @@ export default class extends Controller {
         'videoTimeline',
         'videoPlayButton',
         'videoTimeLabel',
+        'snapToggle',
     ];
 
     static values = {
@@ -110,6 +111,7 @@ export default class extends Controller {
         this.videoAnimationFrame = null;
         this.videoScrubPosition = 0;
         this.videoFrameSequence = 0;
+        this.objectSnappingEnabled = window.localStorage.getItem('image-editor-object-snapping') !== 'false';
         this.state = null;
         this.initialState = null;
         this.isPanningImage = false;
@@ -124,6 +126,7 @@ export default class extends Controller {
         this.suppressNextWorkspaceClick = false;
         this.wheelCommitTimer = null;
         this.toolButtons = Array.from(this.element.querySelectorAll('[data-tool]'));
+        this.updateObjectSnappingToggle();
         this.availableFontFamilies = this.readAvailableFontFamilies();
         this.customFontFaces = this.hasCustomFontsValue ? normalizeCustomFonts(this.customFontsValue) : [];
         this.customFontFacesByKey = this.buildCustomFontFacesByKey();
@@ -526,6 +529,13 @@ export default class extends Controller {
 
     setTool(event) {
         this.setActiveTool(event.currentTarget.dataset.tool);
+    }
+
+    toggleObjectSnapping() {
+        this.objectSnappingEnabled = !this.objectSnappingEnabled;
+        window.localStorage.setItem('image-editor-object-snapping', String(this.objectSnappingEnabled));
+        this.updateObjectSnappingToggle();
+        this.setStatus(this.objectSnappingEnabled ? 'Object snapping enabled.' : 'Object snapping disabled.');
     }
 
     setActiveTool(tool, { render = true, updateStatus = true } = {}) {
@@ -2210,6 +2220,16 @@ export default class extends Controller {
         });
     }
 
+    updateObjectSnappingToggle() {
+        if (!this.hasSnapToggleTarget) {
+            return;
+        }
+
+        this.snapToggleTarget.classList.toggle('is-active', this.objectSnappingEnabled);
+        this.snapToggleTarget.setAttribute('aria-pressed', String(this.objectSnappingEnabled));
+        this.snapToggleTarget.setAttribute('title', this.objectSnappingEnabled ? 'Disable object snapping' : 'Enable object snapping');
+    }
+
     updateSurfaceLayout() {
         this.surfaceTarget.style.width = `${this.surfaceMetrics.width}px`;
         this.surfaceTarget.style.height = `${this.surfaceMetrics.height}px`;
@@ -2487,7 +2507,7 @@ export default class extends Controller {
         let left = rect.left;
         let top = rect.top;
 
-        if (snapMode === 'move') {
+        if (this.objectSnappingEnabled && snapMode === 'move') {
             ({ left, top, width, height } = this.applyCropMoveSnapping({ left, top, width, height }, metrics));
         }
 
@@ -2923,17 +2943,19 @@ export default class extends Controller {
             bottom = edges.top ? anchorY : anchorY + height;
         }
 
-        if (edges.left && Math.abs(left - baseImageRect.left) <= threshold) {
-            left = baseImageRect.left;
-        }
-        if (edges.right && Math.abs(right - (baseImageRect.left + baseImageRect.width)) <= threshold) {
-            right = baseImageRect.left + baseImageRect.width;
-        }
-        if (edges.top && Math.abs(top - baseImageRect.top) <= threshold) {
-            top = baseImageRect.top;
-        }
-        if (edges.bottom && Math.abs(bottom - (baseImageRect.top + baseImageRect.height)) <= threshold) {
-            bottom = baseImageRect.top + baseImageRect.height;
+        if (this.objectSnappingEnabled) {
+            if (edges.left && Math.abs(left - baseImageRect.left) <= threshold) {
+                left = baseImageRect.left;
+            }
+            if (edges.right && Math.abs(right - (baseImageRect.left + baseImageRect.width)) <= threshold) {
+                right = baseImageRect.left + baseImageRect.width;
+            }
+            if (edges.top && Math.abs(top - baseImageRect.top) <= threshold) {
+                top = baseImageRect.top;
+            }
+            if (edges.bottom && Math.abs(bottom - (baseImageRect.top + baseImageRect.height)) <= threshold) {
+                bottom = baseImageRect.top + baseImageRect.height;
+            }
         }
 
         return this.normalizeCropSourceRect({
