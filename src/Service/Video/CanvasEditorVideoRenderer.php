@@ -10,6 +10,7 @@ use Symfony\Component\Process\Process;
 final class CanvasEditorVideoRenderer
 {
     private const SUPPORTED_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+    private const MAX_WEB_DIMENSION = 1920;
 
     public function __construct(
         private readonly CanvasEditorScriptRenderer $scriptRenderer,
@@ -29,8 +30,9 @@ final class CanvasEditorVideoRenderer
 
         $script = $this->scriptRenderer->parseScript($rawScript);
         [$sourceWidth, $sourceHeight] = $this->readVideoDimensions($sourcePath);
+        $frameRate = $this->readVideoFrameRate($sourcePath);
         $state = $this->scriptRenderer->buildRenderableStateForSource($script, $sourceWidth, $sourceHeight);
-        $filterGraph = $this->buildFilterGraph($state, $sourceWidth, $sourceHeight);
+        $filterGraph = $this->buildFilterGraph($state, $sourceWidth, $sourceHeight, $frameRate);
         $outputPath = sprintf('%s/canvas-video-%s.mp4', sys_get_temp_dir(), bin2hex(random_bytes(16)));
 
         $process = new Process([
@@ -64,13 +66,29 @@ final class CanvasEditorVideoRenderer
         return [max(1, (int) $matches[1]), max(1, (int) $matches[2])];
     }
 
+    private function readVideoFrameRate(string $sourcePath): string
+    {
+        $process = new Process([
+            'ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'default=noprint_wrappers=1:nokey=1', $sourcePath,
+        ]);
+        $process->run();
+        $frameRate = trim($process->getOutput());
+
+        if (!$process->isSuccessful() || preg_match('/^[1-9]\d*\/[1-9]\d*$/', $frameRate) !== 1) {
+            throw new \RuntimeException('The video frame rate could not be read.');
+        }
+
+        return $frameRate;
+    }
+
     /** @param array<string, mixed> $state */
-    private function buildFilterGraph(array $state, int $sourceWidth, int $sourceHeight): string
+    private function buildFilterGraph(array $state, int $sourceWidth, int $sourceHeight, string $frameRate): string
     {
         $crop = $state['crop'];
         $baseImage = $state['baseImage'];
         $outputWidth = $this->makeEven((int) round($crop['width']));
         $outputHeight = $this->makeEven((int) round($crop['height']));
+        [$webWidth, $webHeight] = $this->fitWebDimensions($outputWidth, $outputHeight);
         $scaledWidth = $this->makeEven((int) round($sourceWidth * $baseImage['scale']));
         $scaledHeight = $this->makeEven((int) round($sourceHeight * $baseImage['scale']));
         $baseLeft = ($baseImage['offsetX'] * $sourceWidth) + (($sourceWidth - $scaledWidth) / 2);
@@ -78,13 +96,13 @@ final class CanvasEditorVideoRenderer
 
         $filters = [
             sprintf('[0:v]scale=%d:%d[scaled]', $scaledWidth, $scaledHeight),
-            sprintf('color=c=black:s=%dx%d[background]', $outputWidth, $outputHeight),
+            sprintf('color=c=black:s=%dx%d:r=%s[background]', $outputWidth, $outputHeight, $frameRate),
             sprintf('[background][scaled]overlay=x=%d:y=%d:shortest=1[base]', (int) round($baseLeft - $crop['left']), (int) round($baseTop - $crop['top'])),
         ];
 
         $previousLabel = 'base';
         foreach ($state['texts'] as $index => $text) {
-            $nextLabel = $index === count($state['texts']) - 1 ? 'editor_video' : 'text_' . $index;
+            $nextLabel = 'text_' . $index;
             $fontPath = $this->resolveFontPath($text);
             $fontSize = max(8, (int) round($text['fontSize']));
             $lineHeight = $fontSize * 1.2;
@@ -112,11 +130,25 @@ final class CanvasEditorVideoRenderer
             }
         }
 
-        if ($state['texts'] === []) {
-            $filters[] = '[base]null[editor_video]';
-        }
+        $filters[] = sprintf('[%s]scale=%d:%d:flags=lanczos[editor_video]', $previousLabel, $webWidth, $webHeight);
 
         return implode(';', $filters);
+    }
+
+    /** @return array{0: int, 1: int} */
+    private function fitWebDimensions(int $width, int $height): array
+    {
+        $longEdge = max($width, $height);
+        if ($longEdge <= self::MAX_WEB_DIMENSION) {
+            return [$width, $height];
+        }
+
+        $scale = self::MAX_WEB_DIMENSION / $longEdge;
+
+        return [
+            $this->makeEven((int) round($width * $scale)),
+            $this->makeEven((int) round($height * $scale)),
+        ];
     }
 
     /** @param array<string, mixed> $text */
