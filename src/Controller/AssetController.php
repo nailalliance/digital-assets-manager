@@ -99,7 +99,7 @@ final class AssetController extends AbstractController
         }
 
         $webVideoChild = $this->findWebVideoChild($asset);
-        if ($this->canEditVideo($asset) && $webVideoChild === null) {
+        if ($this->canEditVideo($asset) && $webVideoChild === null && $asset->getWebVideoStatus() !== 'ready') {
             $this->addFlash('notice', 'A browser-ready video preview is being prepared. Refresh this page in a moment.');
 
             return $this->redirectToRoute('app_asset', ['id' => $asset->getId()]);

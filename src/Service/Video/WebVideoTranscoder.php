@@ -8,6 +8,56 @@ final class WebVideoTranscoder
 {
     private const MAX_WEB_DIMENSION = 1920;
 
+    public function isBrowserReady(string $sourcePath): bool
+    {
+        if (!is_readable($sourcePath)) {
+            return false;
+        }
+
+        $process = new Process([
+            'ffprobe', '-v', 'error',
+            '-show_entries', 'format=format_name:stream=codec_type,codec_name,pix_fmt,width,height',
+            '-of', 'json',
+            $sourcePath,
+        ]);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            return false;
+        }
+
+        $metadata = json_decode($process->getOutput(), true);
+        if (!is_array($metadata) || !str_contains((string) ($metadata['format']['format_name'] ?? ''), 'mp4')) {
+            return false;
+        }
+
+        $videoStream = null;
+        foreach ($metadata['streams'] ?? [] as $stream) {
+            if (($stream['codec_type'] ?? null) === 'video' && $videoStream === null) {
+                $videoStream = $stream;
+                continue;
+            }
+
+            if (($stream['codec_type'] ?? null) === 'audio' && ($stream['codec_name'] ?? null) !== 'aac') {
+                return false;
+            }
+        }
+
+        if (!is_array($videoStream)) {
+            return false;
+        }
+
+        $width = (int) ($videoStream['width'] ?? 0);
+        $height = (int) ($videoStream['height'] ?? 0);
+
+        return ($videoStream['codec_name'] ?? null) === 'h264'
+            && ($videoStream['pix_fmt'] ?? null) === 'yuv420p'
+            && $width > 0
+            && $height > 0
+            && max($width, $height) <= self::MAX_WEB_DIMENSION
+            && $this->hasFastStart($sourcePath);
+    }
+
     public function transcode(string $sourcePath, string $outputPath): void
     {
         $process = new Process([
@@ -39,5 +89,28 @@ final class WebVideoTranscoder
         if (!$process->isSuccessful() || !is_file($outputPath) || filesize($outputPath) === 0) {
             throw new \RuntimeException('FFmpeg could not extract a preview frame.');
         }
+    }
+
+    private function hasFastStart(string $sourcePath): bool
+    {
+        $handle = @fopen($sourcePath, 'rb');
+        if ($handle === false) {
+            return false;
+        }
+
+        try {
+            $prefix = fread($handle, 1024 * 1024);
+        } finally {
+            fclose($handle);
+        }
+
+        if (!is_string($prefix)) {
+            return false;
+        }
+
+        $movieAtom = strpos($prefix, 'moov');
+        $mediaAtom = strpos($prefix, 'mdat');
+
+        return $movieAtom !== false && $mediaAtom !== false && $movieAtom < $mediaAtom;
     }
 }

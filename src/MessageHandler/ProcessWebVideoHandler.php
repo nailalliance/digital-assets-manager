@@ -56,6 +56,13 @@ final class ProcessWebVideoHandler
                 throw new \RuntimeException('The original video source is not readable.');
             }
 
+            if (!$message->force && $existingRendition === null && $this->transcoder->isBrowserReady($sourcePath)) {
+                $asset->setWebVideoStatus('ready')->setWebVideoError(null);
+                $this->entityManager->flush();
+
+                return;
+            }
+
             $asset->setWebVideoStatus('processing')->setWebVideoError(null);
             $this->entityManager->flush();
 
