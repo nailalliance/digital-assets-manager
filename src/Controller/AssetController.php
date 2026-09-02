@@ -11,6 +11,7 @@ use App\Security\Voter\AssetVoter;
 use App\Service\EditorFontCatalog;
 use App\Service\ImageProcessorService;
 use App\Service\Video\CanvasEditorVideoRenderer;
+use App\Service\Video\VideoEditorFramePreviewService;
 use App\Message\ProcessWebVideo;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -120,6 +121,23 @@ final class AssetController extends AbstractController
                 $editorFontCatalog->getCustomFontFaces()
             ),
         ]);
+    }
+
+    #[Route('/assets/{id}/editor/frame', name: 'app_asset_editor_video_frame', methods: ['GET'])]
+    #[IsGranted(AssetVoter::VIEW, subject: 'asset')]
+    public function editorVideoFrame(Assets $asset, Request $request, VideoEditorFramePreviewService $framePreviewService): BinaryFileResponse
+    {
+        if (!$this->canEditVideo($asset)) {
+            throw $this->createNotFoundException('This asset is not a supported video.');
+        }
+
+        $position = (float) $request->query->get('position', 0);
+        $response = new BinaryFileResponse($framePreviewService->getFrame($asset, $position));
+        $response->headers->set('Content-Type', 'image/jpeg');
+        $response->setAutoEtag();
+        $response->setAutoLastModified();
+
+        return $response;
     }
 
     #[Route('/assets/{id}/editor/video-export', name: 'app_asset_editor_video_export', methods: ['POST'])]

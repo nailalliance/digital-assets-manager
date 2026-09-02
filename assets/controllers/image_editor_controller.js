@@ -79,11 +79,15 @@ export default class extends Controller {
         'scriptModalHint',
         'scriptTextarea',
         'scriptConfirmButton',
+        'videoTimeline',
+        'videoPlayButton',
+        'videoTimeLabel',
     ];
 
     static values = {
         imageUrl: String,
         videoExportUrl: String,
+        videoFrameUrl: String,
         assetName: String,
         mimeType: String,
         customFonts: Array,
@@ -100,6 +104,12 @@ export default class extends Controller {
         this.scriptModalMode = 'paste';
         this.surfaceMetrics = null;
         this.image = null;
+        this.previewVideo = null;
+        this.videoFrameRequest = null;
+        this.videoScrubTimer = null;
+        this.videoAnimationFrame = null;
+        this.videoScrubPosition = 0;
+        this.videoFrameSequence = 0;
         this.state = null;
         this.initialState = null;
         this.isPanningImage = false;
@@ -161,6 +171,9 @@ export default class extends Controller {
         this.stopCropCreation();
         this.stopCropDrag();
         this.clearWheelCommitTimer();
+        this.stopVideoPlayback();
+        this.clearVideoScrubTimer();
+        this.videoFrameRequest?.abort();
         interact(this.imageBoxTarget).unset();
         interact(this.cropBoxTarget).unset();
         this.textLayerTarget.querySelectorAll('.image-editor-text').forEach((element) => interact(element).unset());
@@ -199,10 +212,12 @@ export default class extends Controller {
         video.playsInline = true;
         video.addEventListener('loadeddata', () => {
             this.image = video;
+            this.previewVideo = video;
             this.state = this.buildInitialState();
             this.initialState = this.cloneState(this.state);
             this.loadingStateTarget.classList.add('hidden');
             this.renderAll(true);
+            this.updateVideoTimeline();
             this.setStatus('Editing the first video frame. Export MP4 applies this composition to the full video.', 'success');
         }, { once: true });
         video.addEventListener('error', () => {
@@ -211,6 +226,124 @@ export default class extends Controller {
         }, { once: true });
         video.src = this.imageUrlValue;
         video.load();
+    }
+
+    scrubVideo(event) {
+        if (!this.isVideoAsset()) {
+            return;
+        }
+
+        this.stopVideoPlayback();
+        this.clearVideoScrubTimer();
+        this.videoScrubPosition = Number(event.currentTarget.value) / 1000;
+        this.updateVideoTimeline();
+        this.videoScrubTimer = window.setTimeout(() => {
+            this.loadVideoFrame(this.videoScrubPosition);
+        }, 140);
+    }
+
+    async loadVideoFrame(position) {
+        if (!this.hasVideoFrameUrlValue) {
+            return;
+        }
+
+        this.videoFrameRequest?.abort();
+        this.videoFrameRequest = new AbortController();
+        const requestSequence = ++this.videoFrameSequence;
+
+        try {
+            const response = await fetch(`${this.videoFrameUrlValue}?position=${Math.min(1, Math.max(0, position)).toFixed(3)}`, {
+                signal: this.videoFrameRequest.signal,
+            });
+            if (!response.ok) {
+                throw new Error('The requested video frame could not be loaded.');
+            }
+
+            const blob = await response.blob();
+            const frame = new Image();
+            const frameUrl = URL.createObjectURL(blob);
+            frame.onload = () => {
+                URL.revokeObjectURL(frameUrl);
+                if (requestSequence !== this.videoFrameSequence) {
+                    return;
+                }
+                this.image = frame;
+                this.renderPreview();
+            };
+            frame.onerror = () => URL.revokeObjectURL(frameUrl);
+            frame.src = frameUrl;
+        } catch (error) {
+            if (error?.name !== 'AbortError') {
+                this.setStatus('The requested video frame could not be loaded.', 'error');
+            }
+        }
+    }
+
+    toggleVideoPlayback() {
+        if (!this.previewVideo) {
+            return;
+        }
+
+        if (this.previewVideo.paused) {
+            this.previewVideo.currentTime = this.videoScrubPosition * this.previewVideo.duration;
+            this.previewVideo.play().then(() => {
+                this.videoScrubPosition = null;
+                this.image = this.previewVideo;
+                this.renderVideoPlaybackFrame();
+            }).catch(() => this.setStatus('Video playback could not start.', 'error'));
+            return;
+        }
+
+        this.stopVideoPlayback();
+    }
+
+    renderVideoPlaybackFrame() {
+        if (!this.previewVideo || this.previewVideo.paused || this.previewVideo.ended) {
+            this.stopVideoPlayback();
+            return;
+        }
+
+        this.updateVideoTimeline();
+        this.renderPreview();
+        this.videoAnimationFrame = window.requestAnimationFrame(() => this.renderVideoPlaybackFrame());
+    }
+
+    stopVideoPlayback() {
+        if (this.previewVideo && !this.previewVideo.paused) {
+            this.previewVideo.pause();
+        }
+        if (this.previewVideo && Number.isFinite(this.previewVideo.duration) && this.previewVideo.duration > 0) {
+            this.videoScrubPosition = this.previewVideo.currentTime / this.previewVideo.duration;
+        }
+        if (this.videoAnimationFrame !== null) {
+            window.cancelAnimationFrame(this.videoAnimationFrame);
+            this.videoAnimationFrame = null;
+        }
+        if (this.hasVideoPlayButtonTarget) {
+            this.videoPlayButtonTarget.textContent = 'Play Preview';
+        }
+    }
+
+    updateVideoTimeline() {
+        if (!this.previewVideo || !this.hasVideoTimelineTarget) {
+            return;
+        }
+
+        const duration = Number.isFinite(this.previewVideo.duration) ? this.previewVideo.duration : 0;
+        const playbackTime = Number.isFinite(this.previewVideo.currentTime) ? this.previewVideo.currentTime : 0;
+        const currentTime = this.previewVideo.paused && this.videoScrubPosition !== null
+            ? this.videoScrubPosition * duration
+            : playbackTime;
+        this.videoTimelineTarget.value = String(Math.round(duration > 0 ? (currentTime / duration) * 1000 : 0));
+        this.videoPlayButtonTarget.textContent = this.previewVideo.paused ? 'Play Preview' : 'Pause Preview';
+        this.videoTimeLabelTarget.textContent = `${formatVideoTime(currentTime)} / ${formatVideoTime(duration)}`;
+    }
+
+    clearVideoScrubTimer() {
+        if (this.videoScrubTimer !== null) {
+            window.clearTimeout(this.videoScrubTimer);
+            this.videoScrubTimer = null;
+        }
     }
 
     readAvailableFontFamilies() {
@@ -3173,6 +3306,13 @@ function makeSafeFilename(value) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '') || 'asset';
+}
+
+function formatVideoTime(value) {
+    const seconds = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+    const minutes = Math.floor(seconds / 60);
+
+    return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function createTextId() {
