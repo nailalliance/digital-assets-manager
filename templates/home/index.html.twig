@@ -43,7 +43,7 @@
         {# Recent Assets for the selected brand #}
         {% if recentAssets is not empty %}
             <section class="mb-12">
-                {% include 'home/_recent_assets.html.twig' with {recentAssets} %}
+                {% include 'home/_recent_assets.html.twig' with {recentAssets: recentAssets, assetMimeTypes: recentAssetMimeTypes} %}
             </section>
         {% endif %}
 

@@ -73,7 +73,7 @@ class SearchController extends AbstractController
             // $assetIdsFromSearch = $searchResult['ids'];
             // $totalAssets = $searchResult['total'];
 
-            $allPossibleAssets = $searchResult['hits'];
+            $allPossibleAssets = $this->collapseToParentAssets($searchResult['hits']);
 
             $assets = array_filter(
                 $allPossibleAssets,
@@ -124,6 +124,19 @@ class SearchController extends AbstractController
             $assets = array_slice($assets, $offset, $limit, false);
 
 
+        }
+
+        $childMimeTypesByParent = $assetsRepository->findChildMimeTypesByParentIds(array_map(
+            static fn (Assets $asset): int => (int) $asset->getId(),
+            $assets,
+        ));
+        $assetMimeTypes = [];
+        foreach ($assets as $asset) {
+            $parentId = (int) $asset->getId();
+            $assetMimeTypes[$parentId] = array_values(array_unique(array_filter([
+                $asset->getMimeType(),
+                ...($childMimeTypesByParent[$parentId] ?? []),
+            ])));
         }
 
         if (empty($query)) {
@@ -204,6 +217,7 @@ class SearchController extends AbstractController
 
         return $this->render('search/index.html.twig', [
             'assets' => $assets,
+            'assetMimeTypes' => $assetMimeTypes,
             'query' => $query,
             'brandFilters' => $brandFilters,
             'activeCategories' => $activeCategories,
@@ -221,5 +235,20 @@ class SearchController extends AbstractController
                 'totalItems' => $totalAssets,
             ]
         ]);
+    }
+
+    /**
+     * @param Assets[] $assets
+     * @return Assets[]
+     */
+    private function collapseToParentAssets(array $assets): array
+    {
+        $parents = [];
+        foreach ($assets as $asset) {
+            $parent = $asset->getParent() ?? $asset;
+            $parents[(int) $parent->getId()] = $parent;
+        }
+
+        return array_values($parents);
     }
 }

@@ -12,6 +12,9 @@
                         {% endif %}
                     </div>
                     <p class="mt-2 text-sm font-medium text-gray-800 truncate">{{ asset.name }}</p>
+                    {% for mimeType in assetMimeTypes[asset.id] ?? [asset.mimeType] %}
+                        <p class="text-xs text-gray-500">{{ mimeType }}</p>
+                    {% endfor %}
                 </a>
             </div>
         {% endfor %}

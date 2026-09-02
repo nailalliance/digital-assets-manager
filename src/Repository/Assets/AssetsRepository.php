@@ -158,6 +158,7 @@ class AssetsRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('a')
             ->where('a.embargoDate IS NULL OR a.embargoDate <= :now')
             ->andWhere('a.expirationDate IS NULL OR a.expirationDate >= :now')
+            ->andWhere('a.parent IS NULL')
             ->setParameter('now', new \DateTimeImmutable());
 
         $qb = $this->applyVisibilityRestrictions($qb);
@@ -210,6 +211,41 @@ class AssetsRepository extends ServiceEntityRepository
         return new Paginator($qb->getQuery(), true);
     }
 
+    /**
+     * @param int[] $parentIds
+     * @return array<int, string[]>
+     */
+    public function findChildMimeTypesByParentIds(array $parentIds): array
+    {
+        if ($parentIds === []) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('child')
+            ->select('IDENTITY(child.parent) AS parentId, child.mime_type AS mimeType')
+            ->where('IDENTITY(child.parent) IN (:parentIds)')
+            ->setParameter('parentIds', $parentIds)
+            ->orderBy('child.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $mimeTypesByParent = [];
+        foreach ($rows as $row) {
+            $parentId = (int) $row['parentId'];
+            $mimeType = (string) $row['mimeType'];
+            if ($mimeType === '') {
+                continue;
+            }
+
+            $mimeTypesByParent[$parentId] ??= [];
+            if (!in_array($mimeType, $mimeTypesByParent[$parentId], true)) {
+                $mimeTypesByParent[$parentId][] = $mimeType;
+            }
+        }
+
+        return $mimeTypesByParent;
+    }
+
     public function findWithActiveAssets(): array
     {
         return $this->createQueryBuilder('b')
@@ -230,6 +266,7 @@ class AssetsRepository extends ServiceEntityRepository
             ->innerJoin('a.brand', 'b')
             ->where('b.id IN (:brandIds)')
             ->andWhere('b.status = :brandStatus')
+            ->andWhere('a.parent IS NULL')
             ->andWhere('a.embargoDate IS NULL OR a.embargoDate <= :now')
             ->andWhere('a.expirationDate IS NULL OR a.expirationDate >= :now')
             ->setParameter('brandIds', $brandIds)

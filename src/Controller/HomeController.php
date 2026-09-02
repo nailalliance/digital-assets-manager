@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Assets\Assets;
 use App\Entity\Assets\Brands;
 use App\Entity\User;
 use App\Repository\Assets\AssetsRepository;
@@ -74,6 +75,7 @@ final class HomeController extends AbstractController
         }
 
         $recentAssets = [];
+        $recentAssetMimeTypes = [];
         $categories = [];
         $collections = [];
         $childBrands = [];
@@ -92,6 +94,7 @@ final class HomeController extends AbstractController
             }
 
             $recentAssets = $assetsRepository->findRecentByBrandFamily($brandFamilyIds, 12);
+            $recentAssetMimeTypes = $this->buildAssetMimeTypes($recentAssets, $assetsRepository);
             $categories = $categoriesRepository->findActiveByBrandFamily($brandFamilyIds);
             $collections = $collectionsRepository->findActiveByBrandFamily($brandFamilyIds);
             $childBrands = $brand->getParent(); // Get the children of the selected brand
@@ -108,6 +111,7 @@ final class HomeController extends AbstractController
             'selectedBrand' => $brand,
             'childBrands' => $childBrands,
             'recentAssets' => $recentAssets,
+            'recentAssetMimeTypes' => $recentAssetMimeTypes,
             'categories' => $categories,
             'collections' => $collections,
         ]);
@@ -137,13 +141,17 @@ final class HomeController extends AbstractController
 
         // Fetch the data filtered by the brand family
         $recentAssets = $assetsRepository->findRecentByBrandFamily($brandIds, 12);
+        $recentAssetMimeTypes = $this->buildAssetMimeTypes($recentAssets, $assetsRepository);
         $collections = $collectionsRepository->findActiveByBrandFamily($brandIds);
         $categories = $categoriesRepository->findActiveByBrandFamily($brandIds);
 
         // Render the partial templates and return them as JSON
         return $this->json([
             'brands' => $this->renderView('home/_brands_grid.html.twig', ['brands' => $children]),
-            'recentAssets' => $this->renderView('home/_recent_assets.html.twig', ['recentAssets' => $recentAssets]),
+            'recentAssets' => $this->renderView('home/_recent_assets.html.twig', [
+                'recentAssets' => $recentAssets,
+                'assetMimeTypes' => $recentAssetMimeTypes,
+            ]),
             'collections' => $this->renderView('home/_collections_grid.html.twig', ['collections' => $collections]),
             'categories' => $this->renderView('home/_categories_grid.html.twig', ['categories' => $categories]),
         ]);
@@ -171,5 +179,28 @@ final class HomeController extends AbstractController
         return new JsonResponse([
             'content' => $this->renderView('home/_collection_list.html.twig', ['collections' => $collections])
         ]);
+    }
+
+    /**
+     * @param Assets[] $assets
+     * @return array<int, string[]>
+     */
+    private function buildAssetMimeTypes(array $assets, AssetsRepository $assetsRepository): array
+    {
+        $childMimeTypesByParent = $assetsRepository->findChildMimeTypesByParentIds(array_map(
+            static fn (Assets $asset): int => (int) $asset->getId(),
+            $assets,
+        ));
+        $mimeTypes = [];
+
+        foreach ($assets as $asset) {
+            $assetId = (int) $asset->getId();
+            $mimeTypes[$assetId] = array_values(array_unique(array_filter([
+                $asset->getMimeType(),
+                ...($childMimeTypesByParent[$assetId] ?? []),
+            ])));
+        }
+
+        return $mimeTypes;
     }
 }
