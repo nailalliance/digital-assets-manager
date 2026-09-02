@@ -87,7 +87,7 @@
                     {% for asset in assets %}
                         <li class="p-4 sm:p-6 relative"
                             data-download-bag-script-item="true"
-                            {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] %}
+                            {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/quicktime'] %}
                                 data-bag-script-compatible="true"
                             {% endif %}
                             {% if asset.mimeType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] %}
@@ -220,7 +220,7 @@
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                         <div>
                             <h2 class="text-xl font-semibold text-gray-900">Apply Editor Script to Download Bag</h2>
-                            <p class="mt-2 text-sm text-gray-500">Paste a canvas editor script to replay the same crop, image transform, and text layout across every supported raster asset in the bag.</p>
+                            <p class="mt-2 text-sm text-gray-500">Paste a canvas editor script to replay the same crop, image transform, and text layout across every supported image or video asset in the bag.</p>
                         </div>
                         <button type="button" data-download-bag-script-target="closeButton" data-action="click->download-bag-script#closeModal" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
                             Close
@@ -235,11 +235,11 @@
                             </div>
                             <div>
                                 <p class="font-semibold text-slate-900">Scriptable Assets</p>
-                                <p class="mt-1"><span data-download-bag-script-target="compatibleCount">0</span> raster assets will receive the script.</p>
+                                <p class="mt-1"><span data-download-bag-script-target="compatibleCount">0</span> image or video assets will receive the script.</p>
                             </div>
                             <div>
                                 <p class="font-semibold text-slate-900">Skipped Assets</p>
-                                <p class="mt-1"><span data-download-bag-script-target="skippedCount">0</span> non-raster or unreadable items will be skipped and listed in the zip report.</p>
+                                <p class="mt-1"><span data-download-bag-script-target="skippedCount">0</span> unsupported or unreadable items will be skipped and listed in the zip report.</p>
                             </div>
                         </div>
 
@@ -257,7 +257,7 @@
                                 <p data-download-bag-script-target="progressLabel">Waiting to start…</p>
                                 <p data-download-bag-script-target="progressMeta" class="text-violet-700">0 of 0 rendered</p>
                             </div>
-                            <p class="mt-2 text-xs text-violet-700">Zip file with edited images is being generated.</p>
+                            <p class="mt-2 text-xs text-violet-700">The ZIP is streamed while images and videos are rendered.</p>
                         </div>
 
                         <div>

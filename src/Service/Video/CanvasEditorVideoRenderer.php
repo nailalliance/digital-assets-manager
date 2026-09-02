@@ -18,13 +18,18 @@ final class CanvasEditorVideoRenderer
     ) {
     }
 
+    public function supportsMimeType(?string $mimeType): bool
+    {
+        return in_array($mimeType, self::SUPPORTED_MIME_TYPES, true);
+    }
+
     /**
      * @return array{path: string}
      */
     public function render(Assets $asset, string $rawScript): array
     {
         $sourcePath = $asset->getFilePath();
-        if (!in_array($asset->getMimeType(), self::SUPPORTED_MIME_TYPES, true) || !is_string($sourcePath) || !is_readable($sourcePath)) {
+        if (!$this->supportsMimeType($asset->getMimeType()) || !is_string($sourcePath) || !is_readable($sourcePath)) {
             throw new \RuntimeException('The video source is not available for export.');
         }
 

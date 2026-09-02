@@ -6,6 +6,8 @@ use App\Controller\DownloadListController;
 use App\Entity\Assets\Assets;
 use App\Service\CanvasEditorScriptRenderer;
 use App\Service\DownloadListService;
+use App\Service\EditorFontCatalog;
+use App\Service\Video\CanvasEditorVideoRenderer;
 use App\Service\DownloadProgressService;
 use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -73,6 +75,10 @@ class DownloadListControllerTest extends KernelTestCase
             $this->createMock(EntityManagerInterface::class),
             new ZipDownloadResponseFactory(),
             new CanvasEditorScriptRenderer(new Filesystem(), static::getContainer()->get('parameter_bag')),
+            new CanvasEditorVideoRenderer(
+                new CanvasEditorScriptRenderer(new Filesystem(), static::getContainer()->get('parameter_bag')),
+                new EditorFontCatalog(static::getContainer()->get('parameter_bag')),
+            ),
             new DownloadProgressService(new Filesystem())
         );
 

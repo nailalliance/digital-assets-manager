@@ -10,6 +10,7 @@ use App\Entity\User;
 use App\Service\CanvasEditorScriptRenderer;
 use App\Service\DownloadProgressService;
 use App\Service\DownloadListService;
+use App\Service\Video\CanvasEditorVideoRenderer;
 use App\Service\ZipDownloadResponseFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -203,6 +204,7 @@ class DownloadListController extends AbstractController
         EntityManagerInterface $entityManager,
         ZipDownloadResponseFactory $zipDownloadResponseFactory,
         CanvasEditorScriptRenderer $canvasEditorScriptRenderer,
+        CanvasEditorVideoRenderer $canvasEditorVideoRenderer,
         DownloadProgressService $downloadProgressService,
     ): Response {
         $rawScript = trim((string) $request->request->get('script', ''));
@@ -253,7 +255,9 @@ class DownloadListController extends AbstractController
             $mimeType = $asset->getMimeType();
             $sourcePath = $asset->getFilePath();
 
-            if (!$canvasEditorScriptRenderer->supportsMimeType($mimeType)) {
+            $isRaster = $canvasEditorScriptRenderer->supportsMimeType($mimeType);
+            $isVideo = $canvasEditorVideoRenderer->supportsMimeType($mimeType);
+            if (!$isRaster && !$isVideo) {
                 $issues[] = sprintf(
                     '%s was skipped because %s is not supported by scripted bag downloads.',
                     $asset->getName() ?? 'An asset',
@@ -270,7 +274,10 @@ class DownloadListController extends AbstractController
                 continue;
             }
 
-            $renderableAssets[] = $asset;
+            $renderableAssets[] = [
+                'asset' => $asset,
+                'type' => $isVideo ? 'video' : 'raster',
+            ];
             $downloadableAssets[] = $asset;
         }
 
@@ -291,10 +298,16 @@ class DownloadListController extends AbstractController
         $processedCount = 0;
         $renderableTotal = count($renderableAssets);
         $openStreams = [];
+        $temporaryFiles = [];
         $streamCompleted = false;
 
-        foreach ($renderableAssets as $asset) {
-            $extension = $canvasEditorScriptRenderer->getOutputExtensionForMimeType((string) $asset->getMimeType());
+        foreach ($renderableAssets as $renderableAsset) {
+            /** @var Assets $asset */
+            $asset = $renderableAsset['asset'];
+            $type = $renderableAsset['type'];
+            $extension = $type === 'video'
+                ? 'mp4'
+                : $canvasEditorScriptRenderer->getOutputExtensionForMimeType((string) $asset->getMimeType());
             $archiveName = $this->createUniqueArchiveName(
                 $this->buildScriptedArchiveName($asset, $extension),
                 $archiveNameCounts
@@ -304,13 +317,17 @@ class DownloadListController extends AbstractController
                 'archiveName' => $archiveName,
                 'callback' => function () use (
                     $asset,
+                    $type,
+                    $rawScript,
                     $parsedScript,
                     $canvasEditorScriptRenderer,
+                    $canvasEditorVideoRenderer,
                     $downloadProgressService,
                     $downloadToken,
                     &$processedCount,
                     $renderableTotal,
                     &$openStreams,
+                    &$temporaryFiles,
                     &$streamCompleted
                 ) {
                     $assetName = $asset->getName() ?? 'Asset';
@@ -325,8 +342,17 @@ class DownloadListController extends AbstractController
                     }
 
                     try {
-                        $renderedAsset = $canvasEditorScriptRenderer->renderAssetToStream($asset, $parsedScript);
-                        $stream = $renderedAsset['stream'];
+                        if ($type === 'video') {
+                            $renderedAsset = $canvasEditorVideoRenderer->render($asset, $rawScript);
+                            $temporaryFiles[] = $renderedAsset['path'];
+                            $stream = fopen($renderedAsset['path'], 'rb');
+                            if ($stream === false) {
+                                throw new \RuntimeException('The rendered video could not be opened for the ZIP.');
+                            }
+                        } else {
+                            $renderedAsset = $canvasEditorScriptRenderer->renderAssetToStream($asset, $parsedScript);
+                            $stream = $renderedAsset['stream'];
+                        }
 
                         if (is_resource($stream)) {
                             $openStreams[] = $stream;
@@ -379,6 +405,7 @@ class DownloadListController extends AbstractController
                 $ipAddress,
                 $user,
                 &$openStreams,
+                &$temporaryFiles,
                 &$streamCompleted,
                 $downloadProgressService,
                 $downloadToken
@@ -386,6 +413,11 @@ class DownloadListController extends AbstractController
                 foreach ($openStreams as $stream) {
                     if (is_resource($stream)) {
                         fclose($stream);
+                    }
+                }
+                foreach ($temporaryFiles as $temporaryFile) {
+                    if (is_file($temporaryFile)) {
+                        @unlink($temporaryFile);
                     }
                 }
 

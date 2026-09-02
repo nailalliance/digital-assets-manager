@@ -108,7 +108,7 @@ export default class extends Controller {
         this.skippedCountTarget.textContent = String(skippedCount);
 
         if (compatibleCount === 0) {
-            this.showWarning('This bag does not contain any supported raster assets yet. Add JPG, PNG, WEBP, or GIF files before running a scripted download.');
+            this.showWarning('This bag does not contain any supported image or video assets yet. Add JPG, PNG, WEBP, GIF, MP4, WEBM, or MOV files before running a scripted download.');
             this.submitButtonTarget.disabled = true;
 
             return;
