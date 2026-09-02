@@ -633,7 +633,7 @@ export default class extends Controller {
 
         const script = document.createElement('textarea');
         script.name = 'script';
-        script.value = JSON.stringify(this.buildScript(), null, 2);
+        script.value = JSON.stringify(this.buildSerializableState(), null, 2);
         form.appendChild(script);
         document.body.appendChild(form);
         form.submit();

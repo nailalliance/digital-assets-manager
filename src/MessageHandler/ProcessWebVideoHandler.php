@@ -45,7 +45,7 @@ final class ProcessWebVideoHandler
             }
 
             $existingRendition = $this->findWebRendition($asset);
-            if ($existingRendition !== null && is_readable((string) $existingRendition->getFilePath())) {
+            if (!$message->force && $existingRendition !== null && is_readable((string) $existingRendition->getFilePath())) {
                 $asset->setWebVideoStatus('ready')->setWebVideoError(null);
                 $this->entityManager->flush();
                 return;
