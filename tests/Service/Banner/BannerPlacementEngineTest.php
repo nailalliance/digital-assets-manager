@@ -56,42 +56,83 @@ final class BannerPlacementEngineTest extends TestCase
     }
 
     #[DataProvider('layoutAndCountProvider')]
-    public function testNoBottleCanCoverAnotherAcrossAnyPlatform(string $layoutName, int $count): void
+    public function testBottlesOnTheSamePlatformNeverOverlap(string $layoutName, int $count): void
     {
         $layout = $this->layouts->get($layoutName);
         $placements = $this->engine->calculate($this->dimensions($count), $layout, 4402);
         $this->assertCount($count, $placements);
-        usort($placements, static fn (BannerPlacement $a, BannerPlacement $b): int => $a->centerX <=> $b->centerX);
 
-        for ($i = 1; $i < count($placements); ++$i) {
-            $previous = $placements[$i - 1];
-            $current = $placements[$i];
-            $previousRight = $previous->centerX + $previous->rotatedWidth / 2;
-            $currentLeft = $current->centerX - $current->rotatedWidth / 2;
+        foreach (['upper', 'main'] as $surfaceName) {
+            $sameLevel = array_values(array_filter(
+                $placements,
+                static fn (BannerPlacement $placement): bool => $placement->surface === $surfaceName
+            ));
+            usort($sameLevel, static fn (BannerPlacement $a, BannerPlacement $b): int => $a->centerX <=> $b->centerX);
 
-            $this->assertGreaterThanOrEqual(
-                $previousRight + 5,
-                $currentLeft,
-                sprintf(
-                    'Assets %d (%s) and %d (%s) overlap.',
-                    $previous->assetIndex,
-                    $previous->surface,
-                    $current->assetIndex,
-                    $current->surface
-                )
-            );
+            for ($i = 1; $i < count($sameLevel); ++$i) {
+                $previous = $sameLevel[$i - 1];
+                $current = $sameLevel[$i];
+                $previousRight = $previous->centerX + $previous->rotatedWidth / 2;
+                $currentLeft = $current->centerX - $current->rotatedWidth / 2;
+
+                $this->assertGreaterThanOrEqual($previousRight + 5, $currentLeft);
+            }
         }
     }
 
-    public function testBottleTargetScaleIsFiftyPercentLargerWhenSpaceAllows(): void
+    public function testBottleScaleUsesFiftyPercentTargetWithinPlatformLimit(): void
     {
         $layout = $this->layouts->get(BannerLayoutCatalog::DESKTOP);
         $placement = $this->engine->calculate($this->dimensions(1), $layout, 4402)[0];
-        $enlargedHeight = (int) round($layout->baseBottleHeight(1) * 1.50);
+        $expectedHeight = min(
+            (int) round($layout->baseBottleHeight(1) * 1.50),
+            $layout->surface('upper')['contactMin'] - $layout->compositionTop
+        );
 
-        $this->assertSame($enlargedHeight, $placement->targetHeight);
-        $this->assertSame('main', $placement->surface);
-        $this->assertGreaterThanOrEqual(500, $placement->contactY);
+        $this->assertSame($expectedHeight, $placement->targetHeight);
+        $this->assertSame('upper', $placement->surface);
+        $this->assertSame($layout->surface('upper')['contactMin'], $placement->contactY);
+    }
+
+    #[DataProvider('upperOnlyCountProvider')]
+    public function testSixOrFewerDesktopBottlesUseOnlyUpperPlatform(int $count): void
+    {
+        $layout = $this->layouts->get(BannerLayoutCatalog::DESKTOP);
+        $placements = $this->engine->calculate($this->dimensions($count), $layout, 7712);
+
+        $this->assertCount($count, $placements);
+        foreach ($placements as $placement) {
+            $this->assertSame('upper', $placement->surface);
+        }
+    }
+
+    #[DataProvider('alternatingCountProvider')]
+    public function testLargerDesktopCompositionsStrictlyAlternatePlatforms(int $count): void
+    {
+        $layout = $this->layouts->get(BannerLayoutCatalog::DESKTOP);
+        $placements = $this->engine->calculate($this->dimensions($count), $layout, 2271);
+        usort($placements, static fn (BannerPlacement $a, BannerPlacement $b): int => $a->centerX <=> $b->centerX);
+        $capInterlockedPairs = 0;
+
+        foreach ($placements as $index => $placement) {
+            $this->assertSame($index % 2 === 0 ? 'upper' : 'main', $placement->surface);
+            if ($index === 0) {
+                continue;
+            }
+
+            $previous = $placements[$index - 1];
+            $distance = $placement->centerX - $previous->centerX;
+            $requiredDistance = $previous->surface === 'upper'
+                ? $previous->rotatedWidth / 2 + $placement->rotatedWidth * 0.46 / 2
+                : $previous->rotatedWidth * 0.46 / 2 + $placement->rotatedWidth / 2;
+            $this->assertGreaterThanOrEqual($requiredDistance + 5, $distance);
+
+            if ($distance < ($previous->rotatedWidth + $placement->rotatedWidth) / 2) {
+                ++$capInterlockedPairs;
+            }
+        }
+
+        $this->assertGreaterThan(0, $capInterlockedPairs);
     }
 
     #[DataProvider('layoutAndCountProvider')]
@@ -135,6 +176,22 @@ final class BannerPlacementEngineTest extends TestCase
             foreach ([1, 2, 4, 8, 12] as $count) {
                 yield $layout . '-' . $count => [$layout, $count];
             }
+        }
+    }
+
+    /** @return iterable<string, array{0: int}> */
+    public static function upperOnlyCountProvider(): iterable
+    {
+        for ($count = 1; $count <= 6; ++$count) {
+            yield (string) $count => [$count];
+        }
+    }
+
+    /** @return iterable<string, array{0: int}> */
+    public static function alternatingCountProvider(): iterable
+    {
+        for ($count = 7; $count <= 12; ++$count) {
+            yield (string) $count => [$count];
         }
     }
 

@@ -11,7 +11,7 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class BannerCompositionService
 {
-    public const RENDERER_VERSION = 'v8-color-reflection';
+    public const RENDERER_VERSION = 'v9-tier-interlock';
 
     public function __construct(
         private readonly Filesystem $filesystem,
@@ -297,7 +297,7 @@ class BannerCompositionService
     {
         $availableDepth = max(1, $surfaceBottom - $item['placement']->contactY);
         $bottleWidth = $item['image']->getImageWidth();
-        $glareDepth = max(1, min($availableDepth, (int) round($bottleWidth * 0.18)));
+        $glareDepth = $availableDepth;
         $glareWidth = max(12, (int) round($bottleWidth * 0.68));
         $blurMargin = 12;
         $glare = $this->transparentCanvasDimensions(

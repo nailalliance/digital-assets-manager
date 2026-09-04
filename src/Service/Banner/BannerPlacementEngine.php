@@ -9,6 +9,7 @@ use Random\Randomizer;
 final class BannerPlacementEngine
 {
     private const BOTTLE_SCALE_MULTIPLIER = 1.50;
+    private const CAP_WIDTH_RATIO = 0.46;
     private const MINIMUM_GAP = 6;
     private const MAXIMUM_EXTRA_GAP = 14;
 
@@ -72,7 +73,6 @@ final class BannerPlacementEngine
         ));
         $availableWidth = $stageRight - $stageLeft;
         $gapCount = max(0, $assetCount - 1);
-        $widthBudget = max($assetCount, $availableWidth - self::MINIMUM_GAP * $gapCount);
         $desiredHeight = max(1, (int) round(
             $layout->baseBottleHeight($assetCount) * self::BOTTLE_SCALE_MULTIPLIER
         ));
@@ -80,34 +80,21 @@ final class BannerPlacementEngine
             static fn (array $item): int => $item['contactY'] - $layout->compositionTop,
             $prepared
         ));
-        $totalAspectRatio = array_sum(array_column($prepared, 'sourceRatio'));
-        $widthLimitedHeight = max(1, (int) floor(
-            ($widthBudget - $assetCount) / max(0.0001, $totalAspectRatio)
-        ));
-        $sharedHeight = max(1, min($desiredHeight, $verticalLimit, $widthLimitedHeight));
-
-        foreach ($prepared as &$item) {
-            $item['targetHeight'] = $sharedHeight;
-            $item['targetWidth'] = max(1, (int) round($sharedHeight * $item['sourceRatio']));
-        }
-        unset($item);
-
-        // Guard against accumulated width rounding at the maximum count. The
-        // shared height is reduced as one unit so all products remain equal.
-        while (array_sum(array_column($prepared, 'targetWidth')) > $widthBudget) {
-            --$sharedHeight;
-            foreach ($prepared as &$item) {
-                $item['targetHeight'] = max(1, $sharedHeight);
-                $item['targetWidth'] = max(1, (int) round(
-                    $item['targetHeight'] * $item['sourceRatio']
-                ));
-            }
-            unset($item);
-        }
-
-        $totalWidth = array_sum(array_column($prepared, 'targetWidth'));
-        $slack = max(0, $availableWidth - $totalWidth - self::MINIMUM_GAP * $gapCount);
+        $sharedHeight = max(1, min($desiredHeight, $verticalLimit));
         $gaps = array_fill(0, $gapCount, self::MINIMUM_GAP);
+        $this->applySharedHeight($prepared, $sharedHeight);
+        $geometry = $this->laneGeometry($prepared, $gaps);
+
+        // Fit the shared size against the shape-aware row geometry. Bottles on
+        // different tiers may interlock at cap width; bottles on the same tier
+        // always retain full-body clearance.
+        while ($geometry['width'] > $availableWidth && $sharedHeight > 1) {
+            --$sharedHeight;
+            $this->applySharedHeight($prepared, $sharedHeight);
+            $geometry = $this->laneGeometry($prepared, $gaps);
+        }
+
+        $slack = max(0, (int) floor($availableWidth - $geometry['width']));
         $extraGapBudget = min($slack, self::MAXIMUM_EXTRA_GAP * $gapCount);
 
         for ($i = 0; $i < $gapCount && $extraGapBudget > 0; ++$i) {
@@ -117,13 +104,14 @@ final class BannerPlacementEngine
             $slack -= $extra;
         }
 
-        // Randomize the cluster's position using only the remaining outer
-        // margin. Internal jitter is represented by safe, positive gaps.
-        $cursor = $stageLeft + ($slack > 0 ? $randomizer->getInt(0, $slack) : 0);
+        $geometry = $this->laneGeometry($prepared, $gaps);
+        $slack = max(0, (int) floor($availableWidth - $geometry['width']));
+        $origin = $stageLeft - $geometry['left']
+            + ($slack > 0 ? $randomizer->getInt(0, $slack) : 0);
         $placements = [];
 
         foreach ($prepared as $index => $item) {
-            $centerX = $cursor + intdiv($item['targetWidth'], 2);
+            $centerX = (int) round($origin + $geometry['centers'][$index]);
             $zIndex = $item['contactY'] * 100 + $randomizer->getInt(0, 99);
 
             $placements[] = new BannerPlacement(
@@ -137,8 +125,6 @@ final class BannerPlacementEngine
                 rotatedHeight: $item['targetHeight'],
                 zIndex: $zIndex,
             );
-
-            $cursor += $item['targetWidth'] + ($gaps[$index] ?? 0);
         }
 
         usort($placements, static fn (BannerPlacement $a, BannerPlacement $b): int => $a->zIndex <=> $b->zIndex);
@@ -156,14 +142,11 @@ final class BannerPlacementEngine
             return ['main' => $shuffledIndices];
         }
 
-        if (count($shuffledIndices) === 1) {
-            return ['upper' => [], 'main' => $shuffledIndices];
+        if (count($shuffledIndices) <= 6) {
+            return ['upper' => $shuffledIndices, 'main' => []];
         }
 
-        $upperCount = max(1, min(
-            count($shuffledIndices) - 1,
-            (int) ceil(count($shuffledIndices) * 0.58)
-        ));
+        $upperCount = (int) ceil(count($shuffledIndices) / 2);
 
         return [
             'upper' => array_slice($shuffledIndices, 0, $upperCount),
@@ -195,5 +178,60 @@ final class BannerPlacementEngine
         } while ($added);
 
         return $result;
+    }
+
+    /** @param list<array<string, mixed>> $prepared */
+    private function applySharedHeight(array &$prepared, int $height): void
+    {
+        foreach ($prepared as &$item) {
+            $item['targetHeight'] = $height;
+            $item['targetWidth'] = max(1, (int) round($height * $item['sourceRatio']));
+        }
+        unset($item);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $prepared
+     * @param list<int> $gaps
+     * @return array{centers: list<float>, left: float, width: float}
+     */
+    private function laneGeometry(array $prepared, array $gaps): array
+    {
+        $centers = [0.0];
+
+        for ($index = 1, $count = count($prepared); $index < $count; ++$index) {
+            $centers[$index] = $centers[$index - 1] + $this->requiredCenterDistance(
+                $prepared[$index - 1],
+                $prepared[$index],
+                $gaps[$index - 1]
+            );
+        }
+
+        $left = INF;
+        $right = -INF;
+        foreach ($prepared as $index => $item) {
+            $left = min($left, $centers[$index] - $item['targetWidth'] / 2);
+            $right = max($right, $centers[$index] + $item['targetWidth'] / 2);
+        }
+
+        return ['centers' => $centers, 'left' => $left, 'width' => $right - $left];
+    }
+
+    /** @param array<string, mixed> $previous @param array<string, mixed> $current */
+    private function requiredCenterDistance(array $previous, array $current, int $gap): float
+    {
+        if ($previous['surface'] === $current['surface']) {
+            return ($previous['targetWidth'] + $current['targetWidth']) / 2 + $gap;
+        }
+
+        if ($previous['surface'] === 'upper') {
+            return $previous['targetWidth'] / 2
+                + $current['targetWidth'] * self::CAP_WIDTH_RATIO / 2
+                + $gap;
+        }
+
+        return $previous['targetWidth'] * self::CAP_WIDTH_RATIO / 2
+            + $current['targetWidth'] / 2
+            + $gap;
     }
 }
