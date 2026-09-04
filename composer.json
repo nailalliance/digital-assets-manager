@@ -9,6 +9,7 @@
         "ext-ctype": "*",
         "ext-fileinfo": "*",
         "ext-iconv": "*",
+        "ext-imagick": "*",
         "ext-simplexml": "*",
         "ext-xmlreader": "*",
         "ankitpokhrel/tus-php": "^2.4",

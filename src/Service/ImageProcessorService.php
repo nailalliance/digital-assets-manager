@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Service\Image\ClippingPathExtractor;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Filesystem;
@@ -16,12 +17,15 @@ class ImageProcessorService
     private ?string $srgbProfile;
     private ?string $cmykProfile;
     private ?string $thumbnailFallbackFontPath;
+    private readonly ClippingPathExtractor $clippingPathExtractor;
 
     public function __construct(
         private readonly Filesystem $filesystem,
         private readonly LoggerInterface $logger,
-        ParameterBagInterface $params
+        ParameterBagInterface $params,
+        ?ClippingPathExtractor $clippingPathExtractor = null
     ) {
+        $this->clippingPathExtractor = $clippingPathExtractor ?? new ClippingPathExtractor();
         $srgbProfilePath = $params->get('srgb_profile_path');
         $cmykProfilePath = $params->get('cmyk_profile_path');
         $projectDir = $params->get('kernel.project_dir');
@@ -270,275 +274,16 @@ class ImageProcessorService
 
     private function applyLargestClipPathIfAvailable(\Imagick $image, ?int $clipPathIndex = null): void
     {
-        $svgPathData = $clipPathIndex !== null
-            ? $image->getImageProperty("8BIM:1999,2998:#{$clipPathIndex}")
-            : $this->findLargestClipPathSvg($image);
-
-        if ($svgPathData === null) {
-            return;
-        }
-
         try {
-            $this->applyClipPathSvg($image, $svgPathData);
+            $this->clippingPathExtractor->applyLargestIfAvailable($image, $clipPathIndex);
         } catch (\ImagickException) {
             return;
         }
     }
 
-    private function applyClipPathSvg(\Imagick $image, string $svgPathData): void
-    {
-        $mask = new \Imagick();
-
-        try {
-            $maskSvg = $this->buildMaskSvgFromFilledPaths(
-                $svgPathData,
-                $image->getImageWidth(),
-                $image->getImageHeight()
-            );
-            $mask->setBackgroundColor(new \ImagickPixel('black'));
-            $mask->readImageBlob($maskSvg);
-            $mask->setImageMatte(false);
-
-            if (
-                $mask->getImageWidth() !== $image->getImageWidth()
-                || $mask->getImageHeight() !== $image->getImageHeight()
-            ) {
-                $mask->scaleImage($image->getImageWidth(), $image->getImageHeight());
-            }
-
-            $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
-            $image->compositeImage($mask, \Imagick::COMPOSITE_COPYOPACITY, 0, 0);
-            $image->setImageBackgroundColor(new \ImagickPixel('white'));
-            $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_BACKGROUND);
-        } finally {
-            $mask->clear();
-        }
-    }
-
-    private function findLargestClipPathSvg(\Imagick $image): ?string
-    {
-        $bestSvgPathData = null;
-        $largestBoundingBoxArea = 0.0;
-
-        for ($i = 0; $i <= 15; $i++) {
-            $svgPathData = $image->getImageProperty("8BIM:1999,2998:#{$i}");
-            if (!$svgPathData) {
-                continue;
-            }
-
-            $boundingBoxArea = $this->estimateClipPathBoundingBoxArea($svgPathData);
-            if ($boundingBoxArea === null || $boundingBoxArea <= $largestBoundingBoxArea) {
-                continue;
-            }
-
-            $largestBoundingBoxArea = $boundingBoxArea;
-            $bestSvgPathData = $svgPathData;
-        }
-
-        return $bestSvgPathData;
-    }
-
-    private function estimateClipPathBoundingBoxArea(string $pathData): ?float
-    {
-        $bounds = $this->extractClipPathBounds($pathData);
-
-        return $bounds['area'] ?? null;
-    }
-
-    private function buildMaskSvgFromFilledPaths(string $svgPathData, int $imageWidth, int $imageHeight): string
-    {
-        $document = new \DOMDocument();
-        if (@$document->loadXML($svgPathData) === false) {
-            return $this->buildMaskSvgFromPathDataStrings(
-                $this->extractPathDataStringsFromRawSvg($svgPathData),
-                $imageWidth,
-                $imageHeight
-            );
-        }
-
-        $xpath = new \DOMXPath($document);
-        /** @var \DOMNodeList<\DOMElement> $pathElements */
-        $pathElements = $xpath->query('//*[local-name()="path"][@d]');
-        if ($pathElements === false) {
-            return $this->buildMaskSvgFromPathDataStrings(
-                $this->extractPathDataStringsFromRawSvg($svgPathData),
-                $imageWidth,
-                $imageHeight
-            );
-        }
-
-        $paths = [];
-        foreach ($pathElements as $pathElement) {
-            if (!$this->isFilledMaskPathElement($pathElement)) {
-                continue;
-            }
-
-            $paths[] = [
-                'd' => $pathElement->getAttribute('d'),
-                'fillRule' => $pathElement->getAttribute('fill-rule'),
-                'clipRule' => $pathElement->getAttribute('clip-rule'),
-                'transform' => $pathElement->getAttribute('transform'),
-            ];
-        }
-
-        if ($paths === []) {
-            return $this->buildMaskSvgFromPathDataStrings(
-                $this->extractPathDataStringsFromRawSvg($svgPathData),
-                $imageWidth,
-                $imageHeight
-            );
-        }
-
-        return $this->buildMaskSvgDocument($paths, $imageWidth, $imageHeight);
-    }
-
-    private function isFilledMaskPathElement(\DOMElement $pathElement): bool
-    {
-        $fill = strtolower(trim($pathElement->getAttribute('fill')));
-        if ($fill !== '' && $fill === 'none') {
-            return false;
-        }
-
-        $style = strtolower($pathElement->getAttribute('style'));
-        if (preg_match('/fill\s*:\s*none\b/', $style)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function extractPathDataStringsFromRawSvg(string $svgPathData): array
-    {
-        if (!preg_match_all('/<path[^>]*\sd="([^"]+)"/i', $svgPathData, $matches)) {
-            return [];
-        }
-
-        return array_values(array_filter($matches[1] ?? [], static fn (string $pathData): bool => $pathData !== ''));
-    }
-
-    /**
-     * @param list<string> $pathDataStrings
-     */
-    private function buildMaskSvgFromPathDataStrings(array $pathDataStrings, int $imageWidth, int $imageHeight): string
-    {
-        $paths = [];
-
-        foreach ($pathDataStrings as $pathData) {
-            $paths[] = [
-                'd' => $pathData,
-                'fillRule' => 'evenodd',
-                'clipRule' => '',
-                'transform' => '',
-            ];
-        }
-
-        return $this->buildMaskSvgDocument($paths, $imageWidth, $imageHeight);
-    }
-
-    /**
-     * @param list<array{d: string, fillRule: string, clipRule: string, transform: string}> $paths
-     */
-    private function buildMaskSvgDocument(array $paths, int $imageWidth, int $imageHeight): string
-    {
-        $document = new \DOMDocument('1.0', 'UTF-8');
-        $svg = $document->createElement('svg');
-        $svg->setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        $svg->setAttribute('width', (string) $imageWidth);
-        $svg->setAttribute('height', (string) $imageHeight);
-        $svg->setAttribute('viewBox', sprintf('0 0 %d %d', $imageWidth, $imageHeight));
-        $document->appendChild($svg);
-
-        $backgroundRect = $document->createElement('rect');
-        $backgroundRect->setAttribute('width', '100%');
-        $backgroundRect->setAttribute('height', '100%');
-        $backgroundRect->setAttribute('fill', '#000000');
-        $svg->appendChild($backgroundRect);
-
-        foreach ($paths as $pathData) {
-            $path = $document->createElement('path');
-            $path->setAttribute('d', $pathData['d']);
-            $path->setAttribute('fill', '#FFFFFF');
-
-            if ($pathData['fillRule'] !== '') {
-                $path->setAttribute('fill-rule', $pathData['fillRule']);
-            }
-
-            if ($pathData['clipRule'] !== '') {
-                $path->setAttribute('clip-rule', $pathData['clipRule']);
-            }
-
-            if ($pathData['transform'] !== '') {
-                $path->setAttribute('transform', $pathData['transform']);
-            }
-
-            $svg->appendChild($path);
-        }
-
-        return $document->saveXML() ?: sprintf(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="%1$d" height="%2$d" viewBox="0 0 %1$d %2$d"><rect width="100%%" height="100%%" fill="#000000"/></svg>',
-            $imageWidth,
-            $imageHeight
-        );
-    }
-
     private function resolveCanvasBackgroundColor(?string $legendText, bool $useLargestClipPath): string
     {
         return 'white';
-    }
-
-    /**
-     * @return array{width: float, height: float, area: float}|null
-     */
-    private function extractClipPathBounds(string $pathData): ?array
-    {
-        if (preg_match('/d="([^"]+)"/', $pathData, $matches)) {
-            $pathData = $matches[1];
-        }
-
-        preg_match_all('/[-+]?[0-9]*\.?[0-9]+/', $pathData, $coords);
-        $numbers = $coords[0] ?? [];
-
-        if (count($numbers) < 4) {
-            return null;
-        }
-
-        $minX = $maxX = (float) $numbers[0];
-        $minY = $maxY = (float) $numbers[1];
-        $count = count($numbers);
-
-        for ($i = 0; $i < $count; $i += 2) {
-            if (!isset($numbers[$i + 1])) {
-                break;
-            }
-
-            $x = (float) $numbers[$i];
-            $y = (float) $numbers[$i + 1];
-
-            if ($x < $minX) {
-                $minX = $x;
-            }
-            if ($x > $maxX) {
-                $maxX = $x;
-            }
-            if ($y < $minY) {
-                $minY = $y;
-            }
-            if ($y > $maxY) {
-                $maxY = $y;
-            }
-        }
-
-        $width = $maxX - $minX;
-        $height = $maxY - $minY;
-
-        return [
-            'width' => $width,
-            'height' => $height,
-            'area' => $width * $height,
-        ];
     }
 
 }

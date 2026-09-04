@@ -8,6 +8,8 @@ parameters:
     thumbnail_dir: '%kernel.project_dir%/files-thumbs'
     permalink_cache_dir: '%kernel.project_dir%/files-web-cache'
     permalink_cache_version: 'v1'
+    banner_cache_dir: '%kernel.project_dir%/files-web-cache/banner-compositions'
+    banner_background_path: '%kernel.project_dir%/assets/images/banner-composition/rainbow-stone-surface.jpg'
     ai_dir: '%kernel.project_dir%/files-ai'
     cag_dir: '%kernel.project_dir%/docs/business'
     direct_uploads_dir: '%kernel.project_dir%/files-direct'
