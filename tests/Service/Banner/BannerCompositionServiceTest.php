@@ -105,12 +105,14 @@ final class BannerCompositionServiceTest extends TestCase
         try {
             $reflection = $method->invoke($service, $bottle, 30);
             $this->assertInstanceOf(\Imagick::class, $reflection);
-            $this->assertSame(24, $reflection->getImageHeight());
+            $this->assertSame(30, $reflection->getImageHeight());
             $nearContact = $reflection->getImagePixelColor(30, 0)->getColor(true)['a'];
-            $farFromContact = $reflection->getImagePixelColor(30, 23)->getColor(true)['a'];
+            $nearColor = $reflection->getImagePixelColor(30, 0)->getColor(true);
+            $farFromContact = $reflection->getImagePixelColor(30, 29)->getColor(true)['a'];
             $this->assertGreaterThan($farFromContact, $nearContact);
-            $this->assertLessThanOrEqual(0.20, $nearContact);
+            $this->assertLessThanOrEqual(0.30, $nearContact);
             $this->assertLessThan(0.02, $farFromContact);
+            $this->assertGreaterThan($nearColor['b'] + 0.5, $nearColor['r']);
         } finally {
             $reflection?->clear();
             $bottle->clear();

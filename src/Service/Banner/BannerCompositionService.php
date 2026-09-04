@@ -11,7 +11,7 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class BannerCompositionService
 {
-    public const RENDERER_VERSION = 'v7-back-shadow-front-glare';
+    public const RENDERER_VERSION = 'v8-color-reflection';
 
     public function __construct(
         private readonly Filesystem $filesystem,
@@ -241,8 +241,8 @@ class BannerCompositionService
                 $mask->clear();
             }
 
-            $canvas->compositeImage($reflectionLayer, \Imagick::COMPOSITE_OVER, 0, 0);
             $canvas->compositeImage($glareLayer, \Imagick::COMPOSITE_OVER, 0, 0);
+            $canvas->compositeImage($reflectionLayer, \Imagick::COMPOSITE_OVER, 0, 0);
             $canvas->compositeImage($shadowLayer, \Imagick::COMPOSITE_OVER, 0, 0);
 
             foreach ($items as $item) {
@@ -263,7 +263,7 @@ class BannerCompositionService
 
         $reflection = clone $bottle;
         $reflection->flipImage();
-        $reflectionHeight = max(1, min($maximumHeight, (int) round($bottle->getImageHeight() * 0.12)));
+        $reflectionHeight = max(1, min($maximumHeight, (int) round($bottle->getImageHeight() * 0.16)));
         $reflection->resizeImage(
             $bottle->getImageWidth(),
             $reflectionHeight,
@@ -278,14 +278,16 @@ class BannerCompositionService
             $fade->newPseudoImage(
                 $reflection->getImageWidth(),
                 $reflection->getImageHeight(),
-                'gradient:rgba(255,255,255,0.16)-rgba(255,255,255,0)'
+                'gradient:rgba(255,255,255,0.28)-rgba(255,255,255,0)'
             );
             $reflection->compositeImage($fade, \Imagick::COMPOSITE_DSTIN, 0, 0);
         } finally {
             $fade->clear();
         }
 
-        $reflection->gaussianBlurImage(0, 2.5);
+        // Keep enough bottle color and structure to read as a reflection, not
+        // as the neutral gray blob produced by a broad contact shadow.
+        $reflection->gaussianBlurImage(0, 1.2);
 
         return $reflection;
     }
@@ -307,7 +309,7 @@ class BannerCompositionService
         try {
             // A faint specular wedge travels from the bottle base toward the
             // viewer. The shared surface mask clips it before the ledge edge.
-            $draw->setFillColor(new \ImagickPixel('rgba(255,255,255,0.09)'));
+            $draw->setFillColor(new \ImagickPixel('rgba(255,255,255,0.05)'));
             $draw->polygon([
                 ['x' => $blurMargin + $glareWidth * 0.36, 'y' => $blurMargin],
                 ['x' => $blurMargin + $glareWidth * 0.64, 'y' => $blurMargin],
@@ -380,16 +382,18 @@ class BannerCompositionService
     /** @param array{image: \Imagick, placement: BannerPlacement, x: int, y: int} $item */
     private function addContactShadow(\Imagick $layer, array $item): void
     {
-        $radiusX = max(8.0, $item['image']->getImageWidth() * 0.34);
-        $radiusY = max(2.0, min(6.0, $item['image']->getImageWidth() * 0.03));
-        $blurMargin = 12;
+        $radiusX = max(5.0, $item['image']->getImageWidth() * 0.20);
+        $radiusY = max(1.0, min(2.5, $item['image']->getImageWidth() * 0.012));
+        $blurMargin = 7;
         $contactWidth = (int) ceil($radiusX * 2) + $blurMargin * 2;
         $contactHeight = (int) ceil($radiusY * 2) + $blurMargin * 2;
         $contact = $this->transparentCanvasDimensions($contactWidth, $contactHeight);
         $draw = new \ImagickDraw();
 
         try {
-            $draw->setFillColor(new \ImagickPixel('rgba(27,38,45,0.34)'));
+            // Only a thin ambient-occlusion line remains at the physical
+            // contact point. The visible foreground effect is the reflection.
+            $draw->setFillColor(new \ImagickPixel('rgba(27,38,45,0.14)'));
             $draw->ellipse(
                 $contactWidth / 2,
                 $contactHeight / 2,
@@ -399,12 +403,12 @@ class BannerCompositionService
                 360
             );
             $contact->drawImage($draw);
-            $contact->gaussianBlurImage(0, 2.8);
+            $contact->gaussianBlurImage(0, 1.4);
             $layer->compositeImage(
                 $contact,
                 \Imagick::COMPOSITE_OVER,
                 (int) round($item['placement']->centerX - $contactWidth / 2),
-                (int) round($item['placement']->contactY - $contactHeight / 2)
+                (int) round($item['placement']->contactY - 1 - $contactHeight / 2)
             );
         } finally {
             $draw->clear();
