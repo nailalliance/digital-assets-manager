@@ -31,8 +31,8 @@ final class BannerPlacementEngine
         }
 
         $randomizer = new Randomizer(new Mt19937($seed));
-        $shuffledIndices = $randomizer->shuffleArray(range(0, $assetCount - 1));
-        $surfaceGroups = $this->assignSurfaces($shuffledIndices, $layout);
+        $orderedIndices = range(0, $assetCount - 1);
+        $surfaceGroups = $this->assignSurfaces($orderedIndices, $layout);
         $packingOrder = $this->interleaveSurfaceGroups($surfaceGroups);
         $surfaceByAsset = [];
 
@@ -133,24 +133,32 @@ final class BannerPlacementEngine
     }
 
     /**
-     * @param list<int> $shuffledIndices
+     * @param list<int> $orderedIndices
      * @return array<string, list<int>>
      */
-    private function assignSurfaces(array $shuffledIndices, BannerLayout $layout): array
+    private function assignSurfaces(array $orderedIndices, BannerLayout $layout): array
     {
         if ($layout->name === BannerLayoutCatalog::MOBILE) {
-            return ['main' => $shuffledIndices];
+            return ['main' => $orderedIndices];
         }
 
-        if (count($shuffledIndices) <= 6) {
-            return ['upper' => $shuffledIndices, 'main' => []];
+        if (count($orderedIndices) <= 6) {
+            return ['upper' => $orderedIndices, 'main' => []];
         }
 
-        $upperCount = (int) ceil(count($shuffledIndices) / 2);
+        $upper = [];
+        $main = [];
+        foreach ($orderedIndices as $position => $assetIndex) {
+            if ($position % 2 === 0) {
+                $upper[] = $assetIndex;
+            } else {
+                $main[] = $assetIndex;
+            }
+        }
 
         return [
-            'upper' => array_slice($shuffledIndices, 0, $upperCount),
-            'main' => array_slice($shuffledIndices, $upperCount),
+            'upper' => $upper,
+            'main' => $main,
         ];
     }
 

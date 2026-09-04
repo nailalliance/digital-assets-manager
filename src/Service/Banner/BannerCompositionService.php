@@ -11,7 +11,7 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class BannerCompositionService
 {
-    public const RENDERER_VERSION = 'v9-tier-interlock';
+    public const RENDERER_VERSION = 'v10-input-order';
 
     public function __construct(
         private readonly Filesystem $filesystem,

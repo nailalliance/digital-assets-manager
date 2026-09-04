@@ -32,6 +32,19 @@ final class BannerPlacementEngineTest extends TestCase
     }
 
     #[DataProvider('layoutAndCountProvider')]
+    public function testInputAssetOrderIsPreservedFromLeftToRight(string $layoutName, int $count): void
+    {
+        $layout = $this->layouts->get($layoutName);
+        $placements = $this->engine->calculate($this->dimensions($count), $layout, 6917);
+        usort($placements, static fn (BannerPlacement $a, BannerPlacement $b): int => $a->centerX <=> $b->centerX);
+
+        $this->assertSame(
+            range(0, $count - 1),
+            array_map(static fn (BannerPlacement $placement): int => $placement->assetIndex, $placements)
+        );
+    }
+
+    #[DataProvider('layoutAndCountProvider')]
     public function testEveryUprightBottleRemainsInsideItsStagingBounds(string $layoutName, int $count): void
     {
         $layout = $this->layouts->get($layoutName);

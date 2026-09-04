@@ -36,7 +36,7 @@ curl --request POST \
   --header 'Content-Type: application/json' \
   --data '{"asset_ids":[123,456],"layout":"mobile","format":"webp"}' \
   --output banner-mobile.webp \
-  https://mynailalliance.com/api/v2/banner-compositions
+  https://mynailalliancedigitalassets.com/api/v2/banner-compositions
 ```
 
 ## Output geometry
@@ -47,7 +47,7 @@ Mobile output is `1080×1080`. It uses an art-directed crop from the right side 
 
 The renderer treats the stone ledges as explicit support planes. Bottle bottoms are anchored to configured contact lines. Reflections are vertically flipped, compressed, blurred, faded, and clipped to the horizontal stone surface, while shadows use a consistent upper-left light source.
 
-All bottles remain vertically upright, use one identical rendered height, and target 150% of the original base scale. On desktop, compositions containing six or fewer products use only the upper platform. Larger compositions alternate strictly between upper and lower platforms from left to right. Same-level bottles retain full-body clearance; alternating tiers use the narrower cap width for safe interlocking, reducing excess horizontal distance without obscuring either bottle body. At high asset counts, the complete group is proportionally fitted to the staging width.
+All bottles remain vertically upright, use one identical rendered height, and target 150% of the original base scale. Bottles always appear from left to right in the exact order of `asset_ids` in the request. On desktop, compositions containing six or fewer products use only the upper platform. Larger compositions alternate strictly between upper and lower platforms from left to right without changing asset order. Same-level bottles retain full-body clearance; alternating tiers use the narrower cap width for safe interlocking, reducing excess horizontal distance without obscuring either bottle body. At high asset counts, the complete group is proportionally fitted to the staging width.
 
 The rainbow reference scene is illuminated from the front-left. Cast shadows therefore project toward the back-right as soft, cool-gray tapered shapes, while a restrained white specular glare extends all the way to the foreground edge. The foreground treatment is a color-bearing, vertically compressed mirror image of the bottle; only a thin, low-opacity ambient-occlusion line remains at the physical contact point. Every reflection, glare, and shadow layer is clipped precisely at its supporting ledge edge, so no effect spills onto the vertical stone face.
 
