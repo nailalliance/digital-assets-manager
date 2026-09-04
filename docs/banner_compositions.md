@@ -49,7 +49,7 @@ The renderer treats the stone ledges as explicit support planes. Bottle bottoms 
 
 All bottles remain vertically upright, use one identical rendered height, and target 150% of the original base scale. Bottles assigned to the same platform also share one exact contact line, keeping their bottoms aligned. The foreground row sits lower on the stone surface. The placement engine reserves a positive horizontal gap between every pair of products across all platforms, so one bottle can never obscure another. At high asset counts, the complete group is proportionally fitted to the staging width instead of being overlapped.
 
-The rainbow reference scene is lit from the upper left. Cast shadows therefore project toward the lower right as soft, cool-gray tapered shapes. Their length scales with bottle width, their depth is constrained by the available white-stone plane, and both cast and contact shadows are clipped to the supporting surface.
+The rainbow reference scene is illuminated from the front-left. Cast shadows therefore project toward the back-right as soft, cool-gray tapered shapes, while a restrained white specular glare extends toward the foreground. Contact shadows are tighter and darker directly beneath each bottle to eliminate a floating appearance. Every reflection, glare, and shadow layer is clipped a few pixels before its supporting ledge edge, so the foreground-row glow cannot spill onto the vertical stone face.
 
 ## Response headers
 

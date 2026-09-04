@@ -5,6 +5,7 @@ namespace App\Tests\Service\Banner;
 use App\Entity\Assets\Assets;
 use App\Service\Banner\BannerCompositionService;
 use App\Service\Banner\BannerLayoutCatalog;
+use App\Service\Banner\BannerPlacement;
 use App\Service\Banner\BannerPlacementEngine;
 use App\Service\Banner\ProductCutoutService;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -62,6 +63,23 @@ final class BannerCompositionServiceTest extends TestCase
             foreach ($samplePoints as [$x, $y]) {
                 $this->assertPixelsApproximatelyEqual($background, $output, $x, $y);
             }
+
+            // The foreground lighting layers must stop before the ledge edge.
+            $placements = (new BannerPlacementEngine())->calculate(
+                array_fill(0, 3, ['width' => 120, 'height' => 320]),
+                $layout,
+                7755
+            );
+            foreach ($placements as $placement) {
+                if ($placement->surface === 'main') {
+                    $this->assertPixelsApproximatelyEqual(
+                        $background,
+                        $output,
+                        $placement->centerX,
+                        $layout->surface('main')['surfaceBottom'] + 6
+                    );
+                }
+            }
         } finally {
             $prototype->clear();
             $background?->clear();
@@ -96,6 +114,39 @@ final class BannerCompositionServiceTest extends TestCase
         } finally {
             $reflection?->clear();
             $bottle->clear();
+        }
+    }
+
+    public function testShadowProjectsBackWhileGlareProjectsForward(): void
+    {
+        $service = (new \ReflectionClass(BannerCompositionService::class))->newInstanceWithoutConstructor();
+        $shadowMethod = new \ReflectionMethod(BannerCompositionService::class, 'addCastShadow');
+        $shadowMethod->setAccessible(true);
+        $glareMethod = new \ReflectionMethod(BannerCompositionService::class, 'addSurfaceGlare');
+        $glareMethod->setAccessible(true);
+        $shadowLayer = new \Imagick();
+        $shadowLayer->newImage(400, 240, new \ImagickPixel('transparent'), 'png');
+        $glareLayer = clone $shadowLayer;
+        $bottle = new \Imagick();
+        $bottle->newImage(80, 180, new \ImagickPixel('white'), 'png');
+        $placement = new BannerPlacement(0, 'main', 180, 0.0, 140, 160, 80, 180, 1);
+        $item = ['image' => $bottle, 'placement' => $placement, 'x' => 100, 'y' => -20];
+
+        try {
+            $shadowMethod->invoke($service, $shadowLayer, $item, 100);
+            $glareMethod->invoke($service, $glareLayer, $item, 200);
+
+            $shadowBehind = $this->meanAlpha($shadowLayer, 80, 120, 180, 40);
+            $shadowInFront = $this->meanAlpha($shadowLayer, 80, 161, 180, 39);
+            $glareBehind = $this->meanAlpha($glareLayer, 80, 120, 180, 40);
+            $glareInFront = $this->meanAlpha($glareLayer, 80, 161, 180, 39);
+
+            $this->assertGreaterThan($shadowInFront, $shadowBehind);
+            $this->assertGreaterThan($glareBehind, $glareInFront);
+        } finally {
+            $bottle->clear();
+            $glareLayer->clear();
+            $shadowLayer->clear();
         }
     }
 
@@ -177,6 +228,19 @@ final class BannerCompositionServiceTest extends TestCase
 
         foreach (['r', 'g', 'b'] as $channel) {
             $this->assertEqualsWithDelta($expectedColor[$channel], $actualColor[$channel], 0.04);
+        }
+    }
+
+    private function meanAlpha(\Imagick $image, int $x, int $y, int $width, int $height): float
+    {
+        $sample = clone $image;
+
+        try {
+            $sample->cropImage($width, $height, $x, $y);
+
+            return (float) $sample->getImageChannelMean(\Imagick::CHANNEL_ALPHA)['mean'];
+        } finally {
+            $sample->clear();
         }
     }
 }

@@ -41,12 +41,12 @@ final class BannerLayoutCatalog
                 'main' => [
                     // Effects are intentionally clipped at x=1000. The right
                     // side beginning at x=1056 remains pristine for HTML text.
-                    'polygon' => [[0, 468], [1000, 468], [1000, 522], [0, 522]],
+                    'polygon' => [[0, 468], [1000, 468], [1000, 518], [0, 518]],
                     'stageLeft' => 28,
                     'stageRight' => 980,
                     'contactMin' => 500,
                     'contactMax' => 512,
-                    'surfaceBottom' => 522,
+                    'surfaceBottom' => 518,
                 ],
             ],
         );
@@ -64,12 +64,12 @@ final class BannerLayoutCatalog
             compositionTop: 540,
             surfaces: [
                 'main' => [
-                    'polygon' => [[0, 786], [1080, 786], [1080, 936], [0, 936]],
+                    'polygon' => [[0, 786], [1080, 786], [1080, 932], [0, 932]],
                     'stageLeft' => 24,
                     'stageRight' => 1056,
                     'contactMin' => 895,
                     'contactMax' => 920,
-                    'surfaceBottom' => 936,
+                    'surfaceBottom' => 932,
                 ],
             ],
         );
