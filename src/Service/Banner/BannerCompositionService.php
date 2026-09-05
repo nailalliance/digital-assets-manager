@@ -11,7 +11,7 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class BannerCompositionService
 {
-    public const RENDERER_VERSION = 'v12-open-graph-card';
+    public const RENDERER_VERSION = 'v13-open-graph-desktop-panel';
     private const GOTHAM_BOOK_FONT = __DIR__ . '/../../../assets/fonts/Gotham/Gotham-Book.otf';
     private const GOTHAM_BOLD_FONT = __DIR__ . '/../../../assets/fonts/Gotham/Gotham-Bold.otf';
 
@@ -55,10 +55,10 @@ class BannerCompositionService
             ));
         }
         $pageTitle = $isOpenGraph ? $this->normalizeOpenGraphTitle($pageTitle) : null;
-        // OG embeds the exact established square mobile composition in its
-        // image panel. Desktop and mobile still use their original paths.
+        // OG reuses the product staging area from the established desktop
+        // composition. Desktop and mobile still use their original paths.
         $compositionLayout = $isOpenGraph
-            ? $this->layoutCatalog->get(BannerLayoutCatalog::MOBILE)
+            ? $this->layoutCatalog->get(BannerLayoutCatalog::DESKTOP)
             : $requestedLayout;
         $startedAt = microtime(true);
         $cutouts = [];
@@ -187,7 +187,7 @@ class BannerCompositionService
     }
 
     private function createOpenGraphCard(
-        \Imagick $mobileComposition,
+        \Imagick $desktopComposition,
         \Imagick $firstBottle,
         string $pageTitle,
         BannerLayout $layout
@@ -196,28 +196,27 @@ class BannerCompositionService
         $card = new \Imagick();
         $card->newImage($layout->width, $layout->height, new \ImagickPixel('#f7f7f4'), 'png');
         $card->setImageColorspace(\Imagick::COLORSPACE_SRGB);
-        $panel = clone $mobileComposition;
-        $mask = $this->transparentCanvasDimensions(520, 520);
-        $accent = new \ImagickDraw();
+        $panel = clone $desktopComposition;
+        $panelWidth = 540;
+        $desktopStageWidth = 1056;
+        $panelHeight = (int) round($panelWidth * $panel->getImageHeight() / $desktopStageWidth);
+        $panelX = 640;
+        $panelY = (int) round(($layout->height - $panelHeight) / 2);
+        $mask = $this->transparentCanvasDimensions($panelWidth, $panelHeight);
         $maskDraw = new \ImagickDraw();
 
         try {
-            // The slim Gelish-orange offset outline echoes the supplied card
-            // reference without competing with the product image.
-            $accent->setFillColor(new \ImagickPixel('transparent'));
-            $accent->setStrokeColor(new \ImagickPixel('#c85f3f'));
-            $accent->setStrokeWidth(2.0);
-            $accent->roundRectangle(651, 64, 1178, 587, 31, 31);
-            $card->drawImage($accent);
-
-            $panel->resizeImage(520, 520, \Imagick::FILTER_LANCZOS, 1.0, false);
+            // The requested crop is the complete left-hand desktop product
+            // stage, ending where the desktop HTML text-safe area begins.
+            $panel->cropImage($desktopStageWidth, $panel->getImageHeight(), 0, 0);
             $panel->setImagePage(0, 0, 0, 0);
+            $panel->resizeImage($panelWidth, $panelHeight, \Imagick::FILTER_LANCZOS, 1.0, false);
             $panel->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
             $maskDraw->setFillColor(new \ImagickPixel('white'));
-            $maskDraw->roundRectangle(0, 0, 519, 519, 31, 31);
+            $maskDraw->roundRectangle(0, 0, $panelWidth - 1, $panelHeight - 1, 24, 24);
             $mask->drawImage($maskDraw);
             $panel->compositeImage($mask, \Imagick::COMPOSITE_DSTIN, 0, 0);
-            $card->compositeImage($panel, \Imagick::COMPOSITE_OVER, 640, 54);
+            $card->compositeImage($panel, \Imagick::COMPOSITE_OVER, $panelX, $panelY);
 
             $this->drawOpenGraphBrand($card, $firstBottle);
             $this->drawOpenGraphTitle($card, $pageTitle . ' | Gelish');
@@ -229,7 +228,6 @@ class BannerCompositionService
             throw $exception;
         } finally {
             $maskDraw->clear();
-            $accent->clear();
             $mask->clear();
             $panel->clear();
         }
@@ -310,7 +308,13 @@ class BannerCompositionService
             }
 
             $lineHeight = (int) round($selectedSize * 1.22);
-            $baseline = 184 + $selectedSize;
+            $metrics = $card->queryFontMetrics($draw, 'Ag');
+            $blockHeight = ($metrics['ascender'] - $metrics['descender'])
+                + (count($selectedLines) - 1) * $lineHeight;
+            // Gotham's visible glyph bounds sit slightly above its nominal
+            // line box. Distribute the optical correction across wrapped lines.
+            $opticalCenter = 315 + 3 / count($selectedLines);
+            $baseline = $opticalCenter - $blockHeight / 2 + $metrics['ascender'];
             foreach ($selectedLines as $lineNumber => $line) {
                 $card->annotateImage($draw, 54, $baseline + $lineNumber * $lineHeight, 0, $line);
             }
@@ -336,7 +340,7 @@ class BannerCompositionService
             $card->annotateImage(
                 $draw,
                 177 - $metrics['textWidth'] / 2,
-                533 + ($metrics['ascender'] - $metrics['descender']) / 2 - 3,
+                524 + $metrics['ascender'] / 2,
                 0,
                 'BUY NOW'
             );

@@ -1,6 +1,6 @@
 # Banner composition endpoint
 
-The banner composition endpoint builds an image-only product scene from DAM JPEG assets. Headlines, calls to action, and other typography remain the responsibility of the frontend.
+The banner composition endpoint builds product scenes from DAM JPEG assets. Desktop and mobile outputs are image-only; the Open Graph output is a complete social card containing its own title and call to action.
 
 ## Request
 
@@ -57,7 +57,7 @@ Desktop output is `1920×600`. Products, shadows, and reflections are confined t
 
 Mobile output is `1080×1080`. It uses an art-directed crop from the right side of the rainbow-and-white-stone background. The entire top half (`y=0–539`) remains free of products for HTML text, and the product composition is confined to the bottom half.
 
-Open Graph output is exactly `1200×630`. It is a Gotham-set social card based on the supplied Gelish reference: the left panel contains the `Color Plus` label, `<page_title> | Gelish`, and a black pill-shaped `BUY NOW` button. The date and secondary event caption are intentionally omitted. The right panel embeds the complete square mobile composition with rounded corners and a restrained Gelish-orange offset outline.
+Open Graph output is exactly `1200×630`. It is a Gotham-set social card based on the supplied Gelish reference: the left panel contains the `Color Plus` label, a vertically centered `<page_title> | Gelish`, and a black pill-shaped `BUY NOW` button with a vertically centered label. The date and secondary event caption are intentionally omitted. The right panel uses a rounded landscape crop of the desktop product staging area without a decorative outline.
 
 The renderer treats the stone ledges as explicit support planes. Bottle bottoms are anchored to configured contact lines. Reflections are vertically flipped, compressed, blurred, faded, and clipped to the horizontal stone surface, while shadows use a consistent upper-left light source.
 

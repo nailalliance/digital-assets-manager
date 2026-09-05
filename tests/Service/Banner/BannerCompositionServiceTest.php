@@ -143,6 +143,126 @@ final class BannerCompositionServiceTest extends TestCase
         yield 'twelve bottles' => [12];
     }
 
+    public function testOpenGraphUsesTheDesktopProductStageWithoutTheOffsetOutline(): void
+    {
+        $prototype = $this->productImage();
+        $extractor = $this->createMock(ProductCutoutService::class);
+        $extractor
+            ->expects($this->exactly(10))
+            ->method('extract')
+            ->willReturnCallback(static fn (): \Imagick => clone $prototype);
+        $service = new BannerCompositionService(
+            new Filesystem(),
+            $extractor,
+            new BannerLayoutCatalog(),
+            new BannerPlacementEngine(),
+            new NullLogger(),
+            $this->backgroundPath
+        );
+        $desktop = new \Imagick();
+        $openGraph = new \Imagick();
+        $expectedPanel = null;
+        $actualPanel = null;
+        $difference = null;
+
+        try {
+            $desktop->readImageBlob($service->render(
+                $this->assets(5),
+                BannerLayoutCatalog::DESKTOP,
+                'webp',
+                9005
+            ));
+            $openGraph->readImageBlob($service->render(
+                $this->assets(5),
+                BannerLayoutCatalog::OG,
+                'webp',
+                9005,
+                'Fun Fest'
+            ));
+
+            $expectedPanel = clone $desktop;
+            $expectedPanel->cropImage(1056, 600, 0, 0);
+            $expectedPanel->setImagePage(0, 0, 0, 0);
+            $expectedPanel->resizeImage(540, 307, \Imagick::FILTER_LANCZOS, 1.0, false);
+            $expectedPanel->cropImage(492, 259, 24, 24);
+            $expectedPanel->setImagePage(0, 0, 0, 0);
+
+            $actualPanel = clone $openGraph;
+            $actualPanel->cropImage(492, 259, 664, 186);
+            $actualPanel->setImagePage(0, 0, 0, 0);
+
+            [$difference, $metric] = $expectedPanel->compareImages(
+                $actualPanel,
+                \Imagick::METRIC_ROOTMEANSQUAREDERROR
+            );
+            $this->assertLessThan(0.08, $metric);
+
+            $formerOutlinePixel = $openGraph->getImagePixelColor(651, 64)->getColor(true);
+            $this->assertEqualsWithDelta(247 / 255, $formerOutlinePixel['r'], 0.04);
+            $this->assertEqualsWithDelta(247 / 255, $formerOutlinePixel['g'], 0.04);
+            $this->assertEqualsWithDelta(244 / 255, $formerOutlinePixel['b'], 0.04);
+        } finally {
+            $difference?->clear();
+            $actualPanel?->clear();
+            $expectedPanel?->clear();
+            $openGraph->clear();
+            $desktop->clear();
+            $prototype->clear();
+        }
+    }
+
+    #[DataProvider('openGraphTitleProvider')]
+    public function testOpenGraphTitleAndButtonLabelAreVerticallyCentered(string $title): void
+    {
+        $service = (new \ReflectionClass(BannerCompositionService::class))->newInstanceWithoutConstructor();
+        $titleMethod = new \ReflectionMethod(BannerCompositionService::class, 'drawOpenGraphTitle');
+        $titleMethod->setAccessible(true);
+        $buttonMethod = new \ReflectionMethod(BannerCompositionService::class, 'drawOpenGraphButton');
+        $buttonMethod->setAccessible(true);
+        $card = new \Imagick();
+        $card->newImage(1200, 630, new \ImagickPixel('#f7f7f4'), 'png');
+
+        try {
+            $titleMethod->invoke($service, $card, $title);
+            $buttonMethod->invoke($service, $card);
+
+            $titleBounds = $this->matchingPixelBounds(
+                $card,
+                40,
+                180,
+                620,
+                440,
+                static fn (array $color): bool => $color['r'] < 80
+                    && $color['g'] < 80
+                    && $color['b'] < 80
+            );
+            $buttonTextBounds = $this->matchingPixelBounds(
+                $card,
+                80,
+                495,
+                275,
+                552,
+                static fn (array $color): bool => $color['r'] > 220
+                    && $color['g'] > 220
+                    && $color['b'] > 220
+            );
+
+            $this->assertEqualsWithDelta(315, ($titleBounds['top'] + $titleBounds['bottom']) / 2, 2.0);
+            $this->assertEqualsWithDelta(524, ($buttonTextBounds['top'] + $buttonTextBounds['bottom']) / 2, 2.0);
+        } finally {
+            $card->clear();
+        }
+    }
+
+    /** @return iterable<string, array{0: string}> */
+    public static function openGraphTitleProvider(): iterable
+    {
+        yield 'single line' => ['Fun Fest | Gelish'];
+        yield 'four lines' => [
+            'The Perfect Color Plus Collection for Every Celebration and Unforgettable Moment | Gelish',
+        ];
+    }
+
     public function testReflectionIsCompressedAndFadesAwayFromTheContactPoint(): void
     {
         $service = (new \ReflectionClass(BannerCompositionService::class))->newInstanceWithoutConstructor();
@@ -294,5 +414,37 @@ final class BannerCompositionServiceTest extends TestCase
         } finally {
             $sample->clear();
         }
+    }
+
+    /**
+     * @param callable(array{r: int, g: int, b: int, a: int}): bool $matches
+     * @return array{top: int, bottom: int}
+     */
+    private function matchingPixelBounds(
+        \Imagick $image,
+        int $left,
+        int $top,
+        int $right,
+        int $bottom,
+        callable $matches
+    ): array {
+        $matchingTop = null;
+        $matchingBottom = null;
+
+        for ($y = $top; $y <= $bottom; ++$y) {
+            for ($x = $left; $x <= $right; ++$x) {
+                if (!$matches($image->getImagePixelColor($x, $y)->getColor())) {
+                    continue;
+                }
+
+                $matchingTop ??= $y;
+                $matchingBottom = $y;
+            }
+        }
+
+        $this->assertNotNull($matchingTop, 'Expected the rendered text to contain matching pixels.');
+        $this->assertNotNull($matchingBottom, 'Expected the rendered text to contain matching pixels.');
+
+        return ['top' => $matchingTop, 'bottom' => $matchingBottom];
     }
 }
