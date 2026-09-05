@@ -40,7 +40,7 @@ final class BannerCompositionCacheServiceTest extends TestCase
         $renderer
             ->expects($this->once())
             ->method('render')
-            ->with([$asset], 'desktop', 'webp', 99)
+            ->with([$asset], 'desktop', 'webp', 99, null)
             ->willReturn('rendered-webp');
 
         $cache = new BannerCompositionCacheService(
@@ -81,6 +81,32 @@ final class BannerCompositionCacheServiceTest extends TestCase
 
         $first = $cache->getOrCreate([$asset], 'desktop', 'webp', 1);
         $second = $cache->getOrCreate([$asset], 'desktop', 'webp', 2);
+
+        $this->assertNotSame($first->path, $second->path);
+        $this->assertNotSame($first->etag, $second->etag);
+    }
+
+    public function testOpenGraphPageTitleChangesTheCacheKey(): void
+    {
+        $firstAsset = $this->asset(91);
+        $secondAsset = $this->asset(92);
+        $renderer = $this->createMock(BannerCompositionService::class);
+        $renderer->method('backgroundFingerprint')->willReturn([
+            'path' => 'surface.jpg',
+            'size' => 100,
+            'mtime' => 200,
+            'renderer' => 'v1',
+        ]);
+        $renderer->method('render')->willReturn('rendered-webp');
+        $cache = new BannerCompositionCacheService(
+            $this->filesystem,
+            $renderer,
+            new LockFactory(new InMemoryStore()),
+            $this->temporaryDirectory
+        );
+
+        $first = $cache->getOrCreate([$firstAsset, $secondAsset], 'og', 'webp', 8, 'First Campaign');
+        $second = $cache->getOrCreate([$firstAsset, $secondAsset], 'og', 'webp', 8, 'Second Campaign');
 
         $this->assertNotSame($first->path, $second->path);
         $this->assertNotSame($first->etag, $second->etag);

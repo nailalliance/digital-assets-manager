@@ -6,19 +6,21 @@ final class BannerLayoutCatalog
 {
     public const DESKTOP = 'desktop';
     public const MOBILE = 'mobile';
+    public const OG = 'og';
 
     public function get(string $name): BannerLayout
     {
         return match ($name) {
             self::DESKTOP => $this->desktop(),
             self::MOBILE => $this->mobile(),
-            default => throw new \InvalidArgumentException('Layout must be desktop or mobile.'),
+            self::OG => $this->openGraph(),
+            default => throw new \InvalidArgumentException('Layout must be desktop, mobile, or og.'),
         };
     }
 
     public function supports(string $name): bool
     {
-        return in_array($name, [self::DESKTOP, self::MOBILE], true);
+        return in_array($name, [self::DESKTOP, self::MOBILE, self::OG], true);
     }
 
     private function desktop(): BannerLayout
@@ -72,6 +74,21 @@ final class BannerLayoutCatalog
                     'surfaceBottom' => 936,
                 ],
             ],
+        );
+    }
+
+    private function openGraph(): BannerLayout
+    {
+        return new BannerLayout(
+            name: self::OG,
+            width: 1200,
+            height: 630,
+            // OG is a card shell. Its image panel is rendered by reusing the
+            // complete mobile layout rather than defining another bottle stage.
+            sourceCrop: null,
+            compositionTop: 0,
+            surfaces: [],
+            minimumAssetCount: 2,
         );
     }
 }

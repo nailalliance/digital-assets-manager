@@ -20,8 +20,12 @@ final class BannerPlacementEngine
     public function calculate(array $assetDimensions, BannerLayout $layout, int $seed): array
     {
         $assetCount = count($assetDimensions);
-        if ($assetCount < 1 || $assetCount > 12) {
-            throw new BannerInputException('A banner requires between 1 and 12 assets.');
+        if ($assetCount < $layout->minimumAssetCount || $assetCount > 12) {
+            throw new BannerInputException(sprintf(
+                'The %s layout requires between %d and 12 assets.',
+                $layout->name,
+                $layout->minimumAssetCount
+            ));
         }
 
         foreach ($assetDimensions as $dimensions) {

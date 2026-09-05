@@ -190,6 +190,7 @@ final class BannerPlacementEngineTest extends TestCase
                 yield $layout . '-' . $count => [$layout, $count];
             }
         }
+
     }
 
     /** @return iterable<string, array{0: int}> */

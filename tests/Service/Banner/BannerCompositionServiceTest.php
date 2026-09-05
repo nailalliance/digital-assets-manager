@@ -93,6 +93,56 @@ final class BannerCompositionServiceTest extends TestCase
         yield 'mobile' => [BannerLayoutCatalog::MOBILE];
     }
 
+    #[DataProvider('openGraphAssetCountProvider')]
+    public function testOpenGraphWebpContract(int $assetCount): void
+    {
+        $prototype = $this->productImage();
+        $extractor = $this->createMock(ProductCutoutService::class);
+        $extractor
+            ->expects($this->exactly($assetCount))
+            ->method('extract')
+            ->willReturnCallback(static fn (): \Imagick => clone $prototype);
+        $service = new BannerCompositionService(
+            new Filesystem(),
+            $extractor,
+            new BannerLayoutCatalog(),
+            new BannerPlacementEngine(),
+            new NullLogger(),
+            $this->backgroundPath
+        );
+        $output = new \Imagick();
+
+        try {
+            $binary = $service->render(
+                $this->assets($assetCount),
+                BannerLayoutCatalog::OG,
+                'webp',
+                8800 + $assetCount,
+                'Your Color Plus Edit'
+            );
+            $this->assertSame('RIFF', substr($binary, 0, 4));
+            $this->assertSame('WEBP', substr($binary, 8, 4));
+            $this->assertLessThan(20_000_000, strlen($binary));
+
+            $output->readImageBlob($binary);
+            $this->assertSame('WEBP', $output->getImageFormat());
+            $this->assertSame(1200, $output->getImageWidth());
+            $this->assertSame(630, $output->getImageHeight());
+            $this->assertFalse($output->getImageAlphaChannel());
+        } finally {
+            $output->clear();
+            $prototype->clear();
+        }
+    }
+
+    /** @return iterable<string, array{0: int}> */
+    public static function openGraphAssetCountProvider(): iterable
+    {
+        yield 'two bottles' => [2];
+        yield 'seven bottles' => [7];
+        yield 'twelve bottles' => [12];
+    }
+
     public function testReflectionIsCompressedAndFadesAwayFromTheContactPoint(): void
     {
         $service = (new \ReflectionClass(BannerCompositionService::class))->newInstanceWithoutConstructor();

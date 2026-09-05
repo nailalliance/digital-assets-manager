@@ -11,7 +11,9 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class BannerCompositionService
 {
-    public const RENDERER_VERSION = 'v10-input-order';
+    public const RENDERER_VERSION = 'v12-open-graph-card';
+    private const GOTHAM_BOOK_FONT = __DIR__ . '/../../../assets/fonts/Gotham/Gotham-Book.otf';
+    private const GOTHAM_BOLD_FONT = __DIR__ . '/../../../assets/fonts/Gotham/Gotham-Bold.otf';
 
     public function __construct(
         private readonly Filesystem $filesystem,
@@ -27,7 +29,13 @@ class BannerCompositionService
     /**
      * @param list<Assets> $assets
      */
-    public function render(array $assets, string $layoutName, string $format, int $seed): string
+    public function render(
+        array $assets,
+        string $layoutName,
+        string $format,
+        int $seed,
+        ?string $pageTitle = null
+    ): string
     {
         if (!class_exists(\Imagick::class)) {
             throw new \RuntimeException('Imagick is not installed.');
@@ -37,14 +45,28 @@ class BannerCompositionService
             throw new BannerInputException('Format must be webp or jpg.');
         }
 
-        $layout = $this->layoutCatalog->get($layoutName);
+        $requestedLayout = $this->layoutCatalog->get($layoutName);
+        $isOpenGraph = $layoutName === BannerLayoutCatalog::OG;
+        if (count($assets) < $requestedLayout->minimumAssetCount) {
+            throw new BannerInputException(sprintf(
+                'The %s layout requires between %d and 12 assets.',
+                $requestedLayout->name,
+                $requestedLayout->minimumAssetCount
+            ));
+        }
+        $pageTitle = $isOpenGraph ? $this->normalizeOpenGraphTitle($pageTitle) : null;
+        // OG embeds the exact established square mobile composition in its
+        // image panel. Desktop and mobile still use their original paths.
+        $compositionLayout = $isOpenGraph
+            ? $this->layoutCatalog->get(BannerLayoutCatalog::MOBILE)
+            : $requestedLayout;
         $startedAt = microtime(true);
         $cutouts = [];
         $prepared = [];
         $canvas = null;
 
         try {
-            $canvas = $this->createBackgroundCanvas($layout);
+            $canvas = $this->createBackgroundCanvas($compositionLayout);
 
             foreach ($assets as $asset) {
                 $sourcePath = $asset->getFilePath();
@@ -62,13 +84,17 @@ class BannerCompositionService
                 ],
                 $cutouts
             );
-            $placements = $this->placementEngine->calculate($dimensions, $layout, $seed);
+            $placements = $this->placementEngine->calculate($dimensions, $compositionLayout, $seed);
 
             foreach ($placements as $placement) {
-                $prepared[] = $this->preparePlacedBottle($cutouts[$placement->assetIndex], $placement, $layout);
+                $prepared[] = $this->preparePlacedBottle(
+                    $cutouts[$placement->assetIndex],
+                    $placement,
+                    $compositionLayout
+                );
             }
 
-            foreach (array_keys($layout->surfaces) as $surfaceName) {
+            foreach (array_keys($compositionLayout->surfaces) as $surfaceName) {
                 $surfaceItems = array_values(array_filter(
                     $prepared,
                     static fn (array $item): bool => $item['placement']->surface === $surfaceName
@@ -81,7 +107,18 @@ class BannerCompositionService
                     $surfaceItems,
                     static fn (array $a, array $b): int => $a['placement']->zIndex <=> $b['placement']->zIndex
                 );
-                $this->renderSurfaceLayer($canvas, $layout, $surfaceName, $surfaceItems);
+                $this->renderSurfaceLayer($canvas, $compositionLayout, $surfaceName, $surfaceItems);
+            }
+
+            if ($isOpenGraph) {
+                $openGraphCanvas = $this->createOpenGraphCard(
+                    $canvas,
+                    $cutouts[0],
+                    $pageTitle,
+                    $requestedLayout
+                );
+                $canvas->clear();
+                $canvas = $openGraphCanvas;
             }
 
             $binary = $this->encode($canvas, $format);
@@ -118,7 +155,7 @@ class BannerCompositionService
         }
     }
 
-    /** @return array{path: string, size: int, mtime: int, renderer: string} */
+    /** @return array<string, mixed> */
     public function backgroundFingerprint(): array
     {
         $size = @filesize($this->backgroundPath);
@@ -129,6 +166,248 @@ class BannerCompositionService
             'size' => is_int($size) ? $size : 0,
             'mtime' => is_int($mtime) ? $mtime : 0,
             'renderer' => self::RENDERER_VERSION,
+            'fonts' => [
+                $this->fileFingerprint(self::GOTHAM_BOOK_FONT),
+                $this->fileFingerprint(self::GOTHAM_BOLD_FONT),
+            ],
+        ];
+    }
+
+    private function normalizeOpenGraphTitle(?string $pageTitle): string
+    {
+        $normalized = is_string($pageTitle)
+            ? preg_replace('/\s+/u', ' ', trim($pageTitle))
+            : null;
+
+        if (!is_string($normalized) || $normalized === '') {
+            throw new BannerInputException('page_title is required for the og layout.');
+        }
+
+        return $normalized;
+    }
+
+    private function createOpenGraphCard(
+        \Imagick $mobileComposition,
+        \Imagick $firstBottle,
+        string $pageTitle,
+        BannerLayout $layout
+    ): \Imagick {
+        $this->assertOpenGraphFontsAvailable();
+        $card = new \Imagick();
+        $card->newImage($layout->width, $layout->height, new \ImagickPixel('#f7f7f4'), 'png');
+        $card->setImageColorspace(\Imagick::COLORSPACE_SRGB);
+        $panel = clone $mobileComposition;
+        $mask = $this->transparentCanvasDimensions(520, 520);
+        $accent = new \ImagickDraw();
+        $maskDraw = new \ImagickDraw();
+
+        try {
+            // The slim Gelish-orange offset outline echoes the supplied card
+            // reference without competing with the product image.
+            $accent->setFillColor(new \ImagickPixel('transparent'));
+            $accent->setStrokeColor(new \ImagickPixel('#c85f3f'));
+            $accent->setStrokeWidth(2.0);
+            $accent->roundRectangle(651, 64, 1178, 587, 31, 31);
+            $card->drawImage($accent);
+
+            $panel->resizeImage(520, 520, \Imagick::FILTER_LANCZOS, 1.0, false);
+            $panel->setImagePage(0, 0, 0, 0);
+            $panel->setImageAlphaChannel(\Imagick::ALPHACHANNEL_SET);
+            $maskDraw->setFillColor(new \ImagickPixel('white'));
+            $maskDraw->roundRectangle(0, 0, 519, 519, 31, 31);
+            $mask->drawImage($maskDraw);
+            $panel->compositeImage($mask, \Imagick::COMPOSITE_DSTIN, 0, 0);
+            $card->compositeImage($panel, \Imagick::COMPOSITE_OVER, 640, 54);
+
+            $this->drawOpenGraphBrand($card, $firstBottle);
+            $this->drawOpenGraphTitle($card, $pageTitle . ' | Gelish');
+            $this->drawOpenGraphButton($card);
+
+            return $card;
+        } catch (\Throwable $exception) {
+            $card->clear();
+            throw $exception;
+        } finally {
+            $maskDraw->clear();
+            $accent->clear();
+            $mask->clear();
+            $panel->clear();
+        }
+    }
+
+    private function drawOpenGraphBrand(\Imagick $card, \Imagick $firstBottle): void
+    {
+        $draw = new \ImagickDraw();
+        $icon = clone $firstBottle;
+
+        try {
+            $draw->setFillColor(new \ImagickPixel('#ffffff'));
+            $draw->circle(78, 78, 102, 78);
+            $card->drawImage($draw);
+
+            $icon->thumbnailImage(18, 38, true, true);
+            $icon->setImagePage(0, 0, 0, 0);
+            $card->compositeImage(
+                $icon,
+                \Imagick::COMPOSITE_OVER,
+                (int) round(78 - $icon->getImageWidth() / 2),
+                (int) round(78 - $icon->getImageHeight() / 2)
+            );
+
+            $draw->setFont(self::GOTHAM_BOLD_FONT);
+            $draw->setFontSize(27);
+            $draw->setFillColor(new \ImagickPixel('#141719'));
+            $card->annotateImage($draw, 116, 88, 0, 'Color Plus');
+        } finally {
+            $icon->clear();
+            $draw->clear();
+        }
+    }
+
+    private function drawOpenGraphTitle(\Imagick $card, string $title): void
+    {
+        $draw = new \ImagickDraw();
+
+        try {
+            $draw->setFont(self::GOTHAM_BOLD_FONT);
+            $draw->setFillColor(new \ImagickPixel('#101315'));
+            $selectedLines = [];
+            $selectedSize = 30;
+
+            for ($fontSize = 50; $fontSize >= 30; $fontSize -= 2) {
+                $draw->setFontSize($fontSize);
+                $lines = $this->wrapText($card, $draw, $title, 550);
+                $allLinesFit = count(array_filter(
+                    $lines,
+                    fn (string $line): bool => $card->queryFontMetrics($draw, $line)['textWidth'] > 550
+                )) === 0;
+                if (count($lines) <= 4 && $allLinesFit) {
+                    $selectedLines = $lines;
+                    $selectedSize = $fontSize;
+                    break;
+                }
+            }
+
+            if ($selectedLines === []) {
+                $draw->setFontSize($selectedSize);
+                $allLines = $this->wrapText($card, $draw, $title, 550);
+                $selectedLines = array_slice($allLines, 0, 4);
+                foreach ($selectedLines as &$line) {
+                    if ($card->queryFontMetrics($draw, $line)['textWidth'] > 550) {
+                        $line = $this->fitLineWithEllipsis($card, $draw, $line, 550);
+                    }
+                }
+                unset($line);
+                if (count($allLines) > 4) {
+                    $lastIndex = count($selectedLines) - 1;
+                    $selectedLines[$lastIndex] = $this->fitLineWithEllipsis(
+                        $card,
+                        $draw,
+                        $selectedLines[$lastIndex],
+                        550
+                    );
+                }
+            }
+
+            $lineHeight = (int) round($selectedSize * 1.22);
+            $baseline = 184 + $selectedSize;
+            foreach ($selectedLines as $lineNumber => $line) {
+                $card->annotateImage($draw, 54, $baseline + $lineNumber * $lineHeight, 0, $line);
+            }
+        } finally {
+            $draw->clear();
+        }
+    }
+
+    private function drawOpenGraphButton(\Imagick $card): void
+    {
+        $draw = new \ImagickDraw();
+
+        try {
+            $draw->setFillColor(new \ImagickPixel('#1e2225'));
+            $draw->roundRectangle(54, 486, 300, 562, 38, 38);
+            $card->drawImage($draw);
+
+            $draw->setFont(self::GOTHAM_BOLD_FONT);
+            $draw->setFontSize(23);
+            $draw->setTextKerning(2.0);
+            $draw->setFillColor(new \ImagickPixel('#ffffff'));
+            $metrics = $card->queryFontMetrics($draw, 'BUY NOW');
+            $card->annotateImage(
+                $draw,
+                177 - $metrics['textWidth'] / 2,
+                533 + ($metrics['ascender'] - $metrics['descender']) / 2 - 3,
+                0,
+                'BUY NOW'
+            );
+        } finally {
+            $draw->clear();
+        }
+    }
+
+    /** @return list<string> */
+    private function wrapText(\Imagick $image, \ImagickDraw $draw, string $text, float $maximumWidth): array
+    {
+        $words = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $lines = [];
+        $line = '';
+
+        foreach ($words as $word) {
+            $candidate = $line === '' ? $word : $line . ' ' . $word;
+            if ($line === '' || $image->queryFontMetrics($draw, $candidate)['textWidth'] <= $maximumWidth) {
+                $line = $candidate;
+                continue;
+            }
+
+            $lines[] = $line;
+            $line = $word;
+        }
+
+        if ($line !== '') {
+            $lines[] = $line;
+        }
+
+        return $lines;
+    }
+
+    private function fitLineWithEllipsis(
+        \Imagick $image,
+        \ImagickDraw $draw,
+        string $line,
+        float $maximumWidth
+    ): string {
+        $characters = preg_split('//u', $line, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        while ($characters !== []) {
+            $candidate = implode('', $characters) . '…';
+            if ($image->queryFontMetrics($draw, $candidate)['textWidth'] <= $maximumWidth) {
+                return $candidate;
+            }
+            array_pop($characters);
+        }
+
+        return '…';
+    }
+
+    private function assertOpenGraphFontsAvailable(): void
+    {
+        foreach ([self::GOTHAM_BOOK_FONT, self::GOTHAM_BOLD_FONT] as $fontPath) {
+            if (!$this->filesystem->exists($fontPath) || !is_readable($fontPath)) {
+                throw new \RuntimeException('The Gotham banner fonts are unavailable.');
+            }
+        }
+    }
+
+    /** @return array{path: string, size: int, mtime: int} */
+    private function fileFingerprint(string $path): array
+    {
+        $size = @filesize($path);
+        $mtime = @filemtime($path);
+
+        return [
+            'path' => basename($path),
+            'size' => is_int($size) ? $size : 0,
+            'mtime' => is_int($mtime) ? $mtime : 0,
         ];
     }
 
@@ -150,7 +429,7 @@ class BannerCompositionService
                 || $background->getImageHeight() < $crop['y'] + $crop['height']
             ) {
                 $background->clear();
-                throw new \RuntimeException('The banner background is smaller than the configured mobile crop.');
+                throw new \RuntimeException('The banner background is smaller than the configured layout crop.');
             }
 
             $background->cropImage($crop['width'], $crop['height'], $crop['x'], $crop['y']);

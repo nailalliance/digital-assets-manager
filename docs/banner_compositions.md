@@ -21,10 +21,11 @@ Content-Type: application/json
 }
 ```
 
-- `asset_ids` must contain 1–12 unique positive integer IDs. Order is significant.
-- `layout` must be `desktop` or `mobile`.
+- `asset_ids` must contain 1–12 unique positive integer IDs. The `og` layout requires at least 2 IDs. Order is significant.
+- `layout` must be `desktop`, `mobile`, or `og`.
 - `format` may be `webp` or `jpg` and defaults to `webp`.
 - `seed` is optional and must be between `0` and `2147483647`. When omitted, a stable seed is derived from the ordered asset IDs and layout.
+- `page_title` is required for `og`, is limited to 160 characters, and should contain the campaign page title without the `| Gelish` suffix. It is ignored by the desktop and mobile layouts.
 
 Every source must be a readable JPEG with a usable embedded Photoshop clipping path. The endpoint never fetches external URLs and never interprets an asset ID as a filesystem path.
 
@@ -39,11 +40,24 @@ curl --request POST \
   https://mynailalliancedigitalassets.com/api/v2/banner-compositions
 ```
 
+Open Graph example:
+
+```bash
+curl --request POST \
+  --header 'X-AUTH-TOKEN: YOUR_TOKEN' \
+  --header 'Content-Type: application/json' \
+  --data '{"asset_ids":[50062,70018],"layout":"og","format":"webp","page_title":"Your Color Plus Edit"}' \
+  --output color-plus-og.webp \
+  https://mynailalliancedigitalassets.com/api/v2/banner-compositions
+```
+
 ## Output geometry
 
 Desktop output is `1920×600`. Products, shadows, and reflections are confined to the left staging area; the right side beginning at approximately `x=1056` remains available for HTML text.
 
 Mobile output is `1080×1080`. It uses an art-directed crop from the right side of the rainbow-and-white-stone background. The entire top half (`y=0–539`) remains free of products for HTML text, and the product composition is confined to the bottom half.
+
+Open Graph output is exactly `1200×630`. It is a Gotham-set social card based on the supplied Gelish reference: the left panel contains the `Color Plus` label, `<page_title> | Gelish`, and a black pill-shaped `BUY NOW` button. The date and secondary event caption are intentionally omitted. The right panel embeds the complete square mobile composition with rounded corners and a restrained Gelish-orange offset outline.
 
 The renderer treats the stone ledges as explicit support planes. Bottle bottoms are anchored to configured contact lines. Reflections are vertically flipped, compressed, blurred, faded, and clipped to the horizontal stone surface, while shadows use a consistent upper-left light source.
 
@@ -64,7 +78,7 @@ X-Banner-Cache: HIT
 Cache-Control: private, max-age=86400
 ```
 
-The cache key includes the layout, format, seed, ordered asset metadata, background metadata, and renderer version. Conditional requests using `If-None-Match` may receive `304 Not Modified`.
+The cache key includes the layout, format, seed, ordered asset metadata, optional OG page title, background/font metadata, and renderer version. Conditional requests using `If-None-Match` may receive `304 Not Modified`.
 
 ## Errors
 

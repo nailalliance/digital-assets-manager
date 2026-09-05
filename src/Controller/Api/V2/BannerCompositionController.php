@@ -43,6 +43,7 @@ final class BannerCompositionController extends AbstractController
         $assetIds = $payload['asset_ids'];
         $layout = $payload['layout'];
         $format = $payload['format'] ?? 'webp';
+        $pageTitle = $layout === BannerLayoutCatalog::OG ? trim($payload['page_title']) : null;
         $requestedSeed = $payload['seed'] ?? null;
         $seed = BannerSeed::resolve($assetIds, $layout, $requestedSeed);
 
@@ -71,7 +72,7 @@ final class BannerCompositionController extends AbstractController
         }
 
         try {
-            $entry = $cacheService->getOrCreate($assets, $layout, $format, $seed);
+            $entry = $cacheService->getOrCreate($assets, $layout, $format, $seed, $pageTitle);
         } catch (AssetSourceNotFoundException $exception) {
             return $this->error($exception->getMessage(), Response::HTTP_NOT_FOUND);
         } catch (BannerInputException $exception) {
@@ -117,7 +118,22 @@ final class BannerCompositionController extends AbstractController
 
         $layout = $payload['layout'] ?? null;
         if (!is_string($layout) || !$layoutCatalog->supports($layout)) {
-            return 'layout must be desktop or mobile.';
+            return 'layout must be desktop, mobile, or og.';
+        }
+        if (count($assetIds) < $layoutCatalog->get($layout)->minimumAssetCount) {
+            return 'asset_ids must contain between 2 and 12 IDs for the og layout.';
+        }
+        if ($layout === BannerLayoutCatalog::OG) {
+            $pageTitle = $payload['page_title'] ?? null;
+            if (!is_string($pageTitle) || trim($pageTitle) === '') {
+                return 'page_title is required for the og layout.';
+            }
+            $titleLength = function_exists('mb_strlen')
+                ? mb_strlen(trim($pageTitle), 'UTF-8')
+                : strlen(trim($pageTitle));
+            if ($titleLength > 160) {
+                return 'page_title must not exceed 160 characters.';
+            }
         }
 
         $format = $payload['format'] ?? 'webp';

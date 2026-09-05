@@ -22,6 +22,7 @@ final readonly class BannerLayout
         public ?array $sourceCrop,
         public int $compositionTop,
         public array $surfaces,
+        public int $minimumAssetCount = 1,
     ) {
     }
 

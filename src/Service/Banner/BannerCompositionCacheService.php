@@ -29,9 +29,10 @@ class BannerCompositionCacheService
         array $assets,
         string $layout,
         string $format,
-        int $seed
+        int $seed,
+        ?string $pageTitle = null
     ): BannerCacheEntry {
-        $fingerprint = $this->fingerprint($assets, $layout, $format, $seed);
+        $fingerprint = $this->fingerprint($assets, $layout, $format, $seed, $pageTitle);
         $etag = hash('sha256', json_encode($fingerprint, JSON_THROW_ON_ERROR));
         $cachePath = sprintf('%s/%s/%s.%s', $this->cacheDirectory, substr($etag, 0, 2), $etag, $format);
 
@@ -55,7 +56,7 @@ class BannerCompositionCacheService
                 return new BannerCacheEntry($cachePath, $etag, $seed, true);
             }
 
-            $binary = $this->compositionService->render($assets, $layout, $format, $seed);
+            $binary = $this->compositionService->render($assets, $layout, $format, $seed, $pageTitle);
             if ($binary === '') {
                 throw new \RuntimeException('Banner rendering returned an empty image.');
             }
@@ -83,7 +84,13 @@ class BannerCompositionCacheService
      * @param list<Assets> $assets
      * @return array<string, mixed>
      */
-    private function fingerprint(array $assets, string $layout, string $format, int $seed): array
+    private function fingerprint(
+        array $assets,
+        string $layout,
+        string $format,
+        int $seed,
+        ?string $pageTitle
+    ): array
     {
         $assetFingerprints = [];
 
@@ -98,13 +105,19 @@ class BannerCompositionCacheService
             ];
         }
 
-        return [
+        $fingerprint = [
             'assets' => $assetFingerprints,
             'layout' => $layout,
             'format' => $format,
             'seed' => $seed,
             'background' => $this->compositionService->backgroundFingerprint(),
         ];
+
+        if ($pageTitle !== null) {
+            $fingerprint['pageTitle'] = $pageTitle;
+        }
+
+        return $fingerprint;
     }
 
     private function isUsableFile(string $path): bool
