@@ -3,6 +3,7 @@
 namespace App\EventListener;
 
 use App\Entity\Assets\Assets;
+use App\Service\SwatchRgbService;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,7 +18,10 @@ use Doctrine\ORM\Events;
 class AssetSyncListener
 {
     private $children = [];
-    public function __construct(private EntityManagerInterface $entityManager) {}
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private SwatchRgbService $swatchRgbService,
+    ) {}
     public function preUpdate(Assets $asset, PreUpdateEventArgs $event): void
     {
         if (!$asset instanceof Assets || $asset->getChildren()->isEmpty()) {
@@ -58,6 +62,8 @@ class AssetSyncListener
             foreach($asset->getTags() as $tag) {
                 $child->addTag($tag);
             }
+
+            $this->swatchRgbService->update($child);
         }
     }
 

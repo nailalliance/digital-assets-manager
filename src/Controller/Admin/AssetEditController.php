@@ -10,6 +10,7 @@ use App\Repository\Assets\BrandsRepository;
 use App\Repository\Assets\ItemCodesRepository;
 use App\Repository\Assets\TagsRepository;
 use App\Service\ImageProcessorService;
+use App\Service\SwatchRgbService;
 use App\Security\TusUploadTokenManager;
 use App\Service\UniqueFilePathGenerator;
 use Doctrine\ORM\EntityManagerInterface;
@@ -34,6 +35,7 @@ class AssetEditController extends AbstractController
         ImageProcessorService $imageProcessor,
         Filesystem $filesystem,
         TusUploadTokenManager $uploadTokenManager,
+        SwatchRgbService $swatchRgbService,
     ): Response
     {
         $form = $this->createForm(AssetType::class, $asset);
@@ -127,6 +129,7 @@ class AssetEditController extends AbstractController
                 }
             }
 
+            $swatchRgbService->update($asset);
             $entityManager->persist($asset);
             $entityManager->flush();
 

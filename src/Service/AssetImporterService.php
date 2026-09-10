@@ -24,7 +24,8 @@ class AssetImporterService
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly Filesystem $filesystem,
-        private readonly ParameterBagInterface $params
+        private readonly ParameterBagInterface $params,
+        private readonly SwatchRgbService $swatchRgbService,
     ) {
         $this->uploadDir = $this->params->get('upload_dir');
         $this->thumbnailDir = $this->params->get('thumbnail_dir');
@@ -97,6 +98,7 @@ class AssetImporterService
                 $this->handleRelationships($asset, Brands::class, 'brand', $data['brand'] ?? null, 'name');
                 $this->handleRelationships($asset, Categories::class, 'category', $data['category'] ?? null, 'name');
                 $this->handleRelationships($asset, Tags::class, 'tag', $data['tag'] ?? null, 'name');
+                $this->swatchRgbService->update($asset, true);
 
                 $this->entityManager->persist($asset);
 

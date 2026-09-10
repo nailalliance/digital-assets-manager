@@ -53,6 +53,10 @@ class Assets
     #[SerializerGroups(['api_v1_asset', 'api_adobe_plugin_detail'])]
     private ?ColorSpaceEnum $colorSpace = ColorSpaceEnum::RGB;
 
+    #[ORM\Column(length: 11, nullable: true)]
+    #[SerializerGroups(['api_v1_asset', 'api_v2_asset', 'api_adobe_plugin_detail'])]
+    private ?string $rgb = null;
+
     #[ORM\Column(enumType: AssetStatusEnum::class, options: ['default' => AssetStatusEnum::ACTIVE])]
     private ?AssetStatusEnum $status = AssetStatusEnum::INACTIVE;
 
@@ -253,6 +257,35 @@ class Assets
         $this->colorSpace = $colorSpace;
 
         return $this;
+    }
+
+    public function getRgb(): ?string
+    {
+        return $this->rgb;
+    }
+
+    public function setRgb(?string $rgb): static
+    {
+        $this->rgb = $rgb;
+
+        return $this;
+    }
+
+    #[SerializerGroups(['api_v1_asset', 'api_v2_asset', 'api_adobe_plugin_detail'])]
+    public function getHex(): ?string
+    {
+        if ($this->rgb === null || !preg_match('/^(\d{1,3}),(\d{1,3}),(\d{1,3})$/', $this->rgb, $matches)) {
+            return null;
+        }
+
+        $channels = array_map('intval', array_slice($matches, 1));
+        foreach ($channels as $channel) {
+            if ($channel < 0 || $channel > 255) {
+                return null;
+            }
+        }
+
+        return sprintf('#%02x%02x%02x', ...$channels);
     }
 
     public function getStatus(): ?AssetStatusEnum

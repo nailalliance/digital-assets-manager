@@ -19,6 +19,8 @@ class AssetController extends AbstractController
             'description' => $asset->getDescription(),
             'mime_type' => $asset->getMimeType(),
             'file_size' => $asset->getFileSize(),
+            'rgb' => $asset->getRgb(),
+            'hex' => $asset->getHex(),
             'created_at' => $asset->getCreatedAt(),
             'download_url' => $this->generateUrl('asset_download', ['id' => $asset->getId()], UrlGeneratorInterface::ABSOLUTE_URL),
             'thumbnail_url' => $this->generateUrl('asset_thumbnail_by_id', ['id' => $asset->getId()], UrlGeneratorInterface::ABSOLUTE_URL),

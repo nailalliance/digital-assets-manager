@@ -246,6 +246,19 @@
                             <dt class="text-sm font-medium text-gray-600">Color Space</dt>
                             <dd class="text-sm text-gray-800">{{ asset.colorSpace.value | upper }}</dd>
                         </div>
+                        {% if asset.rgb %}
+                            <div class="flex justify-between">
+                                <dt class="text-sm font-medium text-gray-600">RGB</dt>
+                                <dd class="text-sm text-gray-800">rgb({{ asset.rgb }})</dd>
+                            </div>
+                            <div class="flex justify-between">
+                                <dt class="text-sm font-medium text-gray-600">HEX</dt>
+                                <dd class="flex items-center gap-2 text-sm text-gray-800">
+                                    <span class="inline-block h-5 w-5 rounded border border-gray-300" style="background-color: {{ asset.hex }};"></span>
+                                    <span>{{ asset.hex }}</span>
+                                </dd>
+                            </div>
+                        {% endif %}
                         <div class="flex justify-between">
                             <dt class="text-sm font-medium text-gray-600">File Type</dt>
                             <dd class="text-sm text-gray-800">{{ asset.mimeType }}</dd>

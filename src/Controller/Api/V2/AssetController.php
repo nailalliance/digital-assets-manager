@@ -54,6 +54,8 @@ class AssetController extends AbstractController
                 'id' => $asset->getId(),
                 'name' => $asset->getName(),
                 'mime_type' => $asset->getMimeType(),
+                'rgb' => $asset->getRgb(),
+                'hex' => $asset->getHex(),
                 'thumbnail_url' => $asset->getThumbnailPath() ? $this->generateUrl('asset_thumbnail', ['filename' => basename($asset->getThumbnailPath())], UrlGeneratorInterface::ABSOLUTE_URL) : null,
             ];
         }

@@ -10,6 +10,7 @@ use App\Message\ProcessAssetUpload;
 use App\MessageHandler\ProcessAssetUploadHandler;
 use App\Repository\Assets\AssetsRepository;
 use App\Service\ImageProcessorService;
+use App\Service\SwatchRgbService;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -81,6 +82,7 @@ class ProcessAssetUploadHandlerTest extends TestCase
             $this->createStub(ParameterBagInterface::class),
             $filesystem,
             $uploadDir,
+            $this->createStub(SwatchRgbService::class),
         );
 
         $handler(new ProcessAssetUpload(
@@ -139,6 +141,7 @@ class ProcessAssetUploadHandlerTest extends TestCase
             $this->createStub(ParameterBagInterface::class),
             $filesystem,
             $uploadDir,
+            $this->createStub(SwatchRgbService::class),
         );
         $message = new ProcessAssetUpload(
             fileMetaData: [

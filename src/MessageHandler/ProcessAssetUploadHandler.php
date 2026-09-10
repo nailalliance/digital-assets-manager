@@ -12,6 +12,7 @@ use App\Message\ProcessAssetUpload;
 use App\Message\ProcessWebVideo;
 use App\Repository\Assets\AssetsRepository;
 use App\Service\ImageProcessorService;
+use App\Service\SwatchRgbService;
 use App\Service\UniqueFilePathGenerator;
 use App\Service\Video\FFMPEG;
 use Doctrine\ORM\EntityManagerInterface;
@@ -39,6 +40,7 @@ final class ProcessAssetUploadHandler
         private readonly ParameterBagInterface $params,
         private readonly Filesystem $filesystem,
         private readonly string $uploadDir,
+        private readonly SwatchRgbService $swatchRgbService,
         private readonly ?MessageBusInterface $messageBus = null,
     )
     {
@@ -147,6 +149,7 @@ final class ProcessAssetUploadHandler
             $asset->setFileSize($fileSize);
             $asset->setColorSpace($colorSpace);
             $asset->setTusUploadKey($message->uploadKey);
+            $this->swatchRgbService->update($asset, true);
 
             if ($message->userId) {
                 $user = $this->entityManager->getReference(User::class, $message->userId);
