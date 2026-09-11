@@ -15,16 +15,20 @@ class SwatchRgbService
     {
     }
 
-    public function update(Assets $asset, bool $force = false): void
+    public function update(Assets $asset, bool $force = false): bool
     {
         if (!$this->isSwatch($asset)) {
+            if ($asset->getRgb() === null) {
+                return false;
+            }
+
             $asset->setRgb(null);
 
-            return;
+            return true;
         }
 
         if (!$force && $asset->getRgb() !== null) {
-            return;
+            return false;
         }
 
         $filePath = $asset->getFilePath();
@@ -36,12 +40,23 @@ class SwatchRgbService
             || !is_string($mimeType)
             || !str_starts_with($mimeType, 'image/')
         ) {
+            if ($asset->getRgb() === null) {
+                return false;
+            }
+
             $asset->setRgb(null);
 
-            return;
+            return true;
         }
 
-        $asset->setRgb($this->extractFromFile($filePath));
+        $rgb = $this->extractFromFile($filePath);
+        if ($rgb === $asset->getRgb()) {
+            return false;
+        }
+
+        $asset->setRgb($rgb);
+
+        return true;
     }
 
     public function extractFromFile(string $filePath): ?string

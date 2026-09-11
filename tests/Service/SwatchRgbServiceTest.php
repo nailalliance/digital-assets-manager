@@ -41,8 +41,9 @@ class SwatchRgbServiceTest extends TestCase
                 ->setMimeType('image/png')
                 ->addCategory((new Categories())->setName('  sWaTcHeS  '));
 
-            (new SwatchRgbService(new NullLogger()))->update($asset);
+            $updated = (new SwatchRgbService(new NullLogger()))->update($asset);
 
+            self::assertTrue($updated);
             self::assertSame('12,34,56', $asset->getRgb());
             self::assertSame('#0c2238', $asset->getHex());
         } finally {
@@ -60,8 +61,9 @@ class SwatchRgbServiceTest extends TestCase
             ->addCategory($child)
             ->setRgb('1,2,3');
 
-        (new SwatchRgbService(new NullLogger()))->update($asset);
+        $updated = (new SwatchRgbService(new NullLogger()))->update($asset);
 
+        self::assertFalse($updated);
         self::assertSame('1,2,3', $asset->getRgb());
     }
 
@@ -73,10 +75,22 @@ class SwatchRgbServiceTest extends TestCase
             ->addCategory((new Categories())->setName('Photography'))
             ->setRgb('1,2,3');
 
-        (new SwatchRgbService(new NullLogger()))->update($asset);
+        $updated = (new SwatchRgbService(new NullLogger()))->update($asset);
 
+        self::assertTrue($updated);
         self::assertNull($asset->getRgb());
         self::assertNull($asset->getHex());
+    }
+
+    public function testMissingRgbOnAnUnsupportedSwatchAssetDoesNotCauseAWrite(): void
+    {
+        $asset = (new Assets())
+            ->setFilePath('/file/does/not/exist.pdf')
+            ->setMimeType('application/pdf')
+            ->addCategory((new Categories())->setName('Swatches'));
+
+        self::assertFalse((new SwatchRgbService(new NullLogger()))->update($asset));
+        self::assertNull($asset->getRgb());
     }
 
     public function testHexIsNullForAnInvalidStoredRgbValue(): void

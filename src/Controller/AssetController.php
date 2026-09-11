@@ -10,6 +10,7 @@ use App\Form\WebDownloadType;
 use App\Security\Voter\AssetVoter;
 use App\Service\EditorFontCatalog;
 use App\Service\ImageProcessorService;
+use App\Service\SwatchRgbService;
 use App\Service\Video\CanvasEditorVideoRenderer;
 use App\Service\Video\VideoEditorFramePreviewService;
 use App\Message\ProcessWebVideo;
@@ -42,8 +43,17 @@ final class AssetController extends AbstractController
 
     #[Route('/assets/{id}', name: 'app_asset')]
     #[IsGranted(AssetVoter::VIEW, subject: 'assets')]
-    public function index(Assets $assets, EntityManagerInterface $entityManager, MessageBusInterface $messageBus): Response
+    public function index(
+        Assets $assets,
+        EntityManagerInterface $entityManager,
+        MessageBusInterface $messageBus,
+        SwatchRgbService $swatchRgbService,
+    ): Response
     {
+        if ($assets->getRgb() === null && $swatchRgbService->update($assets)) {
+            $entityManager->flush();
+        }
+
         $primaryAsset = $assets->getParent() ?? $assets;
 
         $children = $primaryAsset->getChildren();
