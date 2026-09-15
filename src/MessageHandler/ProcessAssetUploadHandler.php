@@ -137,7 +137,7 @@ final class ProcessAssetUploadHandler
                 $firstLetter = strtolower(mb_substr($safeFilename, 0, 1));
                 $secondLetter = strtolower(mb_substr($safeFilename, 1, 1));
                 $finalDir = sprintf('%s/%s/%s', $thumbnailDir, $firstLetter, $secondLetter);
-                $this->filesystem->mkdir($finalDir);
+                $this->filesystem->mkdir($finalDir, 0775);
                 $thumbnailPath = $finalDir . '/' . pathinfo($safeFilename, PATHINFO_FILENAME) . '.webp';
 
                 $this->filesystem->dumpFile($thumbnailPath, $thumbnailBinary);
