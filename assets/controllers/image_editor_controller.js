@@ -1362,6 +1362,13 @@ export default class extends Controller {
             return;
         }
 
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+            if (this.nudgeSelectedObject(event.key, event.shiftKey ? 10 : 1)) {
+                event.preventDefault();
+            }
+            return;
+        }
+
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
             event.preventDefault();
             if (event.shiftKey) {
@@ -1394,6 +1401,46 @@ export default class extends Controller {
         if (event.key === 'Shift') {
             this.isShiftKeyPressed = false;
         }
+    }
+
+    nudgeSelectedObject(key, distance) {
+        if (!this.state) {
+            return false;
+        }
+
+        const deltaX = key === 'ArrowLeft' ? -distance : key === 'ArrowRight' ? distance : 0;
+        const deltaY = key === 'ArrowUp' ? -distance : key === 'ArrowDown' ? distance : 0;
+        const previousState = this.cloneState(this.state);
+        const selectedText = this.getSelectedText();
+
+        if (selectedText) {
+            selectedText.x += deltaX / this.state.sourceBounds.width;
+            selectedText.y += deltaY / this.state.sourceBounds.height;
+            this.clampText(selectedText);
+        } else if (this.isCropSelected()) {
+            const cropRect = this.getCropSourceRect();
+            this.state.crop = this.buildCropStateFromSourceRect(
+                this.normalizeCropSourceRect({
+                    left: cropRect.left + deltaX,
+                    top: cropRect.top + deltaY,
+                    width: cropRect.width,
+                    height: cropRect.height,
+                })
+            );
+        } else if (this.isBaseImageSelected()) {
+            const imageRect = this.getBaseImageSourceRect();
+            this.setBaseImageSourceRect({
+                left: imageRect.left + deltaX,
+                top: imageRect.top + deltaY,
+                scale: this.state.baseImage.scale,
+            });
+        } else {
+            return false;
+        }
+
+        this.commitState(previousState);
+        this.renderAll();
+        return true;
     }
 
     initializeCropInteraction() {
@@ -2884,6 +2931,10 @@ export default class extends Controller {
     }
 
     applyCropMoveSnapping(rect, metrics = this.getSurfaceMetrics()) {
+        if (!this.objectSnappingEnabled) {
+            return rect;
+        }
+
         const baseImageRect = this.getBaseImageSourceRect();
         const threshold = CROP_SNAP_SCREEN_THRESHOLD / metrics.scale;
         const rectRight = rect.left + rect.width;
