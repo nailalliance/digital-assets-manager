@@ -38,15 +38,6 @@
                 <button type="button" data-action="click->image-editor#resetEditor" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     Reset
                 </button>
-                <button type="button" data-action="click->image-editor#decreaseImageScale" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Image -
-                </button>
-                <button type="button" data-action="click->image-editor#increaseImageScale" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Image +
-                </button>
-                <span data-image-editor-target="imageScaleLabel" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
-                    100%
-                </span>
                 <button type="button" data-action="click->image-editor#decreaseCanvasZoom" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Zoom canvas out">
                     Canvas -
                 </button>
@@ -67,7 +58,7 @@
                 </button>
             </div>
             <p data-image-editor-target="status" class="mt-3 text-sm text-slate-500">
-                Select mode lets you drag the image and use the mouse wheel to zoom. Use Crop to adjust the export frame or Text to add a new text layer.
+                Select mode changes the image composition. Use Pan and Zoom to inspect the canvas without changing the export, Crop to adjust the export frame, or Text to add a new text layer.
             </p>
         </div>
 
@@ -92,6 +83,19 @@
                             <path d="M7 4.5v10.5a2 2 0 0 0 2 2h10.5M4.5 7H15a2 2 0 0 1 2 2v10.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
                         </svg>
                         <span class="sr-only">Crop</span>
+                    </button>
+                    <button type="button" data-action="click->image-editor#setTool" data-tool="pan" title="Pan canvas" class="image-editor-tool-button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M8 11V6.5a1.5 1.5 0 0 1 3 0V10m0-5a1.5 1.5 0 0 1 3 0v5m0-3a1.5 1.5 0 0 1 3 0v4.5m-9-.5-1.2-1.2a1.7 1.7 0 0 0-2.4 2.4l3.8 3.8A4 4 0 0 0 11 17h3a4 4 0 0 0 4-4v-2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                        </svg>
+                        <span class="sr-only">Pan canvas</span>
+                    </button>
+                    <button type="button" data-action="click->image-editor#setTool" data-tool="zoom" title="Zoom into an area" class="image-editor-tool-button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="10.5" cy="10.5" r="5.5" stroke="currentColor" stroke-width="1.8"/>
+                            <path d="m15 15 4.5 4.5M10.5 8v5M8 10.5h5" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+                        </svg>
+                        <span class="sr-only">Zoom into an area</span>
                     </button>
                     <button type="button" data-image-editor-target="snapToggle" data-action="click->image-editor#toggleObjectSnapping" aria-pressed="true" title="Disable object snapping" class="image-editor-tool-button">
                         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -139,6 +143,7 @@
                                     <span class="image-editor-handle image-editor-handle-bl"></span>
                                     <span class="image-editor-handle image-editor-handle-br"></span>
                                 </div>
+                                <div data-image-editor-target="zoomBox" class="image-editor-zoom-box hidden"></div>
                                 <div data-image-editor-target="textLayer" class="absolute inset-0"></div>
                             </div>
                         </div>

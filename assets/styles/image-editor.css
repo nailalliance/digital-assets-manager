@@ -118,6 +118,18 @@
     touch-action: none;
 }
 
+.image-editor-workspace[data-editor-tool="pan"] .image-editor-surface {
+    cursor: grab;
+}
+
+.image-editor-workspace[data-editor-tool="pan"] .image-editor-surface:active {
+    cursor: grabbing;
+}
+
+.image-editor-workspace[data-editor-tool="zoom"] .image-editor-surface {
+    cursor: crosshair;
+}
+
 .image-editor-overlay {
     user-select: none;
 }
@@ -201,6 +213,16 @@
 
 .image-editor-crop-box.is-inactive .image-editor-handle {
     opacity: 0;
+}
+
+.image-editor-zoom-box {
+    position: absolute;
+    z-index: 4;
+    box-sizing: border-box;
+    border: 2px solid #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    box-shadow: 0 0 0 1px rgba(14, 116, 144, 0.3);
+    pointer-events: none;
 }
 
 .image-editor-base-image-box {

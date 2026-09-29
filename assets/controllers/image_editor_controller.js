@@ -44,6 +44,7 @@ export default class extends Controller {
         'leftRuler',
         'imageBox',
         'cropBox',
+        'zoomBox',
         'textLayer',
         'loadingState',
         'undoButton',
@@ -100,6 +101,7 @@ export default class extends Controller {
 
     connect() {
         this.activeTool = 'select';
+        this.workspaceTarget.dataset.editorTool = 'select';
         this.selectedTextId = null;
         this.editingTextId = null;
         this.history = [];
@@ -116,11 +118,16 @@ export default class extends Controller {
         this.videoScrubPosition = 0;
         this.videoFrameSequence = 0;
         this.canvasZoom = 1;
+        this.canvasPan = { x: 0, y: 0 };
         this.objectSnappingEnabled = window.localStorage.getItem('image-editor-object-snapping') !== 'false';
         this.state = null;
         this.initialState = null;
         this.isPanningImage = false;
         this.imagePanStart = null;
+        this.isPanningCanvas = false;
+        this.canvasPanStart = null;
+        this.isCreatingCanvasZoom = false;
+        this.canvasZoomStart = null;
         this.isCreatingCrop = false;
         this.cropCreationStart = null;
         this.cropCreationMoved = false;
@@ -148,6 +155,10 @@ export default class extends Controller {
         this.boundHandleKeyUp = this.handleKeyUp.bind(this);
         this.boundHandleImagePanMove = this.handleImagePanMove.bind(this);
         this.boundHandleImagePanEnd = this.handleImagePanEnd.bind(this);
+        this.boundHandleCanvasPanMove = this.handleCanvasPanMove.bind(this);
+        this.boundHandleCanvasPanEnd = this.handleCanvasPanEnd.bind(this);
+        this.boundHandleCanvasZoomMove = this.handleCanvasZoomMove.bind(this);
+        this.boundHandleCanvasZoomEnd = this.handleCanvasZoomEnd.bind(this);
         this.boundHandleCropCreationMove = this.handleCropCreationMove.bind(this);
         this.boundHandleCropCreationEnd = this.handleCropCreationEnd.bind(this);
         this.boundHandleCropDragMove = this.handleCropDragMove.bind(this);
@@ -176,6 +187,8 @@ export default class extends Controller {
         this.workspaceTarget.removeEventListener('click', this.boundHandleWorkspaceClick);
         this.workspaceTarget.removeEventListener('wheel', this.boundHandleWheel);
         this.stopImagePan();
+        this.stopCanvasPan();
+        this.stopCanvasZoom();
         this.stopCropCreation();
         this.stopCropDrag();
         this.clearWheelCommitTimer();
@@ -545,6 +558,7 @@ export default class extends Controller {
 
     setActiveTool(tool, { render = true, updateStatus = true } = {}) {
         this.activeTool = tool;
+        this.workspaceTarget.dataset.editorTool = tool;
 
         if (this.editingTextId) {
             this.exitTextEditing();
@@ -563,6 +577,10 @@ export default class extends Controller {
                 );
             } else if (this.activeTool === 'text') {
                 this.setStatus('Click anywhere on the canvas to add a new text layer.');
+            } else if (this.activeTool === 'pan') {
+                this.setStatus('Drag the canvas to pan the editor view.');
+            } else if (this.activeTool === 'zoom') {
+                this.setStatus('Drag a rectangle around the area you want to zoom into.');
             } else {
                 this.setStatus('Drag the image to reposition it, or resize it from the corner handles.');
             }
@@ -638,6 +656,8 @@ export default class extends Controller {
         }
 
         this.canvasZoom = nextZoom;
+        this.surfaceMetrics = null;
+        this.clampCanvasPan(this.getSurfaceMetrics());
         this.surfaceMetrics = null;
         this.renderAll(true);
         this.setStatus(`Canvas zoom set to ${Math.round(this.canvasZoom * 100)}%.`);
@@ -1006,6 +1026,16 @@ export default class extends Controller {
             return;
         }
 
+        if (this.activeTool === 'pan') {
+            this.beginCanvasPan(event);
+            return;
+        }
+
+        if (this.activeTool === 'zoom') {
+            this.beginCanvasZoom(event);
+            return;
+        }
+
         if (
             event.target.closest('.image-editor-text')
             || event.target.closest('[data-image-editor-target="imageBox"]')
@@ -1125,6 +1155,156 @@ export default class extends Controller {
         this.imagePanStart = null;
         document.removeEventListener('mousemove', this.boundHandleImagePanMove);
         document.removeEventListener('mouseup', this.boundHandleImagePanEnd);
+    }
+
+    beginCanvasPan(event) {
+        this.isPanningCanvas = true;
+        this.canvasPanStart = {
+            clientX: event.clientX,
+            clientY: event.clientY,
+            moved: false,
+        };
+        document.addEventListener('mousemove', this.boundHandleCanvasPanMove);
+        document.addEventListener('mouseup', this.boundHandleCanvasPanEnd);
+    }
+
+    handleCanvasPanMove(event) {
+        if (!this.isPanningCanvas || !this.canvasPanStart) {
+            return;
+        }
+
+        const metrics = this.getSurfaceMetrics();
+        const deltaX = (event.clientX - this.canvasPanStart.clientX) / metrics.scale;
+        const deltaY = (event.clientY - this.canvasPanStart.clientY) / metrics.scale;
+
+        this.canvasPanStart.clientX = event.clientX;
+        this.canvasPanStart.clientY = event.clientY;
+        this.canvasPanStart.moved = this.canvasPanStart.moved || Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0;
+        this.canvasPan.x -= deltaX;
+        this.canvasPan.y -= deltaY;
+        this.clampCanvasPan(metrics);
+        this.surfaceMetrics = null;
+        this.renderAll(true);
+    }
+
+    handleCanvasPanEnd() {
+        if (!this.isPanningCanvas) {
+            return;
+        }
+
+        const moved = Boolean(this.canvasPanStart?.moved);
+        this.stopCanvasPan();
+        if (moved) {
+            this.suppressNextWorkspaceClick = true;
+            this.setStatus('Canvas view repositioned.');
+        }
+    }
+
+    stopCanvasPan() {
+        this.isPanningCanvas = false;
+        this.canvasPanStart = null;
+        document.removeEventListener('mousemove', this.boundHandleCanvasPanMove);
+        document.removeEventListener('mouseup', this.boundHandleCanvasPanEnd);
+    }
+
+    beginCanvasZoom(event) {
+        const point = this.getSurfaceClientPoint(event.clientX, event.clientY);
+        if (!point) {
+            return;
+        }
+
+        this.isCreatingCanvasZoom = true;
+        this.canvasZoomStart = point;
+        this.renderCanvasZoomBox(point, point);
+        document.addEventListener('mousemove', this.boundHandleCanvasZoomMove);
+        document.addEventListener('mouseup', this.boundHandleCanvasZoomEnd);
+    }
+
+    handleCanvasZoomMove(event) {
+        if (!this.isCreatingCanvasZoom || !this.canvasZoomStart) {
+            return;
+        }
+
+        const point = this.getSurfaceClientPoint(event.clientX, event.clientY);
+        if (point) {
+            this.renderCanvasZoomBox(this.canvasZoomStart, point);
+        }
+    }
+
+    handleCanvasZoomEnd(event) {
+        if (!this.isCreatingCanvasZoom || !this.canvasZoomStart) {
+            return;
+        }
+
+        const endPoint = this.getSurfaceClientPoint(event.clientX, event.clientY) ?? this.canvasZoomStart;
+        const left = Math.min(this.canvasZoomStart.x, endPoint.x);
+        const top = Math.min(this.canvasZoomStart.y, endPoint.y);
+        const width = Math.abs(endPoint.x - this.canvasZoomStart.x);
+        const height = Math.abs(endPoint.y - this.canvasZoomStart.y);
+        const minimumScreenDistance = 12;
+
+        this.stopCanvasZoom();
+        if (width < minimumScreenDistance || height < minimumScreenDistance) {
+            this.setStatus('Drag a larger rectangle to zoom into the canvas.');
+            return;
+        }
+
+        const metrics = this.getSurfaceMetrics();
+        const surfaceRect = this.surfaceTarget.getBoundingClientRect();
+        const center = this.clientToSourcePoint(
+            surfaceRect.left + left + (width / 2),
+            surfaceRect.top + top + (height / 2)
+        );
+        if (!center) {
+            return;
+        }
+
+        const nextZoom = clamp(
+            this.canvasZoom * Math.min(metrics.width / width, metrics.height / height),
+            MIN_CANVAS_ZOOM,
+            MAX_CANVAS_ZOOM
+        );
+        this.canvasZoom = nextZoom;
+        this.canvasPan.x = center.x - (this.state.sourceBounds.width / 2);
+        this.canvasPan.y = center.y - (this.state.sourceBounds.height / 2);
+        this.surfaceMetrics = null;
+        this.clampCanvasPan(this.getSurfaceMetrics());
+        this.surfaceMetrics = null;
+        this.renderAll(true);
+        this.suppressNextWorkspaceClick = true;
+        this.setStatus(`Canvas zoom set to ${Math.round(this.canvasZoom * 100)}%.`);
+    }
+
+    stopCanvasZoom() {
+        this.isCreatingCanvasZoom = false;
+        this.canvasZoomStart = null;
+        document.removeEventListener('mousemove', this.boundHandleCanvasZoomMove);
+        document.removeEventListener('mouseup', this.boundHandleCanvasZoomEnd);
+        if (this.hasZoomBoxTarget) {
+            this.zoomBoxTarget.classList.add('hidden');
+        }
+    }
+
+    getSurfaceClientPoint(clientX, clientY) {
+        const surfaceRect = this.surfaceTarget.getBoundingClientRect();
+        if (surfaceRect.width === 0 || surfaceRect.height === 0) {
+            return null;
+        }
+
+        return {
+            x: clamp(clientX - surfaceRect.left, 0, surfaceRect.width),
+            y: clamp(clientY - surfaceRect.top, 0, surfaceRect.height),
+        };
+    }
+
+    renderCanvasZoomBox(start, end) {
+        const left = Math.min(start.x, end.x);
+        const top = Math.min(start.y, end.y);
+        this.zoomBoxTarget.classList.remove('hidden');
+        this.zoomBoxTarget.style.left = `${left}px`;
+        this.zoomBoxTarget.style.top = `${top}px`;
+        this.zoomBoxTarget.style.width = `${Math.abs(end.x - start.x)}px`;
+        this.zoomBoxTarget.style.height = `${Math.abs(end.y - start.y)}px`;
     }
 
     beginCropCreation(sourcePoint) {
@@ -2277,7 +2457,9 @@ export default class extends Controller {
     }
 
     updateImageScaleLabel() {
-        this.imageScaleLabelTarget.textContent = `${Math.round(this.state.baseImage.scale * 100)}%`;
+        if (this.hasImageScaleLabelTarget) {
+            this.imageScaleLabelTarget.textContent = `${Math.round(this.state.baseImage.scale * 100)}%`;
+        }
     }
 
     updateCanvasZoomLabel() {
@@ -2639,6 +2821,8 @@ export default class extends Controller {
         const scale = baseScale * this.canvasZoom;
         const contentWidth = sourceWidth * scale;
         const contentHeight = sourceHeight * scale;
+        const centerX = (sourceWidth / 2) + this.canvasPan.x;
+        const centerY = (sourceHeight / 2) + this.canvasPan.y;
 
         return {
             baseScale,
@@ -2647,8 +2831,8 @@ export default class extends Controller {
             height: surfaceHeight,
             left: surfaceInset,
             top: surfaceInset,
-            contentLeft: (surfaceWidth - contentWidth) / 2,
-            contentTop: (surfaceHeight - contentHeight) / 2,
+            contentLeft: (surfaceWidth / 2) - (centerX * scale),
+            contentTop: (surfaceHeight / 2) - (centerY * scale),
             contentWidth,
             contentHeight,
         };
@@ -2686,6 +2870,17 @@ export default class extends Controller {
             right: (metrics.width - contentLeft) / baseScale,
             bottom: (metrics.height - contentTop) / baseScale,
         };
+    }
+
+    clampCanvasPan(metrics = this.getSurfaceMetrics()) {
+        const bounds = this.getCanvasBoundsInSourceSpace(metrics);
+        const visibleWidth = metrics.width / metrics.scale;
+        const visibleHeight = metrics.height / metrics.scale;
+        const maxPanX = Math.max(0, ((bounds.right - bounds.left) - visibleWidth) / 2);
+        const maxPanY = Math.max(0, ((bounds.bottom - bounds.top) - visibleHeight) / 2);
+
+        this.canvasPan.x = clamp(this.canvasPan.x, -maxPanX, maxPanX);
+        this.canvasPan.y = clamp(this.canvasPan.y, -maxPanY, maxPanY);
     }
 
     getDisplayBounds(metrics = this.getSurfaceMetrics()) {
