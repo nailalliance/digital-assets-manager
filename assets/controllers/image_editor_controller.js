@@ -30,6 +30,9 @@ const HANDLE_EDGE_SELECTORS = {
 const RULER_BAR_SIZE = 24;
 const RULER_GAP = 10;
 const RULER_SCREEN_STEP = 72;
+const MIN_CANVAS_ZOOM = 0.5;
+const MAX_CANVAS_ZOOM = 4;
+const CANVAS_ZOOM_STEP = 0.25;
 
 export default class extends Controller {
     static targets = [
@@ -47,6 +50,7 @@ export default class extends Controller {
         'redoButton',
         'status',
         'imageScaleLabel',
+        'canvasZoomLabel',
         'selectionSummary',
         'cropSummary',
         'propertiesEmptyState',
@@ -111,6 +115,7 @@ export default class extends Controller {
         this.videoAnimationFrame = null;
         this.videoScrubPosition = 0;
         this.videoFrameSequence = 0;
+        this.canvasZoom = 1;
         this.objectSnappingEnabled = window.localStorage.getItem('image-editor-object-snapping') !== 'false';
         this.state = null;
         this.initialState = null;
@@ -512,7 +517,7 @@ export default class extends Controller {
 
     buildInitialState() {
         return {
-            version: 1,
+            version: 2,
             sourceBounds: {
                 width: this.getSourceWidth(),
                 height: this.getSourceHeight(),
@@ -616,6 +621,26 @@ export default class extends Controller {
 
     increaseImageScale() {
         this.adjustImageScale(IMAGE_SCALE_STEP);
+    }
+
+    decreaseCanvasZoom() {
+        this.adjustCanvasZoom(-CANVAS_ZOOM_STEP);
+    }
+
+    increaseCanvasZoom() {
+        this.adjustCanvasZoom(CANVAS_ZOOM_STEP);
+    }
+
+    adjustCanvasZoom(delta) {
+        const nextZoom = clamp(this.canvasZoom + delta, MIN_CANVAS_ZOOM, MAX_CANVAS_ZOOM);
+        if (nextZoom === this.canvasZoom) {
+            return;
+        }
+
+        this.canvasZoom = nextZoom;
+        this.surfaceMetrics = null;
+        this.renderAll(true);
+        this.setStatus(`Canvas zoom set to ${Math.round(this.canvasZoom * 100)}%.`);
     }
 
     adjustImageScale(delta) {
@@ -1713,6 +1738,7 @@ export default class extends Controller {
         this.updateSelectionSummary();
         this.updateCropSummary();
         this.updateImageScaleLabel();
+        this.updateCanvasZoomLabel();
         this.updateToolButtons();
     }
 
@@ -2247,13 +2273,17 @@ export default class extends Controller {
         }
 
         const rect = this.getCropSourceRect();
-        const widthPercent = Math.round((rect.width / this.state.sourceBounds.width) * 100);
-        const heightPercent = Math.round((rect.height / this.state.sourceBounds.height) * 100);
-        this.cropSummaryTarget.textContent = `Crop: ${widthPercent}% × ${heightPercent}%`;
+        this.cropSummaryTarget.textContent = `Crop: ${Math.round(rect.width)} × ${Math.round(rect.height)} px`;
     }
 
     updateImageScaleLabel() {
         this.imageScaleLabelTarget.textContent = `${Math.round(this.state.baseImage.scale * 100)}%`;
+    }
+
+    updateCanvasZoomLabel() {
+        if (this.hasCanvasZoomLabelTarget) {
+            this.canvasZoomLabelTarget.textContent = `Canvas ${Math.round(this.canvasZoom * 100)}%`;
+        }
     }
 
     updateHistoryButtons() {
@@ -2546,7 +2576,7 @@ export default class extends Controller {
     normalizeCropSourceRect(rect, { metrics = this.getSurfaceMetrics(), minimumSize = MIN_GEOMETRY_SIZE, snapMode = 'none' } = {}) {
         const sourceWidth = this.state.sourceBounds.width;
         const sourceHeight = this.state.sourceBounds.height;
-        const workspaceBounds = this.getWorkspaceBoundsInSourceSpace(metrics);
+        const workspaceBounds = this.getCanvasBoundsInSourceSpace(metrics);
         const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, minimumSize);
         const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, minimumSize);
         let width = rect.width;
@@ -2574,7 +2604,7 @@ export default class extends Controller {
     clampText(text) {
         const sourceWidth = this.state.sourceBounds.width;
         const sourceHeight = this.state.sourceBounds.height;
-        const workspaceBounds = this.getWorkspaceBoundsInSourceSpace();
+        const workspaceBounds = this.getCanvasBoundsInSourceSpace();
         const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, 40);
         const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, 40);
         let width = text.width * sourceWidth;
@@ -2605,11 +2635,13 @@ export default class extends Controller {
         const workspaceHeight = Math.max(this.workspaceTarget.clientHeight, surfaceInset + 160);
         const surfaceWidth = Math.max(workspaceWidth - surfaceInset, 160);
         const surfaceHeight = Math.max(workspaceHeight - surfaceInset, 160);
-        const scale = Math.min(surfaceWidth / sourceWidth, surfaceHeight / sourceHeight);
+        const baseScale = Math.min(surfaceWidth / sourceWidth, surfaceHeight / sourceHeight);
+        const scale = baseScale * this.canvasZoom;
         const contentWidth = sourceWidth * scale;
         const contentHeight = sourceHeight * scale;
 
         return {
+            baseScale,
             scale,
             width: surfaceWidth,
             height: surfaceHeight,
@@ -2638,6 +2670,21 @@ export default class extends Controller {
             top: -metrics.contentTop / metrics.scale,
             right: (metrics.width - metrics.contentLeft) / metrics.scale,
             bottom: (metrics.height - metrics.contentTop) / metrics.scale,
+        };
+    }
+
+    getCanvasBoundsInSourceSpace(metrics = this.getSurfaceMetrics()) {
+        const baseScale = metrics.baseScale ?? metrics.scale;
+        const contentWidth = this.state.sourceBounds.width * baseScale;
+        const contentHeight = this.state.sourceBounds.height * baseScale;
+        const contentLeft = (metrics.width - contentWidth) / 2;
+        const contentTop = (metrics.height - contentHeight) / 2;
+
+        return {
+            left: -contentLeft / baseScale,
+            top: -contentTop / baseScale,
+            right: (metrics.width - contentLeft) / baseScale,
+            bottom: (metrics.height - contentTop) / baseScale,
         };
     }
 
@@ -2799,12 +2846,25 @@ export default class extends Controller {
     }
 
     buildSerializableState() {
-        return this.cloneState(this.state);
+        const serializableState = this.cloneState(this.state);
+        serializableState.version = 2;
+
+        if (this.hasCropFrame()) {
+            const cropRect = this.getCropSourceRect();
+            serializableState.crop = {
+                x: this.state.crop.x,
+                y: this.state.crop.y,
+                width: Math.round(cropRect.width),
+                height: Math.round(cropRect.height),
+            };
+        }
+
+        return serializableState;
     }
 
     buildStateFromScript(parsedScript) {
-        if (!parsedScript || parsedScript.version !== 1) {
-            throw new Error('Only version 1 editor scripts can be applied.');
+        if (!parsedScript || ![1, 2].includes(parsedScript.version)) {
+            throw new Error('Only version 1 and version 2 editor scripts can be applied.');
         }
 
         if (!parsedScript.baseImage || !Array.isArray(parsedScript.texts)) {
@@ -2816,7 +2876,7 @@ export default class extends Controller {
             : 1;
 
         const nextState = {
-            version: 1,
+            version: 2,
             sourceBounds: {
                 width: this.state.sourceBounds.width,
                 height: this.state.sourceBounds.height,
@@ -2825,8 +2885,12 @@ export default class extends Controller {
                 ? {
                     x: Number(parsedScript.crop.x),
                     y: Number(parsedScript.crop.y),
-                    width: Number(parsedScript.crop.width),
-                    height: Number(parsedScript.crop.height),
+                    width: parsedScript.version === 2
+                        ? Number(parsedScript.crop.width) / this.state.sourceBounds.width
+                        : Number(parsedScript.crop.width),
+                    height: parsedScript.version === 2
+                        ? Number(parsedScript.crop.height) / this.state.sourceBounds.height
+                        : Number(parsedScript.crop.height),
                 }
                 : null,
             baseImage: {
@@ -2868,7 +2932,7 @@ export default class extends Controller {
         const sourceWidth = state.sourceBounds.width;
         const sourceHeight = state.sourceBounds.height;
         const metrics = this.getWorkspaceMetricsForSourceBounds(state.sourceBounds);
-        const workspaceBounds = this.getWorkspaceBoundsInSourceSpace(metrics);
+        const workspaceBounds = this.getCanvasBoundsInSourceSpace(metrics);
         const maxWidth = Math.max(workspaceBounds.right - workspaceBounds.left, 40);
         const maxHeight = Math.max(workspaceBounds.bottom - workspaceBounds.top, 40);
         if (state.crop) {

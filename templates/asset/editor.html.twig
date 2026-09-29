@@ -47,6 +47,15 @@
                 <span data-image-editor-target="imageScaleLabel" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
                     100%
                 </span>
+                <button type="button" data-action="click->image-editor#decreaseCanvasZoom" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Zoom canvas out">
+                    Canvas -
+                </button>
+                <button type="button" data-action="click->image-editor#increaseCanvasZoom" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Zoom canvas in">
+                    Canvas +
+                </button>
+                <span data-image-editor-target="canvasZoomLabel" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
+                    Canvas 100%
+                </span>
                 <button type="button" data-action="click->image-editor#copyScript" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     Copy Script
                 </button>

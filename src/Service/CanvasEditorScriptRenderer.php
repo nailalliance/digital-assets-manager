@@ -61,8 +61,8 @@ final class CanvasEditorScriptRenderer
             throw new \InvalidArgumentException('The script is not valid JSON.');
         }
 
-        if (!is_array($parsedScript) || ($parsedScript['version'] ?? null) !== 1) {
-            throw new \InvalidArgumentException('Only version 1 editor scripts can be applied.');
+        if (!is_array($parsedScript) || !in_array($parsedScript['version'] ?? null, [1, 2], true)) {
+            throw new \InvalidArgumentException('Only version 1 and version 2 editor scripts can be applied.');
         }
 
         if (
@@ -281,8 +281,14 @@ final class CanvasEditorScriptRenderer
 
             $cropLeft = $cropX * $sourceWidth;
             $cropTop = $cropY * $sourceHeight;
-            $cropPixelWidth = max($cropWidth * $sourceWidth, self::MIN_GEOMETRY_SIZE);
-            $cropPixelHeight = max($cropHeight * $sourceHeight, self::MIN_GEOMETRY_SIZE);
+            $cropPixelWidth = max(
+                ($parsedScript['version'] === 2 ? $cropWidth : $cropWidth * $sourceWidth),
+                self::MIN_GEOMETRY_SIZE
+            );
+            $cropPixelHeight = max(
+                ($parsedScript['version'] === 2 ? $cropHeight : $cropHeight * $sourceHeight),
+                self::MIN_GEOMETRY_SIZE
+            );
         }
 
         if ($cropPixelWidth > self::MAX_OUTPUT_DIMENSION || $cropPixelHeight > self::MAX_OUTPUT_DIMENSION) {

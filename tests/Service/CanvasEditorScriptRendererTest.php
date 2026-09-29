@@ -175,6 +175,35 @@ class CanvasEditorScriptRendererTest extends TestCase
         $this->assertNull($parsedScript['crop']);
     }
 
+    public function testParseScriptAllowsVersionTwoCropDimensionsInPixels(): void
+    {
+        $renderer = $this->createRenderer();
+
+        $parsedScript = $renderer->parseScript(json_encode([
+            'version' => 2,
+            'sourceBounds' => [
+                'width' => 4160,
+                'height' => 6240,
+            ],
+            'crop' => [
+                'x' => 0.1,
+                'y' => 0.2,
+                'width' => 1600,
+                'height' => 900,
+            ],
+            'baseImage' => [
+                'scale' => 1,
+                'offsetX' => 0,
+                'offsetY' => 0,
+            ],
+            'texts' => [],
+        ], \JSON_THROW_ON_ERROR));
+
+        $this->assertSame(2, $parsedScript['version']);
+        $this->assertSame(1600, $parsedScript['crop']['width']);
+        $this->assertSame(900, $parsedScript['crop']['height']);
+    }
+
     public function testBuildRenderableStateUsesFullSourceBoundsWhenCropIsMissing(): void
     {
         $renderer = $this->createRenderer();
@@ -207,6 +236,74 @@ class CanvasEditorScriptRendererTest extends TestCase
             'width' => 4160.0,
             'height' => 6240.0,
         ], $normalizedState['crop']);
+    }
+
+    public function testBuildRenderableStateUsesVersionTwoCropDimensionsAsPixels(): void
+    {
+        $renderer = $this->createRenderer();
+        $buildRenderableState = \Closure::bind(
+            function (array $parsedScript, int $sourceWidth, int $sourceHeight): array {
+                return $this->buildRenderableState($parsedScript, $sourceWidth, $sourceHeight);
+            },
+            $renderer,
+            CanvasEditorScriptRenderer::class
+        );
+
+        $normalizedState = $buildRenderableState([
+            'version' => 2,
+            'sourceBounds' => [
+                'width' => 4160,
+                'height' => 6240,
+            ],
+            'crop' => [
+                'x' => 0.1,
+                'y' => 0.2,
+                'width' => 1600,
+                'height' => 900,
+            ],
+            'baseImage' => [
+                'scale' => 1,
+                'offsetX' => 0,
+                'offsetY' => 0,
+            ],
+            'texts' => [],
+        ], 4160, 6240);
+
+        $this->assertSame(416.0, $normalizedState['crop']['left']);
+        $this->assertSame(1248.0, $normalizedState['crop']['top']);
+        $this->assertSame(1600.0, $normalizedState['crop']['width']);
+        $this->assertSame(900.0, $normalizedState['crop']['height']);
+    }
+
+    public function testBuildRenderableStateKeepsVersionOneCropDimensionsRelative(): void
+    {
+        $renderer = $this->createRenderer();
+        $buildRenderableState = \Closure::bind(
+            function (array $parsedScript, int $sourceWidth, int $sourceHeight): array {
+                return $this->buildRenderableState($parsedScript, $sourceWidth, $sourceHeight);
+            },
+            $renderer,
+            CanvasEditorScriptRenderer::class
+        );
+
+        $normalizedState = $buildRenderableState([
+            'version' => 1,
+            'crop' => [
+                'x' => 0.1,
+                'y' => 0.2,
+                'width' => 0.5,
+                'height' => 0.25,
+            ],
+            'baseImage' => [
+                'scale' => 1,
+                'offsetX' => 0,
+                'offsetY' => 0,
+            ],
+            'texts' => [],
+        ], 4000, 3000);
+
+        $this->assertSame(2000.0, $normalizedState['crop']['width']);
+        $this->assertSame(750.0, $normalizedState['crop']['height']);
     }
 
     private function createRenderer(): CanvasEditorScriptRenderer

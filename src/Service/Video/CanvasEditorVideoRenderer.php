@@ -10,8 +10,6 @@ use Symfony\Component\Process\Process;
 final class CanvasEditorVideoRenderer
 {
     private const SUPPORTED_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
-    private const MAX_WEB_DIMENSION = 1920;
-
     public function __construct(
         private readonly CanvasEditorScriptRenderer $scriptRenderer,
         private readonly EditorFontCatalog $fontCatalog,
@@ -93,7 +91,6 @@ final class CanvasEditorVideoRenderer
         $baseImage = $state['baseImage'];
         $outputWidth = $this->makeEven((int) round($crop['width']));
         $outputHeight = $this->makeEven((int) round($crop['height']));
-        [$webWidth, $webHeight] = $this->fitWebDimensions($outputWidth, $outputHeight);
         $scaledWidth = $this->makeEven((int) round($sourceWidth * $baseImage['scale']));
         $scaledHeight = $this->makeEven((int) round($sourceHeight * $baseImage['scale']));
         $baseLeft = ($baseImage['offsetX'] * $sourceWidth) + (($sourceWidth - $scaledWidth) / 2);
@@ -135,25 +132,9 @@ final class CanvasEditorVideoRenderer
             }
         }
 
-        $filters[] = sprintf('[%s]scale=%d:%d:flags=lanczos[editor_video]', $previousLabel, $webWidth, $webHeight);
+        $filters[] = sprintf('[%s]scale=%d:%d:flags=lanczos[editor_video]', $previousLabel, $outputWidth, $outputHeight);
 
         return implode(';', $filters);
-    }
-
-    /** @return array{0: int, 1: int} */
-    private function fitWebDimensions(int $width, int $height): array
-    {
-        $longEdge = max($width, $height);
-        if ($longEdge <= self::MAX_WEB_DIMENSION) {
-            return [$width, $height];
-        }
-
-        $scale = self::MAX_WEB_DIMENSION / $longEdge;
-
-        return [
-            $this->makeEven((int) round($width * $scale)),
-            $this->makeEven((int) round($height * $scale)),
-        ];
     }
 
     /** @param array<string, mixed> $text */
